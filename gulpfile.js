@@ -1,3 +1,4 @@
+/// <binding BeforeBuild='build' />
 /*
  *  Power BI Visualizations
  *

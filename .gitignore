@@ -69,3 +69,4 @@ src/Clients/PowerBIVisualsPlayground/styles/**/*.png
 
 # Styles
 src/Clients/**/styles/*.css
+/src/Clients/CustomVisuals/visuals/forecastChart
