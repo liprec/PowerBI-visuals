@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi {
     export interface ITextMeasurer {
         (textElement: SVGTextElement): number;
@@ -103,6 +101,7 @@ module powerbi {
          */
         export function measureSvgTextWidth(textProperties: TextProperties): number {
             debug.assertValue(textProperties, 'textProperties');
+            debug.assert(_.isEmpty(textProperties.fontSize) || textProperties.fontSize.indexOf("px") !== -1, "TextProperties' text size should be in px.");
 
             ensureDOM();
 
@@ -116,6 +115,7 @@ module powerbi {
          */
         export function measureSvgTextRect(textProperties: TextProperties): SVGRect {
             debug.assertValue(textProperties, 'textProperties');
+            debug.assert(_.isEmpty(textProperties.fontSize) || textProperties.fontSize.indexOf("px") !== -1, "TextProperties' text size should be in px.");
 
             ensureDOM();
 
@@ -151,6 +151,7 @@ module powerbi {
          */
         function estimateSvgTextRect(textProperties: TextProperties): SVGRect {
             debug.assertValue(textProperties, 'textProperties');
+            debug.assert(_.isEmpty(textProperties.fontSize) || textProperties.fontSize.indexOf("px") !== -1, "TextProperties' text size should be in px.");
 
             let propertiesKey = textProperties.fontFamily + textProperties.fontSize;
             let rect: SVGRect = ephemeralStorageService.getData(propertiesKey);
@@ -164,7 +165,7 @@ module powerbi {
                     text: "M",
                 };
 
-                rect = measureSvgTextRect(estimatedTextProperties);
+                rect = TextMeasurementService.measureSvgTextRect(estimatedTextProperties);
 
                 // NOTE: In some cases (disconnected/hidden DOM) we may provide incorrect measurement results (zero sized bounding-box), so
                 // we only store values in the cache if we are confident they are correct.
@@ -256,26 +257,30 @@ module powerbi {
          * @param textProperties The text properties (including text content) to use for text measurement.
          * @param maxWidth The maximum width available for rendering the text.
          */
-        export function getTailoredTextOrDefault(properties: TextProperties, maxWidth: number): string {
-            debug.assertValue(properties, 'properties');
-            debug.assertValue(properties.text, 'properties.text');
+        export function getTailoredTextOrDefault(textProperties: TextProperties, maxWidth: number): string {
+            debug.assertValue(textProperties, 'properties');
+            debug.assertValue(textProperties.text, 'properties.text');
+            debug.assert(_.isEmpty(textProperties.fontSize) || textProperties.fontSize.indexOf("px") !== -1, "TextProperties' text size should be in px.");
 
             ensureDOM();
 
-            let strLength = properties.text.length;
+            let strLength = textProperties.text.length;
 
             if (strLength === 0)
-                return properties.text;
+                return textProperties.text;
 
-            let width = measureSvgTextWidth(properties);
+            let width = measureSvgTextWidth(textProperties);
 
             if (width < maxWidth)
-                return properties.text;
+                return textProperties.text;
+
+            // Create a copy of the textProperties so we don't modify the one that's passed in.
+            let copiedTextProperties = Prototype.inherit(textProperties);
 
             // Take the properties and apply them to svgTextElement
             // Then, do the binary search to figure out the substring we want
             // Set the substring on textElement argument
-            let text = properties.text = ellipsis + properties.text;
+            let text = copiedTextProperties.text = ellipsis + copiedTextProperties.text;
 
             let min = 1;
             let max = text.length;
@@ -285,8 +290,8 @@ module powerbi {
                 // num | 0 prefered to Math.floor(num) for performance benefits
                 i = (min + max) / 2 | 0;
 
-                properties.text = text.substr(0, i);
-                width = measureSvgTextWidth(properties);
+                copiedTextProperties.text = text.substr(0, i);
+                width = measureSvgTextWidth(copiedTextProperties);
 
                 if (maxWidth > width)
                     min = i + 1;
@@ -300,8 +305,8 @@ module powerbi {
             // it will pick one of the closest two, which could result in a
             // value bigger with than 'maxWidth' thus we need to go back by 
             // one to guarantee a smaller width than 'maxWidth'.
-            properties.text = text.substr(0, i);
-            width = measureSvgTextWidth(properties);
+            copiedTextProperties.text = text.substr(0, i);
+            width = measureSvgTextWidth(copiedTextProperties);
             if (width > maxWidth)
                 i--;
 

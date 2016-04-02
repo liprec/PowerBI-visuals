@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi {
     export module DataViewAnalysis {
         import ArrayExtensions = jsCommon.ArrayExtensions;
@@ -67,7 +65,7 @@ module powerbi {
         /** Reshapes the data view to match the provided schema if possible. If not, returns null */
         export function validateAndReshape(dataView: DataView, dataViewMappings: DataViewMapping[]): ValidateAndReshapeResult {
             if (!dataViewMappings || dataViewMappings.length === 0)
-                return { dataView: dataView, isValid: true };            
+                return { dataView: dataView, isValid: true };
 
             if (dataView) {
                 for (let dataViewMapping of dataViewMappings) {
@@ -389,39 +387,47 @@ module powerbi {
             objectDescriptors?: DataViewObjectDescriptors,
             objectDefinitions?: DataViewObjectDefinitions): DataViewMappingResult {
             debug.assertValue(projections, 'projections');
-            debug.assertValue(mappings, 'mappings');
+            debug.assertAnyValue(mappings, 'mappings');
 
             let supportedMappings: DataViewMapping[] = [];
             let errors: DataViewMappingMatchError[] = [];
 
-            for (let mappingIndex = 0, mappingCount = mappings.length; mappingIndex < mappingCount; mappingIndex++) {
-                let mapping = mappings[mappingIndex],
-                    mappingConditions = mapping.conditions,
-                    requiredProperties = mapping.requiredProperties;
-                let conditionsMet: boolean = false;
-                let allPropertiesValid: boolean = areAllPropertiesValid(requiredProperties, objectDescriptors, objectDefinitions);
+            if (!_.isEmpty(mappings)) {
+                for (let mappingIndex = 0, mappingCount = mappings.length; mappingIndex < mappingCount; mappingIndex++) {
+                    let mapping = mappings[mappingIndex],
+                        mappingConditions = mapping.conditions,
+                        requiredProperties = mapping.requiredProperties;
+                    let allPropertiesValid: boolean = areAllPropertiesValid(requiredProperties, objectDescriptors, objectDefinitions);
+                    let conditionsMet: DataViewMappingCondition[] = [];
 
-                if (!_.isEmpty(mappingConditions)) {
-                    for (let conditionIndex = 0, conditionCount = mappingConditions.length; conditionIndex < conditionCount; conditionIndex++) {
-                        let condition = mappingConditions[conditionIndex];
-                        let currentConditionErrors = checkForConditionErrors(projections, condition, roleKindByQueryRef);
-                        if (!_.isEmpty(currentConditionErrors)) {
-                            for (let error of currentConditionErrors) {
-                                error.mappingIndex = mappingIndex;
-                                error.conditionIndex = conditionIndex;
-                                errors.push(error);
+                    if (!_.isEmpty(mappingConditions)) {
+                        for (let conditionIndex = 0, conditionCount = mappingConditions.length; conditionIndex < conditionCount; conditionIndex++) {
+                            let condition = mappingConditions[conditionIndex];
+                            let currentConditionErrors = checkForConditionErrors(projections, condition, roleKindByQueryRef);
+                            if (!_.isEmpty(currentConditionErrors)) {
+                                for (let error of currentConditionErrors) {
+                                    error.mappingIndex = mappingIndex;
+                                    error.conditionIndex = conditionIndex;
+                                    errors.push(error);
+                                }
                             }
+                            else
+                                conditionsMet.push(condition);
                         }
-                        else
-                            conditionsMet = true;
+                    }
+                    else {
+                        conditionsMet.push({});
+                    }
+
+                    if (!_.isEmpty(conditionsMet) && allPropertiesValid) {
+                        let supportedMapping = _.cloneDeep(mapping);
+
+                        let updatedConditions = _.filter(conditionsMet, (condition) => Object.keys(condition).length > 0);
+                        if (!_.isEmpty(updatedConditions))
+                            supportedMapping.conditions = updatedConditions;
+                        supportedMappings.push(supportedMapping);
                     }
                 }
-                else {
-                    conditionsMet = true;
-                }
-
-                if (conditionsMet && allPropertiesValid)
-                    supportedMappings.push(mapping);
             }
 
             return {
@@ -429,7 +435,7 @@ module powerbi {
                 mappingErrors: ArrayExtensions.emptyToNull(errors),
             };
         }
-        
+
         function checkForConditionErrors(projections: QueryProjectionsByRole, condition: DataViewMappingCondition, roleKindByQueryRef: RoleKindByQueryRef): DataViewMappingMatchError[] {
             debug.assertValue(projections, 'projections');
             debug.assertValue(condition, 'condition');

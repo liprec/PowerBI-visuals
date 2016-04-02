@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.data {
     import DataRoleHelper = powerbi.data.DataRoleHelper;
 
@@ -40,6 +38,8 @@ module powerbi.data {
         getCategoryValues(roleName: string): any;
         getCategoryValue(categoryIndex: number, roleName: string): any;
         getCategoryColumn(roleName: string): DataViewCategoryColumn;
+        getCategoryMetadataColumn(roleName: string): DataViewMetadataColumn;
+        getCategoryDisplayName(roleName: string): string;
         hasCompositeCategories(): boolean;
         hasCategoryWithRole(roleName: string): boolean;
         getCategoryObjects(categoryIndex: number, roleName: string): DataViewObjects;
@@ -55,13 +55,15 @@ module powerbi.data {
         getFirstNonNullValueForCategory(roleName: string, categoryIndex: number): any;
         getMeasureQueryName(roleName: string): string;
         getValueColumn(roleName: string, seriesIndex?: number): DataViewValueColumn;
+        getValueMetadataColumn(roleName: string, seriesIndex?: number): DataViewMetadataColumn;
+        getValueDisplayName(roleName: string, seriesIndex?: number): string;
         // Series Methods
         hasDynamicSeries(): boolean;
         getSeriesCount(): number;
         getSeriesObjects(seriesIndex: number): DataViewObjects;
         getSeriesColumn(seriesIndex: number): DataViewValueColumn;
         getSeriesColumns(): DataViewValueColumns;
-        getSeriesSource(): DataViewMetadataColumn;
+        getSeriesMetadataColumn(): DataViewMetadataColumn;
         getSeriesColumnIdentifier(): powerbi.data.ISQExpr[];
         getSeriesName(seriesIndex: number): PrimitiveValue;
         getSeriesDisplayName(): string;
@@ -137,6 +139,22 @@ module powerbi.data {
                 return this.getCategoryFromRole(roleName);
         }
 
+        public getCategoryMetadataColumn(roleName: string): DataViewMetadataColumn {
+            if (this.hasValidCategories) {
+                let categories = this.getCategoryFromRole(roleName);
+                return categories ? categories.source : undefined;
+            }
+        }
+
+        public getCategoryDisplayName(roleName: string): string {
+            if (this.hasValidCategories) {
+                let targetColumn = this.getCategoryColumn(roleName);
+                if (targetColumn && targetColumn.source) {
+                    return targetColumn.source.displayName;
+                }
+            }
+        }
+
         public hasCompositeCategories(): boolean {
             if (this.hasValidCategories)
                 return this.categories.length > 1;
@@ -198,8 +216,24 @@ module powerbi.data {
         }
 
         public getValueColumn(roleName: string, seriesIndex: number = 0): DataViewValueColumn {
-            if (this.hasAnyValidValues)
-                return this.grouped[seriesIndex].values[this.getMeasureIndex(roleName)];
+            let measureIndex = this.getMeasureIndex(roleName);
+            if (this.hasAnyValidValues && measureIndex !== -1)
+                return this.grouped[seriesIndex].values[measureIndex];
+        }
+
+        public getValueMetadataColumn(roleName: string, seriesIndex: number = 0): DataViewMetadataColumn {
+            let measureIndex = this.getMeasureIndex(roleName);
+            if (this.hasAnyValidValues && measureIndex !== -1)
+                return this.grouped[seriesIndex].values[measureIndex].source;
+        }
+
+        public getValueDisplayName(roleName: string, seriesIndex?: number): string {
+            if (this.hasAnyValidValues) {
+                let targetColumn = this.getValueColumn(roleName, seriesIndex);
+                if (targetColumn && targetColumn.source) {
+                    return targetColumn.source.displayName;
+                }
+            }
         }
 
         private getMeasureIndex(roleName: string): number {
@@ -232,7 +266,7 @@ module powerbi.data {
                 return this.dataView.categorical.values;
         }
 
-        public getSeriesSource(): DataViewMetadataColumn {
+        public getSeriesMetadataColumn(): DataViewMetadataColumn {
             if (this.hasAnyValidValues)
                 return this.dataView.categorical.values.source;
         }

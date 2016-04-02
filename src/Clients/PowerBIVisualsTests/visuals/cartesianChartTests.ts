@@ -26,12 +26,16 @@
 
 module powerbitests {
     import CartesianChart = powerbi.visuals.CartesianChart;
+    import CartesianAxes = powerbi.visuals.CartesianAxes;
+    import SvgCartesianAxes = powerbi.visuals.SvgCartesianAxes;
+    import CartesianAxesLayout = powerbi.visuals.CartesianAxesLayout;
     import DataView = powerbi.DataView;
     import DataViewTransform = powerbi.data.DataViewTransform;
     import mocks = powerbitests.mocks;
     import PrimitiveType = powerbi.PrimitiveType;
     import ValueType = powerbi.ValueType;
     import visuals = powerbi.visuals;
+    import AxisPropertiesBuilder = powerbitests.helpers.AxisPropertiesBuilder;
 
     powerbitests.mocks.setLocale();
 
@@ -59,12 +63,8 @@ module powerbitests {
 
         it('viewport change does not trigger conversion', () => {
             let visual = new CartesianChartBuilder().build(defaultChartType);
-
-            let categories = ['abc', 'def'];
-            let categoryIdentities = _.map(categories, (c) => mocks.dataViewScopeIdentity(c));
-            let values = [1, 2];
-
             let dataView: DataView = buildSimpleDataView();
+            
             visual.onDataChanged({ dataViews: [dataView] });
 
             let layers = getCartesianLayers(visual);
@@ -194,20 +194,84 @@ module powerbitests {
                 })).toBe(false);
             });
         });
+
+        it('getAdditionalTelemetry', () => {
+            let dataView = buildSimpleDataView(true);
+            dataView.metadata.objects = {
+                categoryAxis: {
+                    axisType: powerbi.visuals.axisType.scalar
+                }
+            };
+
+            let telemetry = CartesianChart.getAdditionalTelemetry(dataView);
+            expect(telemetry).toEqual({ axisType: 'scalar' });
+        });
     });
 
-    function buildSimpleDataView(): DataView {
-        let categories = ['abc', 'def'];
+    describe('SvgCartesianAxes', () => {
+        
+        // TODO: test negotiateAxes
+
+        it('renderAxes - scalar does not rotate', () => {
+            let metaDataColumnLotsOfPrecision: powerbi.DataViewMetadataColumn = {
+                displayName: 'PageHits',
+                type: ValueType.fromDescriptor({ numeric: true }),
+                objects: { general: { formatString: '0.00000' } },
+            };
+
+            let viewport = { height: 210, width: 210 };
+            let defaultMargin = { left: 1, right: 1, top: 8, bottom: 25 };
+            let plotArea = {
+                width: viewport.width - (defaultMargin.left + defaultMargin.right),
+                height: viewport.height - (defaultMargin.top + defaultMargin.bottom),
+            };
+
+            let svgAxes = new CartesianChartBuilder(viewport.width, viewport.height).buildAxes();
+            
+            let axesLayout: CartesianAxesLayout = {
+                axes: {
+                    x: AxisPropertiesBuilder.buildAxisProperties([1000, 9000], metaDataColumnLotsOfPrecision),
+                    y1: AxisPropertiesBuilder.buildAxisProperties([0, 10]),
+                },
+                axisLabels: { x: null, y: null },
+                margin: defaultMargin,
+                marginLimits: { left: 60, right: 60, top: 0, bottom: 60 },
+                viewport: viewport,
+                plotArea: plotArea,
+                preferredPlotArea: plotArea,
+                tickLabelMargins: { bottom: 20, left: 40, right: 0 },
+                tickPadding: SvgCartesianAxes.AxisPadding,
+            };
+
+            svgAxes.renderAxes(axesLayout, 0);
+
+            let ticksText: JQuery = $('.x.axis .tick').find('text');
+            expect(ticksText.attr('transform')).toBe('rotate(0)');
+        });
+    });
+
+    function buildSimpleDataView(scalar: boolean = false): DataView {
+        let categories: any[];
+        let categoryColumn: powerbi.DataViewMetadataColumn;
+        if (scalar) {
+            categories = [100, 200];
+            categoryColumn = sampleData.scalarCategoryColumn;
+        }
+        else {
+            categories = ['abc', 'def'];
+            categoryColumn = sampleData.categoryColumn;
+        }
+
         let categoryIdentities = _.map(categories, (c) => mocks.dataViewScopeIdentity(c));
         let values = [1, 2];
 
         return <DataView> {
             metadata: {
-                columns: [sampleData.categoryColumn, sampleData.valueColumn]
+                columns: [categoryColumn, sampleData.valueColumn]
             },
             categorical: {
                 categories: [{
-                    source: sampleData.categoryColumn,
+                    source: categoryColumn,
                     values: categories,
                     identity: categoryIdentities,
                 }],
@@ -278,6 +342,13 @@ module powerbitests {
             roles: { ['Category']: true },
         };
 
+        export let scalarCategoryColumn: powerbi.DataViewMetadataColumn = {
+            displayName: 'scalar categories',
+            queryName: 'categories',
+            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Integer),
+            roles: { ['Category']: true },
+        };
+
         export let valueColumn: powerbi.DataViewMetadataColumn = {
             displayName: 'values',
             queryName: 'values',
@@ -335,6 +406,17 @@ module powerbitests {
             });
 
             return this.visual;
+        }
+
+        public buildAxes(): SvgCartesianAxes {
+            let axes = new CartesianAxes(true, 10, true);
+            let svgAxes = new SvgCartesianAxes(axes);
+
+            this.element = powerbitests.helpers.testDom(this.viewport.width.toString(), this.viewport.height.toString());
+            let chartAreaSvg = d3.select(this.element.get(0)).append('svg');
+            svgAxes.init(chartAreaSvg);
+
+            return svgAxes;
         }
     }
 }

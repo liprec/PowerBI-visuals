@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../../_references.ts"/>
-
 module powerbi.visuals.controls {
 
     export class TablixDimension {
@@ -38,6 +36,7 @@ module powerbi.visuals.controls {
         public _layoutManager: IDimensionLayoutManager; // protected
 
         public model: any;
+        public modelDepth: number;
 
         public scrollOffset: number;
         private _scrollStep: number = 0.1;
@@ -101,8 +100,8 @@ module powerbi.visuals.controls {
             return firstVisibleIndex;
         }
 
-        public _initializeScrollbar(parentElement: HTMLElement, touchDiv: HTMLDivElement) { // The intent to be internal
-            this._scrollbar = this._createScrollbar(parentElement);
+        public _initializeScrollbar(parentElement: HTMLElement, touchDiv: HTMLDivElement, layoutKind: TablixLayoutKind) { // The intent to be internal
+            this._scrollbar = this._createScrollbar(parentElement, layoutKind);
             this._scrollbar._onscroll.push((e) => this.onScroll());
 
             if (touchDiv) {
@@ -116,7 +115,7 @@ module powerbi.visuals.controls {
         }
 
         public getDepth(): number {
-            return this.model ? this._hierarchyNavigator.getDepth(this.model) : 0;
+            return this.modelDepth;
         }
 
         private onScroll() {
@@ -132,7 +131,7 @@ module powerbi.visuals.controls {
             return this._layoutManager;
         }
 
-        public _createScrollbar(parentElement: HTMLElement): Scrollbar {
+        public _createScrollbar(parentElement: HTMLElement, layoutKind: TablixLayoutKind): Scrollbar {
             // abstract
             debug.assertFail("PureVirtualMethod: TablixDimension._createScrollbar");
             return null;
@@ -194,8 +193,8 @@ module powerbi.visuals.controls {
             }
         }
 
-        public _createScrollbar(parentElement: HTMLElement): Scrollbar {
-            return new VerticalScrollbar(parentElement);
+        public _createScrollbar(parentElement: HTMLElement, layoutKind: TablixLayoutKind): Scrollbar {
+            return new VerticalScrollbar(parentElement, layoutKind);
         }
 
         /**
@@ -352,8 +351,8 @@ module powerbi.visuals.controls {
             }
         }
 
-        public _createScrollbar(parentElement: HTMLElement): Scrollbar {
-            let scrollbar: HorizontalScrollbar = new HorizontalScrollbar(parentElement);
+        public _createScrollbar(parentElement: HTMLElement, layoutKind: TablixLayoutKind): Scrollbar {
+            let scrollbar: HorizontalScrollbar = new HorizontalScrollbar(parentElement, layoutKind);
 
             // Set smallest increment of the scrollbar to 0.2 rows
             scrollbar.smallIncrement = 0.2;
@@ -388,7 +387,14 @@ module powerbi.visuals.controls {
             } else {
                 let previousCount: number = this._layoutManager.getRealizedItemsCount();
                 this.addNodes(this._hierarchyNavigator.getChildren(item), columnIndex, depth, this.getFirstVisibleChildIndex(item));
-                cell.rowSpan = 1;
+
+                // In case we have a grand total with multiple measures, the multi-measures will be direct children
+                // There can be difference in level > 1. In this case, we want the Total cell to have rowspan = the difference
+                let childrenLevelDifference = this._hierarchyNavigator.getChildrenLevelDifference(item);
+                if (childrenLevelDifference === Infinity) // No Children
+                    cell.rowSpan = 1;
+                else
+                    cell.rowSpan = childrenLevelDifference;
                 cell.colSpan = this._layoutManager.getRealizedItemsCount() - previousCount + 1;
             }
 

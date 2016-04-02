@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../../_references.ts"/>
-
 module powerbi.visuals.controls {
 
     export const enum TablixCellType {
@@ -41,7 +39,8 @@ module powerbi.visuals.controls {
         colSpan: number;
         rowSpan: number;
         textAlign: string;
-        extension: any;
+        extension: internal.TablixCellPresenter;
+        position: internal.TablixUtils.CellPosition;
     }
         
     export interface IDimensionLayoutManager {

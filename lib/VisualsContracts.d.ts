@@ -24,6 +24,7 @@
  *  THE SOFTWARE.
  */
 
+
 declare module powerbi {
     enum VisualDataRoleKind {
         /** Indicates that the role should be bound to something that evaluates to a grouping of values. */
@@ -37,622 +38,24 @@ declare module powerbi {
         Create = 0,
         Append = 1,
     }
+    enum VisualUpdateType {
+        Data = 0,
+        Resize = 2,
+        ViewMode = 4,
+    }
+    enum VisualPermissions {
+    }
     const enum CartesianRoleKind {
         X = 0,
         Y = 1,
     }
-}
-
-
-
-declare module powerbi {
-    import DataViewObjectDescriptors = powerbi.data.DataViewObjectDescriptors;
-    import DataViewObjectDescriptor = powerbi.data.DataViewObjectDescriptor;
-    import Selector = powerbi.data.Selector;
-    import ISemanticFilter = powerbi.data.ISemanticFilter;
-    import ISQExpr = powerbi.data.ISQExpr;
-    import IStringResourceProvider = jsCommon.IStringResourceProvider;
-    import IRect = powerbi.visuals.IRect;
-
-    /**
-     * Represents a visualization displayed within an application (PowerBI dashboards, ad-hoc reporting, etc.).
-     * This interface does not make assumptions about the underlying JS/HTML constructs the visual uses to render itself.
-     */
-    export interface IVisual {
-        /**
-         * Initializes an instance of the IVisual.
-         *
-         * @param options Initialization options for the visual.
-         */
-        init(options: VisualInitOptions): void;
-
-        /** Notifies the visual that it is being destroyed, and to do any cleanup necessary (such as unsubscribing event handlers). */
-        destroy?(): void;
-
-        /** 
-         * Notifies the IVisual of an update (data, viewmode, size change). 
-         */
-        update?(options: VisualUpdateOptions): void;
-
-        /** 
-         * Notifies the IVisual to resize.
-         *
-         * @param finalViewport This is the viewport that the visual will eventually be resized to.
-         */
-        onResizing?(finalViewport: IViewport): void;
-
-        /** 
-         * Notifies the IVisual of new data being provided.
-         * This is an optional method that can be omitted if the visual is in charge of providing its own data. 
-         */
-        onDataChanged?(options: VisualDataChangedOptions): void;
-
-        /** Notifies the IVisual of changes to the color, font, theme, and style related values that the visual should use. */
-        onStyleChanged?(newStyle: IVisualStyle): void;
-
-        /** Notifies the IVisual to change view mode if applicable. */
-        onViewModeChanged?(viewMode: ViewMode): void;
-
-        /** Notifies the IVisual to clear any selection. */
-        onClearSelection?(): void;
-
-        /** Notifies the IVisual to select the specified object. */
-        onSelectObject?(object: VisualObjectInstance): void;
-
-        /** Gets a value indicating whether the IVisual can be resized to the given viewport. */
-        canResizeTo?(viewport: IViewport): boolean;
-
-        /** Gets the set of objects that the visual is currently displaying. */
-        enumerateObjectInstances?(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration;
-    }
-
-    export interface IVisualPlugin {
-        /** The name of the plugin.  Must match the property name in powerbi.visuals. */
-        name: string;
-
-        /** The key for the watermark style of this visual. Must match the id name in ExploreUI/views/svg/visualsWatermarks.svg */
-        watermarkKey?: string;
-
-        /** Declares the capabilities for this IVisualPlugin type. */
-        capabilities?: VisualCapabilities;
-
-        /** Function to call to create the visual. */
-        create: IVisualFactoryMethod;
-
-        /** 
-          * Function to allow the visual to influence query generation. Called each time a query is generated
-          * so the visual can translate its state into options understood by the query generator. 
-          */
-        customizeQuery?: CustomizeQueryMethod;
-
-        /** The class of the plugin.  At the moment it is only used to have a way to indicate the class name that a custom visual has. */
-        class?: string;
-
-        /** The url to the icon to display within the visualization pane. */
-        iconUrl?: string;
-
-        /** Check if a visual is custom */
-        custom?: boolean;
-
-        /* Function to get the list of sortable roles */
-        getSortableRoles?: (visualSortableOptions?: VisualSortableOptions) => string[];
-    }
-
-    /** Factory method for an IVisual.  This factory method should be registered on the powerbi.visuals object. */
-    export interface IVisualFactoryMethod {
-        (): IVisual;
-    }
-
-    /** Parameters available to a CustomizeQueryMethod */
-    export interface CustomizeQueryOptions {
-        /** 
-         * The data view mapping for this visual with some additional information. CustomizeQueryMethod implementations
-         * are expected to edit this in-place.
-         */
-        dataViewMappings: data.CompiledDataViewMapping[];
-
-        /**
-         * Visual should prefer to request a higher volume of data.
-         */
-        preferHigherDataVolume?: boolean;
-    }
-
-    /** Parameters available to a sortable visual candidate */
-    export interface VisualSortableOptions {
-        /* The data view mapping for this visual with some additional information.*/
-        dataViewMappings: data.CompiledDataViewMapping[];
-    }
-
-    /** An imperative way for a visual to influence query generation beyond just its declared capabilities. */
-    export interface CustomizeQueryMethod {
-        (options: CustomizeQueryOptions): void;
-    }
-
-    /** Defines the visual filtering capability for a particular filter kind. */
-    export interface VisualFilterMapping {
-        /** Specifies what data roles are used to control the filter semantics for this filter kind. */
-        targetRoles: string[];
-    }
-
-    /**
-     * Defines the visual filtering capabilities for various filter kinds.
-     * By default all visuals support attribute filters and measure filters in their innermost scope. 
-     */
-    export interface VisualFilterMappings {
-        measureFilter?: VisualFilterMapping;
-    }
-
-    /** Defines the capabilities of an IVisual. */
-    export interface VisualCapabilities {
-        /** Defines what roles the visual expects, and how those roles should be populated.  This is useful for visual generation/editing. */
-        dataRoles?: VisualDataRole[];
-
-        /** Defines the set of objects supported by this IVisual. */
-        objects?: DataViewObjectDescriptors;
-
-        /** Defines how roles that the visual understands map to the DataView.  This is useful for query generation. */
-        dataViewMappings?: DataViewMapping[];
-
-        /** Defines how filters are understood by the visual. This is used by query generation */
-        filterMappings?: VisualFilterMappings;
-        
-        /** Indicates whether cross-highlight is supported by the visual. This is useful for query generation. */
-        supportsHighlight?: boolean;
-
-        /** Indicates whether the visual uses onSelected function for data selections.  Default is true. */
-        supportsSelection?: boolean;
-
-        /** Indicates whether sorting is supported by the visual. This is useful for query generation */
-        sorting?: VisualSortingCapabilities;
-
-        /** Indicates whether a default title should be displayed.  Visuals with self-describing layout can omit this. */
-        suppressDefaultTitle?: boolean;
-
-        /** Indicates whether a default padding should be applied. */
-        suppressDefaultPadding?: boolean;
-
-        /** Indicates whether drilling is supported by the visual. */
-        drilldown?: VisualDrillCapabilities;
-
-        /** Indicates whether rotating is supported by the visual. */
-        canRotate?: boolean;
-
-        /** Indicates whether showing the data underlying this visual would be helpful.  Visuals that already show raw data can specify this. */
-        disableSeeData?: boolean;
-    }
-
-    /** Defines the visual sorting capability. */
-    export interface VisualSortingCapabilities {
-        /** When specified, indicates that the IVisual wants default sorting behavior. */
-        default?: {};
-
-        /** When specified, indicates that the IVisual wants to control sort interactivity. */
-        custom?: {};
-
-        /** When specified, indicates sorting that is inherently implied by the IVisual.  This is useful to automatically sort. */
-        implicit?: VisualImplicitSorting;
-    }
-
-    /** Defines the visual's drill capability. */
-    export interface VisualDrillCapabilities {
-        /** Returns the drillable role names for this visual **/
-        roles?: string[];
-    }
-
-    /** Defines implied sorting behaviour for an IVisual. */
-    export interface VisualImplicitSorting {
-        clauses: VisualImplicitSortingClause[];
-    }
-
-    export interface VisualImplicitSortingClause {
-        role: string;
-        direction: SortDirection;
-    }
-
-    /** Defines the capabilities of an IVisual. */
-    export interface VisualInitOptions {
-        /** The DOM element the visual owns. */
-        element: JQuery;
-
-        /** The set of services provided by the visual hosting layer. */
-        host: IVisualHostServices;
-
-        /** Style information. */
-        style: IVisualStyle;
-
-        /** The initial viewport size. */
-        viewport: IViewport;
-
-        /** Animation options. */
-        animation?: AnimationOptions;
-
-        /** Interactivity options. */
-        interactivity?: InteractivityOptions;
-    }
-
-    export interface VisualUpdateOptions {
-        viewport: IViewport;
-        dataViews: DataView[];
-        suppressAnimations?: boolean;
-        viewMode?: ViewMode;
-    }
-
-    export interface VisualDataChangedOptions {
-        dataViews: DataView[];
-
-        /** Optionally prevent animation transitions */
-        suppressAnimations?: boolean;
-
-        /** Indicates what type of update has been performed on the data.
-        The default operation kind is Create.*/
-        operationKind?: VisualDataChangeOperationKind;
-    }
-
-    export interface EnumerateVisualObjectInstancesOptions {
-        objectName: string;
-    }
-
-    export interface CustomSortEventArgs {
-        sortDescriptors: SortableFieldDescriptor[];
-    }
-
-    export interface SortableFieldDescriptor {
-        queryName: string;
-        sortDirection?: SortDirection;
-    }
-
-    export const enum ViewMode {
+    const enum ViewMode {
         View = 0,
         Edit = 1,
     }
-
-    export interface IVisualErrorMessage {
-        message: string;
-        title: string;
-        detail: string;
-    }
-
-    export interface IVisualWarning {
-        code: string;
-        getMessages(resourceProvider: IStringResourceProvider): IVisualErrorMessage;
-    }
-
-    /** Animation options for visuals. */
-    export interface AnimationOptions {
-        /** Indicates whether all transition frames should be flushed immediately, effectively "disabling" any visual transitions. */
-        transitionImmediate: boolean;
-    }
-
-    /** Interactivity options for visuals. */
-    export interface InteractivityOptions {
-        /** Indicates that dragging of data points should be permitted. */
-        dragDataPoint?: boolean;
-
-        /** Indicates that data points should be selectable. */
-        selection?: boolean;
-
-        /** Indicates that the chart and the legend are interactive */
-        isInteractiveLegend?: boolean;
-
-        /** Indicates overflow behavior. Values are CSS oveflow strings */
-        overflow?: string;
-    }
-
-    export interface VisualDragPayload extends DragPayload {
-        data?: Selector;
-        field?: {};
-    }
-
-    export interface DragEventArgs {
-        event: DragEvent;
-        data: VisualDragPayload;
-    }
-
-    /** Defines geocoding services. */
-    export interface IGeocoder {
-        geocode(query: string, category?: string): IPromise<IGeocodeCoordinate>;
-        geocodeBoundary(latitude: number, longitude: number, category: string, levelOfDetail?: number, maxGeoData?: number): IPromise<IGeocodeBoundaryCoordinate>;
-    }
-
-    export interface IGeocodeCoordinate {
-        latitude: number;
-        longitude: number;
-    }
-
-    export interface IGeocodeBoundaryCoordinate {
-        latitude?: number;
-        longitude?: number;
-        locations?: IGeocodeBoundaryPolygon[]; // one location can have multiple boundary polygons
-    }
-
-    export interface IGeocodeBoundaryPolygon {
-        nativeBing: string;
-        
-        /** array of lat/long pairs as [lat1, long1, lat2, long2,...] */
-        geographic?: Float64Array;
-
-        /** array of absolute pixel position pairs [x1,y1,x2,y2,...]. It can be used by the client for cache the data. */
-        absolute?: Float64Array;
-        absoluteBounds?: IRect;
-
-        /** string of absolute pixel position pairs "x1 y1 x2 y2...". It can be used by the client for cache the data. */
-        absoluteString?: string;
-    }
-
-    export interface SelectorForColumn {
-        [queryName: string]: data.DataRepetitionSelector;
-    }
-
-    export interface SelectorsByColumn {
-        /** Data-bound repetition selection. */
-        dataMap?: SelectorForColumn;
-
-        /** Metadata-bound repetition selection.  Refers to a DataViewMetadataColumn queryName. */
-        metadata?: string;
-
-        /** User-defined repetition selection. */
-        id?: string;
-    }
-
-    // TODO: Consolidate these two into one object and add a method to transform SelectorsByColumn[] into Selector[] for components that need that structure
-    export interface SelectEventArgs {
-        data: Selector[];
-        data2?: SelectorsByColumn[];
-    }
-
-    export interface SelectObjectEventArgs {
-        object: DataViewObjectDescriptor;
-    }
-
-    export interface VisualObjectInstance {
-        /** The name of the object (as defined in VisualCapabilities). */
-        objectName: string;
-
-        /** A display name for the object instance. */
-        displayName?: string;
-
-        /** The set of property values for this object.  Some of these properties may be defaults provided by the IVisual. */
-        properties: {
-            [propertyName: string]: DataViewPropertyValue;
-        };
-
-        /** The selector that identifies this object. */
-        selector: Selector;
-
-        /** Defines the constrained set of valid values for a property. */
-        validValues?: {
-            [propertyName: string]: string[];
-        };
-
-        /** (Optional) VisualObjectInstanceEnumeration category index. */
-        containerIdx?: number;
-    }
-
-    export type VisualObjectInstanceEnumeration = VisualObjectInstance[] | VisualObjectInstanceEnumerationObject;
-
-    export interface VisualObjectInstanceEnumerationObject {
-        /** The visual object instances. */
-        instances: VisualObjectInstance[];
-
-        /** Defines a set of containers for related object instances. */
-        containers?: VisualObjectInstanceContainer[];
-    }
-
-    export interface VisualObjectInstanceContainer {
-        displayName: data.DisplayNameGetter;
-    }
-
-    export interface VisualObjectInstancesToPersist {
-        /** Instances which should be merged with existing instances. */
-        merge?: VisualObjectInstance[];
-
-        /** Instances which should replace existing instances. */
-        replace?: VisualObjectInstance[];
-
-        /** Instances which should be deleted from the existing instances. */
-        remove?: VisualObjectInstance[];
-    }
-
-    export interface FilterAnalyzerOptions {
-        dataView: DataView;
-
-        /** The DataViewObjectPropertyIdentifier for default value */
-        defaultValuePropertyId: DataViewObjectPropertyIdentifier;
-
-        /** The filter that will be analyzed */
-        filter: ISemanticFilter;
-
-        /** The field SQExprs used in the filter */
-        fieldSQExprs: ISQExpr[];
-    }
-
-    export interface AnalyzedFilter {
-        /** The default value of the slicer selected item and it can be undefined if there is no default value */
-        defaultValue?: DefaultValueDefinition;
-
-        /** Indicates the filter has Not condition. */
-        isNotFilter: boolean;
-
-        /** The selected filter values. */
-        selectedIdentities: DataViewScopeIdentity[];
-
-        /** The filter after analyzed. It will be the default filter if it has defaultValue and the pre-analyzed filter is undefined. */
-        filter: ISemanticFilter;
-    }
-}
-
-
-
-declare module powerbi {
-
-    /** Defines behavior for IVisual interaction with the host environment. */
-    export interface IVisualHostServices {
-        /** Returns the localized form of a string. */
-        getLocalizedString(stringId: string): string;
-
-        /** Notifies of a DragStart event. */
-        onDragStart(args: DragEventArgs): void;
-
-        ///** Indicates whether the drag payload is compatible with the IVisual's data role.  This is useful when dropping to a particular drop area within the visual (e.g., dropping on a legend). */
-        //canDropAs(payload: DragPayload, dataRole?: string): boolean;
-
-        ///** Notifies of a Drop event. */
-        //onDrop(args: DragEventArgs, dataRole?: string);
-
-        /** Gets a value indicating whether the given selection is valid. */
-        canSelect(args: SelectEventArgs): boolean;
-
-        /** Notifies of a data point being selected. */
-        onSelect(args: SelectEventArgs): void;  // TODO: Revisit onSelect vs. onSelectObject.
-
-        /** Check if selection is sticky or otherwise. */
-        shouldRetainSelection(): boolean;
-
-        /** Notifies of a visual object being selected. */
-        onSelectObject?(args: SelectObjectEventArgs): void;  // TODO: make this mandatory, not optional.
-
-        /** Notifies that properties of the IVisual have changed. */
-        persistProperties(changes: VisualObjectInstance[]): void;
-        persistProperties(changes: VisualObjectInstancesToPersist): void;
-
-        ///** This information will be part of the query. */
-        //onDataRangeChanged(range: {
-        //    categorical: { // TODO: this structure is affected by the reduction algorithm as well as the data view type
-        //        categories?: {
-        //            /** Index of the category. */
-        //            index: number;
-        //            lower?: DataViewScopeIdentity;
-        //            upper?: DataViewScopeIdentity;
-        //        }[]
-        //    }
-        // });
-
-        ///** Notifies of a drill down on the specified data point. */
-        //onDrillDown(data: DataViewScopeIdentity): void;
-
-        /** Requests more data to be loaded. */
-        loadMoreData(): void;
-
-        /** Notification to sort on the specified column */
-        onCustomSort(args: CustomSortEventArgs): void;
-
-        /** Indicates which view mode the host is in. */
-        getViewMode(): ViewMode;
-
-        /** Notify any warning that happened during update of the visual. */
-        setWarnings(clientWarnings: IVisualWarning[]): void;
-
-        /** Sets a toolbar on the host. */
-        setToolbar($selector: JQuery): void;
-
-        /** Gets Geocoding Service. */
-        geocoder(): IGeocoder;
-
-        /** Gets the locale string */
-        locale?(): string;
-
-        /** Gets the promise factory. */
-        promiseFactory(): IPromiseFactory;
-
-        /** Gets filter analyzer */
-        analyzeFilter(options: FilterAnalyzerOptions): AnalyzedFilter;
-
-        /** Gets display name for the identities */
-        getIdentityDisplayNames(identities: DataViewScopeIdentity[]): DisplayNameIdentityPair[];
-
-        /** Set the display names for their corresponding DataViewScopeIdentity */
-        setIdentityDisplayNames(displayNamesIdentityPairs: DisplayNameIdentityPair[]): void;
-
-        /** 
-         * Creates a Selection Id Builder
-         * designed to simplify the creation of SelectionId objects 
-         */
-        createSelectionIdBuilder?(): visuals.ISelectionIdBuilder;
-    }
-
-    export interface DisplayNameIdentityPair {
-        displayName: string;
-        identity: DataViewScopeIdentity;
-    }
-}
-
-
-declare module powerbi {
-    export interface IVisualStyle{
-        colorPalette: IColorPalette;
-        isHighContrast: boolean;
-        titleText: ITextStyle;
-        subTitleText: ITextStyle;
-        labelText: ITextStyle;
-        // TODO 4486317: This is a host-specific property that should be exposed through DataViewObjects.
-        maxMarginFactor?: number;
-    }
-
-    export interface ITextStyle extends IStyleInfo {
-        fontFace?: string;
-        fontSize?: string;
-        fontWeight?: string;
-        color: IColorInfo;
-    }
-
-    export interface IColorPalette {
-        background?: IColorInfo;
-        foreground?: IColorInfo;
-
-        positive?: IColorInfo;
-        neutral?: IColorInfo;
-        negative?: IColorInfo;
-        separator?: IColorInfo;
-        selection?: IColorInfo;
-
-        dataColors: IDataColorPalette;
-    }
-
-    export interface IDataColorPalette {
-        /** Gets the color scale associated with the given key. */
-        getColorScaleByKey(scaleKey: string): IColorScale;
-
-        /** Gets a fresh color scale with no colors allocated. */
-        getNewColorScale(): IColorScale;
-
-        /** Gets the nth color in the palette. */
-        getColorByIndex(index: number): IColorInfo;
-
-        /**
-         * Gets the set of sentiment colors used for visuals such as KPIs
-         * Note: This is only a temporary API so that we can have reasonable color schemes for KPIs
-         * and gauges until the conditional formatting feature is implemented.
-         */
-        getSentimentColors(): IColorInfo[];
-
-        getBasePickerColors(): IColorInfo[];
-
-        /** Gets all the colors for the color palette **/
-        getAllColors?(): IColorInfo[];
-    }
-
-    export interface IColorScale {
-        /** Gets the color associated with the given key. */
-        getColor(key: any): IColorInfo;
-
-        /**
-         * Clears the current scale, but rotates the colors such that the first color allocated will
-         * the be first color that would have been allocated before clearing the scale. 
-         */
-        clearAndRotateScale(): void;
-
-        /** Returns a copy of the current scale. */
-        clone(): IColorScale;
-
-        getDomain(): any[];
-    }
-
-    export interface IColorInfo extends IStyleInfo {
-        value: string;
-    }
-
-    export interface IStyleInfo {
-        className?: string;
+    const enum ResizeMode {
+        Resizing = 1,
+        Resized = 2,
     }
 }
 
@@ -661,7 +64,7 @@ declare module powerbi {
     export interface DragPayload {
     }
 }
-
+﻿
 
 declare module jsCommon {
     export interface IStringResourceProvider {
@@ -669,6 +72,14 @@ declare module jsCommon {
     }
 }
 
+
+declare module powerbi.visuals {
+    export interface IPoint {
+        x: number;
+        y: number;
+    }
+}
+﻿
 
 declare module powerbi {
     /** 
@@ -800,8 +211,7 @@ declare module powerbi {
         (result: T, done: boolean): void;
     }
 }
-
-
+﻿
 
 declare module powerbi.visuals {
     export interface IRect {
@@ -831,7 +241,7 @@ declare module powerbi.visuals {
         getSelectorsByColumn(): Selector;
     }
 }
-
+﻿
 
 declare module powerbi.data {
     export interface CompiledDataViewMapping {
@@ -949,7 +359,7 @@ declare module powerbi.data {
         type?: ValueTypeDescriptor;
     }
 }
-
+﻿
 
 declare module powerbi {
     /** Represents views of a data set. */
@@ -1006,6 +416,9 @@ declare module powerbi {
 
         /** The KPI metadata to use to convert a numeric status value into its visual representation. */
         kpi?: DataViewKpiColumnMetadata;
+
+        /** Indicates that aggregates should not be computed across groups with different values of this column. */
+        discourageAggregationAcrossGroups?: boolean;
     }
 
     export interface DataViewSegmentMetadata {
@@ -1075,9 +488,33 @@ declare module powerbi {
 
     export interface DataViewTreeNode {
         name?: string;
+
+        /**
+         * When used under the context of DataView.tree, this value is one of the elements in the values property.
+         *
+         * When used under the context of DataView.matrix, this property is the value of the particular 
+         * group instance represented by this node (e.g. In a grouping on Year, a node can have value == 2016).
+         *
+         * DEPRECATED for usage under the context of DataView.matrix: This property is deprecated for objects 
+         * that conform to the DataViewMatrixNode interface (which extends DataViewTreeNode).
+         * New visuals code should consume the new property levelValues on DataViewMatrixNode instead.
+         * If this node represents a composite group node in matrix, this property will be undefined.
+         */
         value?: any;
-        
-        /** In each of the key-value-pair in this this dictionary, the key is the position of the column in the select statement to which the value belongs. */
+      
+        /** 
+         * When used under the context of DataView.tree, this property contains all the values in this node. 
+         * The key of each of the key-value-pair in this dictionary is the position of the column in the 
+         * select statement to which the value belongs.
+         *
+         * When used under the context of DataView.matrix.rows (as DataViewMatrixNode), if this node represents the 
+         * inner-most dimension of row groups (i.e. a leaf node), then this property will contain the values at the 
+         * matrix intersection under the group.  The value type will be DataViewMatrixNodeValue, and their 
+         * valueSourceIndex property will contain the position of the column in the select statement to which the 
+         * value belongs.
+         *
+         * When used under the context of DataView.matrix.columns (as DataViewMatrixNode), this property is not used.
+         */
         values?: { [id: number]: DataViewTreeNodeValue };
 
         children?: DataViewTreeNode[];
@@ -1113,14 +550,18 @@ declare module powerbi {
 
     export interface DataViewTable {
         columns: DataViewMetadataColumn[];
+
         identity?: DataViewScopeIdentity[];
-        rows?: any[][]; // TODO: Should become a DataViewTableRow[]
+
+        /** The set of expressions that define the identity for rows of the table.  This must match items in the DataViewScopeIdentity in the identity. */
+        identityFields?: data.ISQExpr[];
+
+        rows?: DataViewTableRow[];
+
         totals?: any[];
     }
 
-    export interface DataViewTableRow {
-        values: any[];
-
+    export interface DataViewTableRow extends Array<any> {
         /** The metadata repetition objects. */
         objects?: DataViewObjects[];
     }
@@ -1135,13 +576,51 @@ declare module powerbi {
         /** Indicates the level this node is on. Zero indicates the outermost children (root node level is undefined). */
         level?: number;
 
-        /** Indicates the source metadata index on the node's level. Its value is 0 if omitted. */
+        /**
+         * Indicates the source metadata index on the node's level. Its value is 0 if omitted.
+         *
+         * DEPRECATED: This property is deprecated and exists for backward-compatibility only.
+         * New visuals code should consume the new property levelSourceIndex on DataViewMatrixGroupValue instead.
+         */
         levelSourceIndex?: number;
+
+        /**
+         * The values of the particular group instance represented by this node.
+         * This array property would contain more than one element in a composite group
+         * (e.g. Year == 2016 and Month == 'January').
+         */
+        levelValues?: DataViewMatrixGroupValue[];
 
         /** Indicates whether or not the node is a subtotal node. Its value is false if omitted. */
         isSubtotal?: boolean;
     }
 
+    /**
+     * Represents a value at a particular level of a matrix's rows or columns hierarchy.
+     * In the hierarchy level node is an instance of a composite group, this object will
+     * be one of multiple values
+     */
+    export interface DataViewMatrixGroupValue extends DataViewTreeNodeValue {
+        /**
+         * Indicates the index of the corresponding column for this group level value 
+         * (held by DataViewHierarchyLevel.sources).
+         *
+         * @example
+         * // For example, to get the source column metadata of each level value at a particular row hierarchy node:
+         * let matrixRowsHierarchy: DataViewHierarchy = dataView.matrix.rows;
+         * let targetRowsHierarchyNode = <DataViewMatrixNode>matrixRowsHierarchy.root.children[0];
+         * // Use the DataViewMatrixNode.level property to get the corresponding DataViewHierarchyLevel...
+         * let targetRowsHierarchyLevel: DataViewHierarchyLevel = matrixRows.levels[targetRowsHierarchyNode.level];
+         * for (let levelValue in rowsRootNode.levelValues) {
+         *   // columnMetadata is the source column for the particular levelValue.value in this loop iteration
+         *   let columnMetadata: DataViewMetadataColumn = 
+         *     targetRowsHierarchyLevel.sources[levelValue.levelSourceIndex];
+         * }
+         */
+        levelSourceIndex: number;
+    }
+
+    /** Represents a value at the matrix intersection, used in the values property on DataViewMatrixNode (inherited from DataViewTreeNode). */
     export interface DataViewMatrixNodeValue extends DataViewTreeNodeValue {
         /** Indicates the index of the corresponding measure (held by DataViewMatrix.valueSources). Its value is 0 if omitted. */
         valueSourceIndex?: number;
@@ -1168,7 +647,7 @@ declare module powerbi {
         imageBase64: string;
     }
 }
-
+﻿
 
 declare module powerbi {
     export interface DataViewMapping {
@@ -1342,7 +821,7 @@ declare module powerbi {
         regression: {};
     }
 }
-
+﻿
 
 declare module powerbi {
     /** Represents evaluated, named, custom objects in a DataView. */
@@ -1369,7 +848,7 @@ declare module powerbi {
 
     export type DataViewPropertyValue = PrimitiveValue | StructuralObjectValue;
 }
-
+﻿
 
 declare module powerbi.data {
     export interface DataViewObjectDescriptors {
@@ -1421,7 +900,7 @@ declare module powerbi.data {
     }
     
 }
-
+﻿
 
 declare module powerbi {
     /** Encapsulates the identity of a data scope in a DataView. */
@@ -1433,8 +912,7 @@ declare module powerbi {
         key: string;
     }
 }
-
-
+﻿
 
 declare module powerbi.data {
     /** Defines a match against all instances of a given DataView scope. */
@@ -1443,14 +921,14 @@ declare module powerbi.data {
         key: string;
     }
 }
-
+﻿
 
 declare module powerbi.data {
     import IStringResourceProvider = jsCommon.IStringResourceProvider;
 
     export type DisplayNameGetter = ((resourceProvider: IStringResourceProvider) => string) | string;
 }
-
+﻿
 
 declare module powerbi.data {
     export interface ScriptInputColumn {
@@ -1466,7 +944,7 @@ declare module powerbi.data {
         Columns?: ScriptInputColumn[];
     }
 }
-
+﻿
 
 declare module powerbi.data {
     /** Defines a selector for content, including data-, metadata, and user-defined repetition. */
@@ -1483,7 +961,7 @@ declare module powerbi.data {
 
     export type DataRepetitionSelector = DataViewScopeIdentity | DataViewScopeWildcard; 
 }
-
+﻿
 
 declare module powerbi.data {
     //intentionally blank interfaces since this is not part of the public API
@@ -1495,7 +973,7 @@ declare module powerbi.data {
     export interface ISQConstantExpr extends ISQExpr { }
 
 }
-
+﻿
 
 declare module powerbi {
     export const enum SortDirection {
@@ -1503,7 +981,7 @@ declare module powerbi {
         Descending = 2,
     }
 }
-
+﻿
 
 declare module powerbi {
     export interface IViewport {
@@ -1511,7 +989,7 @@ declare module powerbi {
         width: number;
     }
 }
-
+﻿
 
 declare module powerbi {
     import DisplayNameGetter = powerbi.data.DisplayNameGetter;
@@ -1543,8 +1021,129 @@ declare module powerbi {
         kind?: VisualDataRoleKind;
     }
 }
+﻿
+
+declare module powerbi.extensibility {
+    /**
+     * Represents a visualization displayed within an application (PowerBI dashboards, ad-hoc reporting, etc.).
+     * This interface does not make assumptions about the underlying JS/HTML constructs the visual uses to render itself.
+     */
+    export interface IVisual {
+        /** Notifies the IVisual of an update (data, viewmode, size change). */
+        update(options: VisualUpdateOptions): void;
+        
+        /** Notifies the visual that it is being destroyed, and to do any cleanup necessary (such as unsubscribing event handlers). */
+        destroy?(): void;
+
+        /** Gets the set of objects that the visual is currently displaying. */
+        enumerateObjectInstances?(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration;
+    }
+}
 
 
+
+declare module powerbi.extensibility {
+
+    /** Defines behavior for IVisual interaction with the host environment. */
+    export interface IVisualHost {
+ 
+    }
+}
+﻿
+
+declare module powerbi.extensibility {
+
+    export interface VisualUpdateOptions {
+        viewport: IViewport;
+        dataViews: DataView[];
+        type: VisualUpdateType;
+        viewMode?: ViewMode;
+        resizeMode?: ResizeMode;
+    }
+    
+    export interface VisualConstructorOptions {
+        element: HTMLElement;
+        host: IVisualHost;
+    }
+}
+
+
+
+declare module powerbi.extensibility {
+    import DataViewObjectDescriptors = powerbi.data.DataViewObjectDescriptors;
+
+    /** Defines the capabilities of an IVisual. */
+    export interface VisualCapabilities {
+        /** Defines what roles the visual expects, and how those roles should be populated.  This is useful for visual generation/editing. */
+        dataRoles?: VisualDataRole[];
+
+        /** Defines the set of objects supported by this IVisual. */
+        objects?: DataViewObjectDescriptors;
+
+        /** Defines how roles that the visual understands map to the DataView.  This is useful for query generation. */
+        dataViewMappings?: DataViewMapping[];
+        
+        /** Indicates whether cross-highlight is supported by the visual. This is useful for query generation. */
+        supportsHighlight?: boolean;
+
+        /** List of additional libraries this visual requires. */
+        requiredLibraries?: VisualRequiredLibrary[];
+    }
+    
+    /** Defines a library to be loaded by a visual */
+    export interface VisualRequiredLibrary {
+        /** Name of a supported library or URL to an external library. External libraries should use the format //www.domain.com/file.js */
+        library: string;
+        
+        /** Version of the library to load
+         * this is not needed until when we have support for PBI hosted libraries
+         */
+        //version?: string;
+    }
+}
+
+﻿
+
+declare module powerbi {   
+    
+    /**
+     * Interface that provides scripted access to geographical location information associated with the hosting device
+     * The Interface is similar to W3 Geolocation API Specification {@link https://dev.w3.org/geo/api/spec-source.html}
+     */
+    export interface IGeolocation {
+        /**
+         * Request repeated updates
+         * 
+         * @param successCallback invoked when current location successfully obtained
+         * @param errorCallback invoked when attempt to obtain the current location fails
+         * 
+         * @return a number value that uniquely identifies a watch operation
+         */
+        watchPosition(successCallback: IPositionCallback, errorCallback?: IPositionErrorCallback): number;
+        /**
+         * Cancel the updates
+         * 
+         * @param watchId  a number returned from {@link IGeolocation#watchPosition}
+         */
+        clearWatch(watchId: number): void;
+        /**
+         * One-shot position request.
+         * 
+         * @param successCallback invoked when current location successfully obtained
+         * @param errorCallback invoked when attempt to obtain the current location fails
+         */
+        getCurrentPosition(successCallback: IPositionCallback, errorCallback?: IPositionErrorCallback): void;
+    }
+
+    export interface IPositionCallback {
+        (position: Position): void;
+    }
+    
+    export interface IPositionErrorCallback {
+        (error: PositionError): void;
+    }
+}
+﻿
 
 declare module powerbi {
     export interface DefaultValueDefinition {
@@ -1575,7 +1174,7 @@ declare module powerbi {
     }
     
 }
-
+﻿
 
 declare module powerbi {
     export interface Fill {
@@ -1613,7 +1212,7 @@ declare module powerbi {
         nullable: boolean;
     }  
 }
-
+﻿
 
 declare module powerbi {
     export interface FillRule extends FillRuleGeneric<string, number> {
@@ -1646,13 +1245,13 @@ declare module powerbi {
         value?: TValue;
     }
 }
-
+﻿
 
 declare module powerbi {
     export interface FilterTypeDescriptor {
     }
 }
-
+﻿
 
 declare module powerbi {
     export type ImageValue = ImageDefinitionGeneric<string>;
@@ -1666,7 +1265,7 @@ declare module powerbi {
     export interface ImageTypeDescriptor { }
 
 }
-
+﻿
 
 declare module powerbi {
     export type Paragraphs = Paragraph[];
@@ -1692,7 +1291,7 @@ declare module powerbi {
         value: string;
     }
 }
-
+﻿
 
 declare module powerbi {
     import SemanticFilter = data.ISemanticFilter;
@@ -1719,8 +1318,7 @@ declare module powerbi {
         //etc.
     }
 }
-
-
+﻿
 
 declare module powerbi {
     /** Describes a data value type in the client type system. Can be used to get a concrete ValueType instance. */
@@ -1784,4 +1382,642 @@ declare module powerbi {
 
     /** Describes instances of value type objects. */
     export type PrimitiveValue = string | number | boolean | Date;
+}
+﻿
+
+declare module powerbi {
+    import DataViewObjectDescriptor = powerbi.data.DataViewObjectDescriptor;
+    import DataViewObjectDescriptors = powerbi.data.DataViewObjectDescriptors;
+    import Selector = powerbi.data.Selector;
+    import IPoint = powerbi.visuals.IPoint;
+    import ISemanticFilter = powerbi.data.ISemanticFilter;
+    import ISQExpr = powerbi.data.ISQExpr;
+    import IStringResourceProvider = jsCommon.IStringResourceProvider;
+    import IRect = powerbi.visuals.IRect;
+
+    /**
+     * Represents a visualization displayed within an application (PowerBI dashboards, ad-hoc reporting, etc.).
+     * This interface does not make assumptions about the underlying JS/HTML constructs the visual uses to render itself.
+     */
+    export interface IVisual {
+        /**
+         * Initializes an instance of the IVisual.
+         *
+         * @param options Initialization options for the visual.
+         */
+        init(options: VisualInitOptions): void;
+
+        /** Notifies the visual that it is being destroyed, and to do any cleanup necessary (such as unsubscribing event handlers). */
+        destroy?(): void;
+
+        /** 
+         * Notifies the IVisual of an update (data, viewmode, size change). 
+         */
+        update?(options: VisualUpdateOptions): void;
+
+        /** 
+         * Notifies the IVisual to resize.
+         *
+         * @param finalViewport This is the viewport that the visual will eventually be resized to.
+         * @param resized true on on final call when resizing is complete.
+         */
+        onResizing?(finalViewport: IViewport, resizeMode?: ResizeMode): void;
+
+        /** 
+         * Notifies the IVisual of new data being provided.
+         * This is an optional method that can be omitted if the visual is in charge of providing its own data. 
+         */
+        onDataChanged?(options: VisualDataChangedOptions): void;
+
+        /** Notifies the IVisual of changes to the color, font, theme, and style related values that the visual should use. */
+        onStyleChanged?(newStyle: IVisualStyle): void;
+
+        /** Notifies the IVisual to change view mode if applicable. */
+        onViewModeChanged?(viewMode: ViewMode): void;
+
+        /** Notifies the IVisual to clear any selection. */
+        onClearSelection?(): void;
+
+        /** Notifies the IVisual to select the specified object. */
+        onSelectObject?(object: VisualObjectInstance): void;
+
+        /** Gets a value indicating whether the IVisual can be resized to the given viewport. */
+        canResizeTo?(viewport: IViewport): boolean;
+
+        /** Gets the set of objects that the visual is currently displaying. */
+        enumerateObjectInstances?(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration;
+    }
+
+    /** Parameters available to a CustomizeQueryMethod */
+    export interface CustomizeQueryOptions {
+        /** 
+         * The data view mapping for this visual with some additional information. CustomizeQueryMethod implementations
+         * are expected to edit this in-place.
+         */
+        dataViewMappings: data.CompiledDataViewMapping[];
+
+        /**
+         * Visual should prefer to request a higher volume of data.
+         */
+        preferHigherDataVolume?: boolean;
+    }
+
+    /** Parameters available to a sortable visual candidate */
+    export interface VisualSortableOptions {
+        /* The data view mapping for this visual with some additional information.*/
+        dataViewMappings: data.CompiledDataViewMapping[];
+    }
+
+    /** An imperative way for a visual to influence query generation beyond just its declared capabilities. */
+    export interface CustomizeQueryMethod {
+        (options: CustomizeQueryOptions): void;
+    }
+
+    /** Defines the visual filtering capability for a particular filter kind. */
+    export interface VisualFilterMapping {
+        /** Specifies what data roles are used to control the filter semantics for this filter kind. */
+        targetRoles: string[];
+    }
+
+    /**
+     * Defines the visual filtering capabilities for various filter kinds.
+     * By default all visuals support attribute filters and measure filters in their innermost scope. 
+     */
+    export interface VisualFilterMappings {
+        measureFilter?: VisualFilterMapping;
+    }
+
+    /** Defines the capabilities of an IVisual. */
+    export interface VisualCapabilities {
+        /** Defines what roles the visual expects, and how those roles should be populated.  This is useful for visual generation/editing. */
+        dataRoles?: VisualDataRole[];
+
+        /** Defines the set of objects supported by this IVisual. */
+        objects?: DataViewObjectDescriptors;
+
+        /** Defines how roles that the visual understands map to the DataView.  This is useful for query generation. */
+        dataViewMappings?: DataViewMapping[];
+
+        /** Defines how filters are understood by the visual. This is used by query generation */
+        filterMappings?: VisualFilterMappings;
+        
+        /** Indicates whether cross-highlight is supported by the visual. This is useful for query generation. */
+        supportsHighlight?: boolean;
+
+        /** Indicates whether the visual uses onSelected function for data selections.  Default is true. */
+        supportsSelection?: boolean;
+
+        /** Indicates whether sorting is supported by the visual. This is useful for query generation */
+        sorting?: VisualSortingCapabilities;
+
+        /** Indicates whether a default title should be displayed.  Visuals with self-describing layout can omit this. */
+        suppressDefaultTitle?: boolean;
+
+        /** Indicates whether a default padding should be applied. */
+        suppressDefaultPadding?: boolean;
+
+        /** Indicates whether drilling is supported by the visual. */
+        drilldown?: VisualDrillCapabilities;
+
+        /** Indicates whether rotating is supported by the visual. */
+        canRotate?: boolean;
+
+        /** Indicates whether showing the data underlying this visual would be helpful.  Visuals that already show raw data can specify this. */
+        disableVisualDetails?: boolean;
+
+        /** Indicates whether focus mode is supported for the visual. Visuals that would not benefit from focus mode (such as non-data-bound ones) can set it to true.  */
+        disableFocusMode?: boolean;
+    }
+
+    /** Defines the visual sorting capability. */
+    export interface VisualSortingCapabilities {
+        /** When specified, indicates that the IVisual wants default sorting behavior. */
+        default?: {};
+
+        /** When specified, indicates that the IVisual wants to control sort interactivity. */
+        custom?: {};
+
+        /** When specified, indicates sorting that is inherently implied by the IVisual.  This is useful to automatically sort. */
+        implicit?: VisualImplicitSorting;
+    }
+
+    /** Defines the visual's drill capability. */
+    export interface VisualDrillCapabilities {
+        /** Returns the drillable role names for this visual **/
+        roles?: string[];
+    }
+
+    /** Defines implied sorting behaviour for an IVisual. */
+    export interface VisualImplicitSorting {
+        clauses: VisualImplicitSortingClause[];
+    }
+
+    export interface VisualImplicitSortingClause {
+        role: string;
+        direction: SortDirection;
+    }    
+
+    /** Defines the capabilities of an IVisual. */
+    export interface VisualInitOptions {
+        /** The DOM element the visual owns. */
+        element: JQuery;
+
+        /** The set of services provided by the visual hosting layer. */
+        host: IVisualHostServices;
+
+        /** Style information. */
+        style: IVisualStyle;
+
+        /** The initial viewport size. */
+        viewport: IViewport;
+
+        /** Animation options. */
+        animation?: AnimationOptions;
+
+        /** Interactivity options. */
+        interactivity?: InteractivityOptions;
+    }
+
+    export interface VisualUpdateOptions {
+        viewport: IViewport;
+        dataViews: DataView[];
+        suppressAnimations?: boolean;
+        viewMode?: ViewMode;
+        resizeMode?: ResizeMode;
+    }
+
+    export interface VisualDataChangedOptions {
+        dataViews: DataView[];
+
+        /** Optionally prevent animation transitions */
+        suppressAnimations?: boolean;
+
+        /** Indicates what type of update has been performed on the data.
+        The default operation kind is Create.*/
+        operationKind?: VisualDataChangeOperationKind;
+    }
+
+    export interface CustomSortEventArgs {
+        sortDescriptors: SortableFieldDescriptor[];
+    }
+
+    export interface SortableFieldDescriptor {
+        queryName: string;
+        sortDirection?: SortDirection;
+    }
+
+    export interface IVisualErrorMessage {
+        message: string;
+        title: string;
+        detail: string;
+    }
+
+    export interface IVisualWarning {
+        code: string;
+        getMessages(resourceProvider: IStringResourceProvider): IVisualErrorMessage;
+    }
+
+    /** Animation options for visuals. */
+    export interface AnimationOptions {
+        /** Indicates whether all transition frames should be flushed immediately, effectively "disabling" any visual transitions. */
+        transitionImmediate: boolean;
+    }
+
+    /** Interactivity options for visuals. */
+    export interface InteractivityOptions {
+        /** Indicates that dragging of data points should be permitted. */
+        dragDataPoint?: boolean;
+
+        /** Indicates that data points should be selectable. */
+        selection?: boolean;
+
+        /** Indicates that the chart and the legend are interactive */
+        isInteractiveLegend?: boolean;
+
+        /** Indicates overflow behavior. Values are CSS oveflow strings */
+        overflow?: string;
+    }
+
+    export interface VisualDragPayload extends DragPayload {
+        data?: Selector;
+        field?: {};
+    }
+
+    export interface DragEventArgs {
+        event: DragEvent;
+        data: VisualDragPayload;
+    }
+
+    /** Defines geocoding services. */
+    export interface IGeocoder {
+        geocode(query: string, category?: string): IPromise<IGeocodeCoordinate>;
+        geocodeBoundary(latitude: number, longitude: number, category: string, levelOfDetail?: number, maxGeoData?: number): IPromise<IGeocodeBoundaryCoordinate>;
+    }
+
+    export interface IGeocodeCoordinate {
+        latitude: number;
+        longitude: number;
+    }
+
+    export interface IGeocodeBoundaryCoordinate {
+        latitude?: number;
+        longitude?: number;
+        locations?: IGeocodeBoundaryPolygon[]; // one location can have multiple boundary polygons
+    }
+
+    export interface IGeocodeBoundaryPolygon {
+        nativeBing: string;
+        
+        /** array of lat/long pairs as [lat1, long1, lat2, long2,...] */
+        geographic?: Float64Array;
+
+        /** array of absolute pixel position pairs [x1,y1,x2,y2,...]. It can be used by the client for cache the data. */
+        absolute?: Float64Array;
+        absoluteBounds?: IRect;
+
+        /** string of absolute pixel position pairs "x1 y1 x2 y2...". It can be used by the client for cache the data. */
+        absoluteString?: string;
+    }
+
+    export interface SelectorForColumn {
+        [queryName: string]: data.DataRepetitionSelector;
+    }
+
+    export interface SelectorsByColumn {
+        /** Data-bound repetition selection. */
+        dataMap?: SelectorForColumn;
+
+        /** Metadata-bound repetition selection.  Refers to a DataViewMetadataColumn queryName. */
+        metadata?: string;
+
+        /** User-defined repetition selection. */
+        id?: string;
+    }
+
+    // TODO: Consolidate these two into one object and add a method to transform SelectorsByColumn[] into Selector[] for components that need that structure
+    export interface SelectEventArgs {
+        data: Selector[];
+        data2?: SelectorsByColumn[];
+    }
+
+    export interface ContextMenuArgs {
+        data: SelectorsByColumn[];
+
+        /** Absolute coordinates for the top-left anchor of the context menu. */
+        position: IPoint;
+    }
+
+    export interface SelectObjectEventArgs {
+        object: DataViewObjectDescriptor;
+    }
+
+    export interface FilterAnalyzerOptions {
+        dataView: DataView;
+
+        /** The DataViewObjectPropertyIdentifier for default value */
+        defaultValuePropertyId: DataViewObjectPropertyIdentifier;
+
+        /** The filter that will be analyzed */
+        filter: ISemanticFilter;
+
+        /** The field SQExprs used in the filter */
+        fieldSQExprs: ISQExpr[];
+    }
+
+    export interface AnalyzedFilter {
+        /** The default value of the slicer selected item and it can be undefined if there is no default value */
+        defaultValue?: DefaultValueDefinition;
+
+        /** Indicates the filter has Not condition. */
+        isNotFilter: boolean;
+
+        /** The selected filter values. */
+        selectedIdentities: DataViewScopeIdentity[];
+
+        /** The filter after analyzed. It will be the default filter if it has defaultValue and the pre-analyzed filter is undefined. */
+        filter: ISemanticFilter;
+    }
+    
+
+    /** Defines behavior for IVisual interaction with the host environment. */
+    export interface IVisualHostServices {
+        /** Returns the localized form of a string. */
+        getLocalizedString(stringId: string): string;
+
+        /** Notifies of a DragStart event. */
+        onDragStart(args: DragEventArgs): void;
+
+        ///** Indicates whether the drag payload is compatible with the IVisual's data role.  This is useful when dropping to a particular drop area within the visual (e.g., dropping on a legend). */
+        //canDropAs(payload: DragPayload, dataRole?: string): boolean;
+
+        ///** Notifies of a Drop event. */
+        //onDrop(args: DragEventArgs, dataRole?: string);
+
+        /** Gets a value indicating whether the given selection is valid. */
+        canSelect(args: SelectEventArgs): boolean;
+
+        /** Notifies of a data point being selected. */
+        onSelect(args: SelectEventArgs): void;  // TODO: Revisit onSelect vs. onSelectObject.
+
+        /** Notifies of a request for a context menu. */
+        onContextMenu(args: ContextMenuArgs): void;
+
+        /** Check if selection is sticky or otherwise. */
+        shouldRetainSelection(): boolean;
+
+        /** Notifies of a visual object being selected. */
+        onSelectObject?(args: SelectObjectEventArgs): void;  // TODO: make this mandatory, not optional.
+
+        /** Notifies that properties of the IVisual have changed. */
+        persistProperties(changes: VisualObjectInstance[]): void;
+        persistProperties(changes: VisualObjectInstancesToPersist): void;
+
+        ///** This information will be part of the query. */
+        //onDataRangeChanged(range: {
+        //    categorical: { // TODO: this structure is affected by the reduction algorithm as well as the data view type
+        //        categories?: {
+        //            /** Index of the category. */
+        //            index: number;
+        //            lower?: DataViewScopeIdentity;
+        //            upper?: DataViewScopeIdentity;
+        //        }[]
+        //    }
+        // });
+
+        ///** Notifies of a drill down on the specified data point. */
+        //onDrillDown(data: DataViewScopeIdentity): void;
+
+        /** Requests more data to be loaded. */
+        loadMoreData(): void;
+
+        /** Notification to sort on the specified column */
+        onCustomSort(args: CustomSortEventArgs): void;
+
+        /** Indicates which view mode the host is in. */
+        getViewMode(): ViewMode;
+
+        /** Notify any warning that happened during update of the visual. */
+        setWarnings(clientWarnings: IVisualWarning[]): void;
+
+        /** Sets a toolbar on the host. */
+        setToolbar($selector: JQuery): void;
+
+        /** Gets Geocoding Service. */
+        geocoder(): IGeocoder;
+
+        /** Gets IGeolocation Service */
+        geolocation(): IGeolocation;
+
+        /** Gets the locale string */
+        locale?(): string;
+
+        /** Gets the promise factory. */
+        promiseFactory(): IPromiseFactory;
+
+        /** Gets filter analyzer */
+        analyzeFilter(options: FilterAnalyzerOptions): AnalyzedFilter;
+
+        /** Gets display name for the identities */
+        getIdentityDisplayNames(identities: DataViewScopeIdentity[]): DisplayNameIdentityPair[];
+
+        /** Set the display names for their corresponding DataViewScopeIdentity */
+        setIdentityDisplayNames(displayNamesIdentityPairs: DisplayNameIdentityPair[]): void;
+
+    }
+
+    export interface DisplayNameIdentityPair {
+        displayName: string;
+        identity: DataViewScopeIdentity;
+    }
+}
+
+﻿
+
+declare module powerbi {
+    
+    export interface IVisualPlugin {
+        /** The name of the plugin.  Must match the property name in powerbi.visuals. */
+        name: string;
+
+        /** The key for the watermark style of this visual. Must match the id name in ExploreUI/views/svg/visualsWatermarks.svg */
+        watermarkKey?: string;
+
+        /** Declares the capabilities for this IVisualPlugin type. */
+        capabilities?: VisualCapabilities;
+
+        /** Function to call to create the visual. */
+        create: IVisualFactoryMethod;
+
+        /** 
+         * Function to allow the visual to influence query generation. Called each time a query is generated
+        * so the visual can translate its state into options understood by the query generator. 
+        */
+        customizeQuery?: CustomizeQueryMethod;
+
+        /** Funation to allow the visual to provide additional information for telemetry. */
+        getAdditionalTelemetry?: GetAdditionalTelemetryMethod;
+
+        /** The class of the plugin.  At the moment it is only used to have a way to indicate the class name that a custom visual has. */
+        class?: string;
+
+        /** The url to the icon to display within the visualization pane. */
+        iconUrl?: string;
+
+        /** Check if a visual is custom */
+        custom?: boolean;
+
+        /* Function to get the list of sortable roles */
+        getSortableRoles?: (visualSortableOptions?: VisualSortableOptions) => string[];
+        
+        /** The version of the api that this plugin should be run against */
+        apiVersion?: string;
+    }
+
+    /** Method for gathering addition information from the visual for telemetry. */
+    export interface GetAdditionalTelemetryMethod {
+        (dataView: DataView): any;
+    }
+
+    /** Factory method for an IVisual.  This factory method should be registered on the powerbi.visuals object. */
+    export interface IVisualFactoryMethod {
+        (): powerbi.IVisual;
+    }
+}
+﻿
+
+declare module powerbi {
+    export interface IVisualStyle{
+        colorPalette: IColorPalette;
+        isHighContrast: boolean;
+        titleText: ITextStyle;
+        subTitleText: ITextStyle;
+        labelText: ITextStyle;
+        // TODO 4486317: This is a host-specific property that should be exposed through DataViewObjects.
+        maxMarginFactor?: number;
+    }
+
+    export interface ITextStyle extends IStyleInfo {
+        fontFace?: string;
+        fontSize?: string;
+        fontWeight?: string;
+        color: IColorInfo;
+    }
+
+    export interface IColorPalette {
+        background?: IColorInfo;
+        foreground?: IColorInfo;
+
+        positive?: IColorInfo;
+        neutral?: IColorInfo;
+        negative?: IColorInfo;
+        separator?: IColorInfo;
+        selection?: IColorInfo;
+
+        dataColors: IDataColorPalette;
+    }
+
+    export interface IDataColorPalette {
+        /** Gets the color scale associated with the given key. */
+        getColorScaleByKey(scaleKey: string): IColorScale;
+
+        /** Gets a fresh color scale with no colors allocated. */
+        getNewColorScale(): IColorScale;
+
+        /** Gets the nth color in the palette. */
+        getColorByIndex(index: number): IColorInfo;
+
+        /**
+         * Gets the set of sentiment colors used for visuals such as KPIs
+         * Note: This is only a temporary API so that we can have reasonable color schemes for KPIs
+         * and gauges until the conditional formatting feature is implemented.
+         */
+        getSentimentColors(): IColorInfo[];
+
+        getBasePickerColors(): IColorInfo[];
+
+        /** Gets all the colors for the color palette **/
+        getAllColors?(): IColorInfo[];
+    }
+
+    export interface IColorScale {
+        /** Gets the color associated with the given key. */
+        getColor(key: any): IColorInfo;
+
+        /**
+         * Clears the current scale, but rotates the colors such that the first color allocated will
+         * the be first color that would have been allocated before clearing the scale. 
+         */
+        clearAndRotateScale(): void;
+
+        /** Returns a copy of the current scale. */
+        clone(): IColorScale;
+
+        getDomain(): any[];
+    }
+
+    export interface IColorInfo extends IStyleInfo {
+        value: string;
+    }
+
+    export interface IStyleInfo {
+        className?: string;
+    }
+}
+﻿
+
+declare module powerbi {
+    import Selector = powerbi.data.Selector;
+    
+    export interface VisualObjectInstance {
+        /** The name of the object (as defined in VisualCapabilities). */
+        objectName: string;
+
+        /** A display name for the object instance. */
+        displayName?: string;
+
+        /** The set of property values for this object.  Some of these properties may be defaults provided by the IVisual. */
+        properties: {
+            [propertyName: string]: DataViewPropertyValue;
+        };
+
+        /** The selector that identifies this object. */
+        selector: Selector;
+
+        /** Defines the constrained set of valid values for a property. */
+        validValues?: {
+            [propertyName: string]: string[];
+        };
+
+        /** (Optional) VisualObjectInstanceEnumeration category index. */
+        containerIdx?: number;
+    }
+
+    export type VisualObjectInstanceEnumeration = VisualObjectInstance[] | VisualObjectInstanceEnumerationObject;
+
+    export interface VisualObjectInstanceEnumerationObject {
+        /** The visual object instances. */
+        instances: VisualObjectInstance[];
+
+        /** Defines a set of containers for related object instances. */
+        containers?: VisualObjectInstanceContainer[];
+    }
+
+    export interface VisualObjectInstanceContainer {
+        displayName: data.DisplayNameGetter;
+    }
+
+    export interface VisualObjectInstancesToPersist {
+        /** Instances which should be merged with existing instances. */
+        merge?: VisualObjectInstance[];
+
+        /** Instances which should replace existing instances. */
+        replace?: VisualObjectInstance[];
+
+        /** Instances which should be deleted from the existing instances. */
+        remove?: VisualObjectInstance[];
+    }
+    
+    export interface EnumerateVisualObjectInstancesOptions {
+        objectName: string;
+    }
 }

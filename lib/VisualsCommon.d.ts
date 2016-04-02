@@ -35,6 +35,7 @@ declare module jsCommon {
         const DocumentBody: string;
         const Anchor: string;
         const EditableTextElements: string;
+        const EditableNumericElements: string;
         /**
          * DOM Attributes and values.
          */
@@ -252,9 +253,14 @@ declare module powerbi {
         code: string;
         columnNameFromIndex: (index: number) => string;
     }
-    class UnknownClientError implements IClientError {
+    /**
+     this base class should be derived to give a generic error message but with a unique error code.
+     */
+    abstract class UnknownClientError implements IClientError {
+        private errorCode;
         code: string;
         ignorable: boolean;
+        constructor(code: string);
         getDetails(resourceProvider: IStringResourceProvider): ErrorDetails;
     }
     class HttpClientError implements IClientError {
@@ -919,7 +925,7 @@ declare module powerbi {
          * @param textProperties The text properties (including text content) to use for text measurement.
          * @param maxWidth The maximum width available for rendering the text.
          */
-        function getTailoredTextOrDefault(properties: TextProperties, maxWidth: number): string;
+        function getTailoredTextOrDefault(textProperties: TextProperties, maxWidth: number): string;
         /**
          * Compares labels text size to the available size and renders ellipses when the available size is smaller.
          * @param textElement The SVGTextElement containing the text to render.
@@ -979,13 +985,6 @@ declare module jsCommon {
          * {@inheritDoc}
          */
         create(delayInMs: number): IRejectablePromise;
-    }
-}
-declare module jsCommon {
-    module UrlUtils {
-        function isValidUrl(value: string): boolean;
-        function isValidImageUrl(url: string): boolean;
-        function findAllValidUrls(text: string): TextMatch[];
     }
 }
 /**
@@ -1384,6 +1383,24 @@ declare module jsCommon {
         private static traceTypeStrings;
         constructor(text: string, type: TraceType, sessionId: string, requestId?: string);
         toString(): string;
+    }
+}
+declare module jsCommon {
+    module UrlUtils {
+        function isValidUrl(value: string): boolean;
+        function isValidImageUrl(url: string): boolean;
+        function findAllValidUrls(text: string): TextMatch[];
+    }
+}
+declare module jsCommon {
+    module BrowserUtils {
+        function isChrome(): boolean;
+        function isInternetExplorerOrEdge(): boolean;
+        /**
+         * Get the current version of IE
+         * @returns The version of Internet Explorer or a 0 (indicating the use of another browser).
+         */
+        function getInternetExplorerVersion(): number;
     }
 }
 declare module jsCommon {

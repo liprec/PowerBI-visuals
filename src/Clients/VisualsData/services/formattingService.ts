@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi {
 
     import StringExtensions = jsCommon.StringExtensions;
@@ -183,6 +181,8 @@ module powerbi {
         }
 
         public dateFormatString(unit: DateTimeUnit): string {
+            if (!this._dateTimeScaleFormatInfo)
+                this.initialize();
             return this._dateTimeScaleFormatInfo.getFormatString(unit);
         }
 

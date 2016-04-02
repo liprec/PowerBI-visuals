@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.data {
     import StringExtensions = jsCommon.StringExtensions;
 
@@ -56,6 +54,48 @@ module powerbi.data {
 
         public get kind(): SQExprKind {
             return this._kind;
+        }
+
+        public static isColumn(expr: SQExpr): expr is SQColumnRefExpr {
+            debug.assertValue(expr, 'expr');
+
+            return expr.kind === SQExprKind.ColumnRef;
+        }
+
+        public static isConstant(expr: SQExpr): expr is SQConstantExpr {
+            debug.assertValue(expr, 'expr');
+
+            return expr.kind === SQExprKind.Constant;
+        }
+
+        public static isEntity(expr: SQExpr): expr is SQEntityExpr {
+            debug.assertValue(expr, 'expr');
+
+            return expr.kind === SQExprKind.Entity;
+        }
+
+        public static isHierarchy(expr: SQExpr): expr is SQHierarchyExpr {
+            debug.assertValue(expr, 'expr');
+
+            return expr.kind === SQExprKind.Hierarchy;
+        }
+
+        public static isHierarchyLevel(expr: SQExpr): expr is SQHierarchyLevelExpr {
+            debug.assertValue(expr, 'expr');
+
+            return expr.kind === SQExprKind.HierarchyLevel;
+        }
+
+        public static isAggregation(expr: SQExpr): expr is SQAggregationExpr {
+            debug.assertValue(expr, 'expr');
+
+            return expr.kind === SQExprKind.Aggregation;
+        }
+
+        public static isMeasure(expr: SQExpr): expr is SQMeasureRefExpr {
+            debug.assertValue(expr, 'expr');
+
+            return expr.kind === SQExprKind.MeasureRef;
         }
 
         public getMetadata(federatedSchema: FederatedConceptualSchema): SQExprMetadata {
@@ -172,6 +212,10 @@ module powerbi.data {
                     if (variation.name === variationName)
                         return variation.navigationProperty.targetEntity.name;
             }
+        }
+
+        public getTargetEntity(federatedSchema: FederatedConceptualSchema): SQEntityExpr {
+            return SQEntityExprInfoVisitor.getEntityExpr(federatedSchema, this);
         }
 
         private getHierarchyLevelConceptualProperty(federatedSchema: FederatedConceptualSchema): ConceptualProperty {
@@ -329,6 +373,9 @@ module powerbi.data {
         Now,
         AnyValue,
         DefaultValue,
+        Arithmetic,
+        FillRule,
+        ResourcePackageItem,
     }
 
     export interface SQExprMetadata {
@@ -393,6 +440,27 @@ module powerbi.data {
 
         public accept<T, TArg>(visitor: ISQExprVisitorWithArg<T, TArg>, arg?: TArg): T {
             return visitor.visitEntity(this, arg);
+        }
+    }
+
+    export class SQArithmeticExpr extends SQExpr {
+        public left: SQExpr;
+        public right: SQExpr;
+        public operator: ArithmeticOperatorKind;
+
+        constructor(left: SQExpr, right: SQExpr, operator: ArithmeticOperatorKind) {
+            debug.assertValue(left, 'left');
+            debug.assertValue(right, 'right');
+            debug.assertValue(operator, 'operator');
+
+            super(SQExprKind.Arithmetic);
+            this.left = left;
+            this.right = right;
+            this.operator = operator;
+        }
+
+        public accept<T, TArg>(visitor: ISQExprVisitorWithArg<T, TArg>, arg?: TArg): T {
+            return visitor.visitArithmetic(this, arg);
         }
     }
 
@@ -771,6 +839,46 @@ module powerbi.data {
         }
     }
 
+    export class SQFillRuleExpr extends SQExpr {
+        public input: SQExpr;
+        public rule: FillRuleDefinition;
+
+        constructor(
+            input: SQExpr,
+            fillRule: FillRuleDefinition) {
+            debug.assertValue(input, 'input');
+            debug.assertValue(fillRule, 'fillRule');
+
+            super(SQExprKind.FillRule);
+            this.input = input;
+            this.rule = fillRule;
+        }
+
+        public accept<T, TArg>(visitor: ISQExprVisitorWithArg<T, TArg>, arg?: TArg): T {
+            return visitor.visitFillRule(this, arg);
+        }
+    }
+
+    export class SQResourcePackageItemExpr extends SQExpr {
+        public packageName: string;
+        public packageType: number;
+        public itemName: string;
+
+        constructor(packageName: string, packageType: number, itemName: string) {
+            debug.assertValue(packageName, 'packageName');
+            debug.assertValue(itemName, 'itemName');
+
+            super(SQExprKind.ResourcePackageItem);
+            this.packageName = packageName;
+            this.packageType = packageType;
+            this.itemName = itemName;
+        }
+
+        public accept<T, TArg>(visitor: ISQExprVisitorWithArg<T, TArg>, arg?: TArg): T {
+            return visitor.visitResourcePackageItem(this, arg);
+        }
+    }
+
     /** Provides utilities for creating & manipulating expressions. */
     export module SQExprBuilder {
         export function entity(schema: string, entity: string, variable?: string): SQEntityExpr {
@@ -970,6 +1078,10 @@ module powerbi.data {
             }
         }
 
+        export function arithmetic(left: SQExpr, right: SQExpr, operator: ArithmeticOperatorKind): SQExpr {
+            return new SQArithmeticExpr(left, right, operator);
+        }
+
         export function setAggregate(expr: SQExpr, aggregate: QueryAggregateFunction): SQExpr {
             return SQExprChangeAggregateRewriter.rewrite(expr, aggregate);
         }
@@ -1003,6 +1115,17 @@ module powerbi.data {
 
             return expr;
         }
+
+        export function fillRule(expr: SQExpr, rule: FillRuleDefinition): SQFillRuleExpr {
+            debug.assertValue(expr, 'expr');
+            debug.assertValue(rule, 'rule');
+
+            return new SQFillRuleExpr(expr, rule);
+        }
+
+        export function resourcePackageItem(packageName: string, packageType: number, itemName: string): SQResourcePackageItemExpr {
+            return new SQResourcePackageItemExpr(packageName, packageType, itemName);
+        }
     }
 
     /** Provides utilities for obtaining information about expressions. */
@@ -1012,7 +1135,7 @@ module powerbi.data {
         }
     }
 
-    class SQExprEqualityVisitor implements ISQExprVisitorWithArg<boolean, SQExpr> {
+    class SQExprEqualityVisitor implements ISQExprVisitorWithArg<boolean, SQExpr>, IFillRuleDefinitionVisitor<boolean, boolean> {
         private static instance: SQExprEqualityVisitor = new SQExprEqualityVisitor(/* ignoreCase */ false);
         private static ignoreCaseInstance: SQExprEqualityVisitor = new SQExprEqualityVisitor(true);
         private ignoreCase: boolean;
@@ -1168,6 +1291,13 @@ module powerbi.data {
             return comparand instanceof SQAnyValueExpr;
         }
 
+        public visitResourcePackageItem(expr: SQResourcePackageItemExpr, comparand: SQExpr): boolean {
+            return comparand instanceof SQResourcePackageItemExpr &&
+                expr.packageName === comparand.packageName &&
+                expr.packageType === comparand.packageType &&
+                expr.itemName === comparand.itemName;
+        }
+
         public visitStartsWith(expr: SQStartsWithExpr, comparand: SQExpr): boolean {
             return comparand instanceof SQStartsWithExpr &&
                 this.equals(expr.left, (<SQStartsWithExpr>comparand).left) &&
@@ -1181,6 +1311,67 @@ module powerbi.data {
                     expr.valueEncoded === (<SQConstantExpr>comparand).valueEncoded;
 
             return false;
+        }
+
+        public visitFillRule(expr: SQFillRuleExpr, comparand: SQExpr): boolean {
+            if (comparand instanceof SQFillRuleExpr && this.equals(expr.input, comparand.input)) {
+                let leftRule = expr.rule,
+                    rightRule = comparand.rule;
+
+                if (leftRule === rightRule)
+                    return true;
+
+                let leftLinearGradient2 = leftRule.linearGradient2,
+                    rightLinearGradient2 = rightRule.linearGradient2;
+                if (leftLinearGradient2 && rightLinearGradient2) {
+                    return this.visitLinearGradient2(leftLinearGradient2, rightLinearGradient2);
+                }
+
+                let leftLinearGradient3 = leftRule.linearGradient3,
+                    rightLinearGradient3 = rightRule.linearGradient3;
+                if (leftLinearGradient3 && rightLinearGradient3) {
+                    return this.visitLinearGradient3(leftLinearGradient3, rightLinearGradient3);
+                }
+            }
+
+            return false;
+        }
+
+        public visitLinearGradient2(left2: LinearGradient2Definition, right2: LinearGradient2Definition): boolean {
+            debug.assertValue(left2, 'left2');
+            debug.assertValue(right2, 'right2');
+
+            return this.equalsFillRuleStop(left2.min, right2.min) &&
+                this.equalsFillRuleStop(left2.max, right2.max);
+        }
+
+        public visitLinearGradient3(left3: LinearGradient3Definition, right3: LinearGradient3Definition): boolean {
+            debug.assertValue(left3, 'left3');
+            debug.assertValue(right3, 'right3');
+
+            return this.equalsFillRuleStop(left3.min, right3.min) &&
+                this.equalsFillRuleStop(left3.mid, right3.mid) &&
+                this.equalsFillRuleStop(left3.max, right3.max);
+        }
+
+        private equalsFillRuleStop(stop1: RuleColorStopDefinition, stop2: RuleColorStopDefinition): boolean {
+            debug.assertValue(stop1, 'stop1');
+            debug.assertValue(stop2, 'stop2');
+
+            if (!this.equals(stop1.color, stop2.color))
+            return false;
+            
+            if (!stop1.value)
+                return stop1.value === stop2.value;
+
+            return this.equals(stop1.value, stop2.value);
+        }
+
+        public visitArithmetic(expr: SQArithmeticExpr, comparand: SQExpr): boolean {
+            return comparand instanceof SQArithmeticExpr &&
+                expr.operator === (<SQArithmeticExpr>comparand).operator &&
+                this.equals(expr.left, (<SQArithmeticExpr>comparand).left) &&
+                this.equals(expr.right, (<SQArithmeticExpr>comparand).right);
         }
 
         private optionalEqual(x: string, y: string) {
@@ -1347,6 +1538,11 @@ module powerbi.data {
             return expr;
         }
 
+        public visitArithmetic(expr: SQArithmeticExpr): SQExpr {
+            this.validateArithmeticTypes(expr.left, expr.right);
+            return expr;
+        }
+
         private validateOperandsAndTypeForStartOrContains(left: SQExpr, right: SQExpr): void {
             if (left instanceof SQColumnRefExpr) {
                 this.visitColumnRef(<SQColumnRefExpr>left);
@@ -1360,6 +1556,13 @@ module powerbi.data {
                 this.register(SQExprValidationError.invalidRightOperandType);
             else
                 this.validateCompatibleType(left, right);
+        }
+
+        private validateArithmeticTypes(left: SQExpr, right: SQExpr): void {
+            if (!SQExprUtils.supportsArithmetic(left, this.schema))
+                this.register(SQExprValidationError.invalidLeftOperandType);
+            if (!SQExprUtils.supportsArithmetic(right, this.schema))
+                this.register(SQExprValidationError.invalidRightOperandType);
         }
 
         private validateCompatibleType(left: SQExpr, right: SQExpr): void {
@@ -1497,12 +1700,69 @@ module powerbi.data {
             return new SQColumnRefExpr(expr.arg, propertyName);
         }
 
+        public visitAggr(expr: SQAggregationExpr): SQColumnRefExpr {
+            return expr.arg.accept(this);
+        }
+
         public visitDefault(expr: SQExpr): SQColumnRefExpr {
             return;
         }
 
         public static getColumnRefSQExpr(schema: FederatedConceptualSchema, expr: SQExpr): SQColumnRefExpr {
             let visitor = new SQExprColumnRefInfoVisitor(schema);
+            return expr.accept(visitor);
+        }
+    }
+
+    /** Returns a SQEntityExpr expression or undefined.*/
+    class SQEntityExprInfoVisitor extends DefaultSQExprVisitor<SQEntityExpr> {
+        private schema: FederatedConceptualSchema;
+
+        constructor(schema: FederatedConceptualSchema) {
+            super();
+            this.schema = schema;
+        }
+
+        public visitEntity(expr: SQEntityExpr): SQEntityExpr {
+            return expr;
+        }
+
+        public visitColumnRef(expr: SQColumnRefExpr): SQEntityExpr {
+            return SQEntityExprInfoVisitor.getEntity(expr);
+        }
+
+        public visitHierarchyLevel(expr: SQHierarchyLevelExpr): SQEntityExpr {
+            let columnRef = SQEntityExprInfoVisitor.getColumnRefSQExpr(this.schema, expr);
+            return SQEntityExprInfoVisitor.getEntity(columnRef);
+        }
+
+        public visitHierarchy(expr: SQHierarchyExpr): SQEntityExpr {
+            return expr.arg.accept(this);
+        }
+
+        public visitPropertyVariationSource(expr: SQPropertyVariationSourceExpr): SQEntityExpr {
+            let columnRef = SQEntityExprInfoVisitor.getColumnRefSQExpr(this.schema, expr);
+            return SQEntityExprInfoVisitor.getEntity(columnRef);
+        }
+
+        public visitAggr(expr: SQAggregationExpr): SQEntityExpr {
+            let columnRef = SQEntityExprInfoVisitor.getColumnRefSQExpr(this.schema, expr);
+            return SQEntityExprInfoVisitor.getEntity(columnRef);
+        }
+
+        public static getColumnRefSQExpr(schema: FederatedConceptualSchema, expr: SQExpr): SQColumnRefExpr {
+            let visitor = new SQExprColumnRefInfoVisitor(schema);
+            return expr.accept(visitor);
+        }
+
+        public static getEntity(columnRef: SQColumnRefExpr): SQEntityExpr {
+            let field = SQExprConverter.asFieldPattern(columnRef);
+            let column = field.column;
+            return SQExprBuilder.entity(column.schema, column.entity, column.entityVar);
+        }
+
+        public static getEntityExpr(schema: FederatedConceptualSchema, expr: SQExpr): SQEntityExpr {
+            let visitor = new SQEntityExprInfoVisitor(schema);
             return expr.accept(visitor);
         }
     }

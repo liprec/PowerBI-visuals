@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-//// <reference path="../_references.ts"/>
-
 module powerbi.data {
 
     /** Allows generic traversal and type discovery for a SQExpr tree. */
@@ -52,6 +50,9 @@ module powerbi.data {
         visitNow(expr: SQNowExpr, arg: TArg): T;
         visitDefaultValue(expr: SQDefaultValueExpr, arg: TArg): T;
         visitAnyValue(expr: SQAnyValueExpr, arg: TArg): T;
+        visitArithmetic(expr: SQArithmeticExpr, arg: TArg): T;
+        visitFillRule(expr: SQFillRuleExpr, arg: TArg): T;
+        visitResourcePackageItem(expr: SQResourcePackageItemExpr, arg: TArg): T;
     }
 
     export interface ISQExprVisitor<T> extends ISQExprVisitorWithArg<T, void> {
@@ -147,6 +148,18 @@ module powerbi.data {
             return this.visitDefault(expr, arg);
         }
 
+        public visitArithmetic(expr: SQArithmeticExpr, arg: TArg): T {
+            return this.visitDefault(expr, arg);
+        }
+
+        public visitFillRule(expr: SQFillRuleExpr, arg: TArg): T {
+            return this.visitDefault(expr, arg);
+        }
+
+        public visitResourcePackageItem(expr: SQResourcePackageItemExpr, arg: TArg): T {
+            return this.visitDefault(expr, arg);
+        }
+
         public visitDefault(expr: SQExpr, arg: TArg): T {
             return;
         }
@@ -157,7 +170,7 @@ module powerbi.data {
     }
 
     /** Default ISQExprVisitor implementation that implements default traversal and that others may derive from. */
-    export class DefaultSQExprVisitorWithTraversal implements ISQExprVisitor<void> {
+    export class DefaultSQExprVisitorWithTraversal implements ISQExprVisitor<void>, IFillRuleDefinitionVisitor<void, void> {
         public visitEntity(expr: SQEntityExpr): void {
             this.visitDefault(expr);
         }
@@ -262,8 +275,58 @@ module powerbi.data {
             this.visitDefault(expr);
         }
 
+        public visitArithmetic(expr: SQArithmeticExpr): void {
+            expr.left.accept(this);
+            expr.right.accept(this);
+        }
+
+        public visitFillRule(expr: SQFillRuleExpr): void {
+            expr.input.accept(this);
+
+            let rule = expr.rule,
+                gradient2 = rule.linearGradient2,
+                gradient3 = rule.linearGradient3;
+
+            if (gradient2) {
+                this.visitLinearGradient2(gradient2);
+            }
+
+            if (gradient3) {
+                this.visitLinearGradient3(gradient3);
+            }
+        }
+
+        public visitLinearGradient2(gradient2: LinearGradient2Definition): void {
+            debug.assertValue(gradient2, 'gradient2');
+
+            this.visitFillRuleStop(gradient2.min);
+            this.visitFillRuleStop(gradient2.max);
+        }
+
+        public visitLinearGradient3(gradient3: LinearGradient3Definition): void {
+            debug.assertValue(gradient3, 'gradient3');
+
+            this.visitFillRuleStop(gradient3.min);
+            this.visitFillRuleStop(gradient3.mid);
+            this.visitFillRuleStop(gradient3.max);
+        }
+
+        public visitResourcePackageItem(expr: SQResourcePackageItemExpr): void {
+            this.visitDefault(expr);
+        }
+
         public visitDefault(expr: SQExpr): void {
             return;
+        }
+
+        private visitFillRuleStop(stop: RuleColorStopDefinition): void {
+            debug.assertValue(stop, 'stop');
+
+            stop.color.accept(this);
+
+            let value = stop.value;
+            if (value)
+                value.accept(this);
         }
     }
 } 

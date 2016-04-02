@@ -24,15 +24,16 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../../_references.ts"/>
-
 module powerbi.data {
     import SQExpr = powerbi.data.SQExpr;
 
-    export function createStaticEvalContext(): IEvalContext;
-    export function createStaticEvalContext(dataView: DataView, selectTransforms: DataViewSelectTransform[]): IEvalContext;
-    export function createStaticEvalContext(dataView?: DataView, selectTransforms?: DataViewSelectTransform[]): IEvalContext {
-        return new StaticEvalContext(dataView || { metadata: { columns: [] } }, selectTransforms);
+    export function createStaticEvalContext(colorAllocatorCache?: IColorAllocatorCache): IEvalContext;
+    export function createStaticEvalContext(colorAllocatorCache: IColorAllocatorCache, dataView: DataView, selectTransforms: DataViewSelectTransform[]): IEvalContext;
+    export function createStaticEvalContext(colorAllocatorCache: IColorAllocatorCache, dataView?: DataView, selectTransforms?: DataViewSelectTransform[]): IEvalContext {
+        return new StaticEvalContext(
+            colorAllocatorCache || createColorAllocatorCache(),
+            dataView || { metadata: { columns: [] } },
+            selectTransforms);
     }
 
     /**
@@ -40,26 +41,29 @@ module powerbi.data {
      * are supported.
      */
     class StaticEvalContext implements IEvalContext {
+        private colorAllocatorCache: IColorAllocatorCache;
         private dataView: DataView;
         private selectTransforms: DataViewSelectTransform[];
 
-        constructor(dataView: DataView, selectTransforms: DataViewSelectTransform[]) {
+        constructor(colorAllocatorCache: IColorAllocatorCache, dataView: DataView, selectTransforms: DataViewSelectTransform[]) {
+            debug.assertValue(colorAllocatorCache, 'colorAllocatorCache');
             debug.assertValue(dataView, 'dataView');
             debug.assertAnyValue(selectTransforms, 'selectTransforms');
 
+            this.colorAllocatorCache = colorAllocatorCache;
             this.dataView = dataView;
             this.selectTransforms = selectTransforms;
+        }
+
+        public getColorAllocator(expr: SQFillRuleExpr): IColorAllocator {
+            return this.colorAllocatorCache.get(expr);
         }
 
         public getExprValue(expr: SQExpr): PrimitiveValue {
             let dataView = this.dataView,
                 selectTransforms = this.selectTransforms;
             if (dataView && dataView.table && selectTransforms)
-                return getExprValue(expr, selectTransforms, dataView.table);
-        }
-
-        public getCurrentIdentity(): DataViewScopeIdentity {
-            return;
+                return getExprValueFromTable(expr, selectTransforms, dataView.table, /*rowIdx*/ 0);
         }
 
         public getRoleValue(roleName: string): PrimitiveValue {
@@ -67,13 +71,14 @@ module powerbi.data {
         }
     }
 
-    function getExprValue(expr: SQExpr, selectTransforms: DataViewSelectTransform[], table: DataViewTable): PrimitiveValue {
+    export function getExprValueFromTable(expr: SQExpr, selectTransforms: DataViewSelectTransform[], table: DataViewTable, rowIdx: number): PrimitiveValue {
         debug.assertValue(expr, 'expr');
         debug.assertValue(selectTransforms, 'selectTransforms');
         debug.assertValue(table, 'table');
+        debug.assertValue(rowIdx, 'rowIdx');
 
         let rows = table.rows;
-        if (rows && rows.length !== 1)
+        if (_.isEmpty(rows) || rows.length <= rowIdx)
             return;
 
         let cols = table.columns;
@@ -86,7 +91,7 @@ module powerbi.data {
                 if (selectIdx !== cols[colIdx].index)
                     continue;
 
-                return rows[0][colIdx];
+                return rows[rowIdx][colIdx];
             }
         }
 

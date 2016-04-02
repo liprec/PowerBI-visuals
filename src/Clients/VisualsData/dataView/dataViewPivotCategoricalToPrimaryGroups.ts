@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.data {
     import ArrayExtensions = jsCommon.ArrayExtensions;
     import DataShapeBindingDataReduction = powerbi.data.DataShapeBindingDataReduction;
@@ -89,8 +87,8 @@ module powerbi.data {
             return true;
         }
 
-        export function unpivotResult(oldDataView: DataView, selects: DataViewSelectTransform[], dataViewMappings: DataViewMapping[]): DataView {
-            if (!inferUnpivotTransform(selects, dataViewMappings, oldDataView))
+        export function unpivotResult(oldDataView: DataView, selects: DataViewSelectTransform[], dataViewMappings: DataViewMapping[], projectionActiveItems: DataViewProjectionActiveItems): DataView {
+            if (!inferUnpivotTransform(selects, dataViewMappings, oldDataView, projectionActiveItems))
                 return oldDataView;
 
             // This returns a subsetted version of the DataView rather than using prototypal inheritance because
@@ -152,13 +150,13 @@ module powerbi.data {
          * Infer from the query result and the visual mappings whether the query was pivoted.
          * Narrowly targets scatter chart scenario for now to keep code simple
          */
-        function inferUnpivotTransform(selects: DataViewSelectTransform[], dataViewMappings: DataViewMapping[], dataView: DataView): boolean {
-            if (!selects || !dataViewMappings || !dataView)
+        function inferUnpivotTransform(selects: DataViewSelectTransform[], dataViewMappings: DataViewMapping[], dataView: DataView, projectionActiveItems: DataViewProjectionActiveItems): boolean {
+            if (_.isEmpty(selects) || _.isEmpty(dataViewMappings) || !dataView)
                 return false;
 
             // select applicable mappings based on select roles
             let roleKinds: RoleKindByQueryRef = DataViewSelectTransform.createRoleKindFromMetadata(selects, dataView.metadata);
-            let projections: QueryProjectionsByRole = DataViewSelectTransform.projectionsFromSelects(selects);
+            let projections: QueryProjectionsByRole = DataViewSelectTransform.projectionsFromSelects(selects, projectionActiveItems);
             dataViewMappings = DataViewAnalysis.chooseDataViewMappings(projections, dataViewMappings, roleKinds).supportedMappings;
 
             // NOTE: limiting to simple situation that handles scatter for now - see the other side in canPivotCategorical
@@ -235,26 +233,41 @@ module powerbi.data {
             let seriesIdFields = oldRoot.childIdentityFields;
 
             // categories are the inner grouping. 
+            let categoryIndex: _.Dictionary<number> = {};
             let categories: GroupValue[] = [];
             let categoryIdLevel = oldRows.levels[1];
-            let categoryIdFields = oldChildren[0].childIdentityFields;
+            let categoryIdFields = _.isEmpty(oldChildren) ? undefined : oldChildren[0].childIdentityFields;
 
             let measureCount = oldMatrix.valueSources.length;
 
             // within each series value, the category list may not be complete so cannot simply use the inner loop index
             // to reference it.
-            let findcat = (identity: DataViewScopeIdentity) => {
-                return _.findIndex(categories, pair => DataViewScopeIdentity.equals(pair.identity, identity));
+            let findCategory = (identity: DataViewScopeIdentity) => {
+                let index = categoryIndex[identity.key];
+
+                debug.assert(index !== undefined, "findcat() !== undefined");
+
+                return index;
             };
 
             // collect series and categories from the row hierarchy
-            for (let seriesNode of oldChildren) {
-                series.push({ value: seriesNode.value, identity: seriesNode.identity });
+            if (oldChildren) {
+                let addCategory = (identity: DataViewScopeIdentity, value: any) => {
+                    let key = identity.key;
+                    let index = categoryIndex[key];
+                    if (index === undefined) {
+                        index = categories.length;
+                        categoryIndex[key] = index;
+                        categories.push({ value: value, identity: identity });
+                    }
+                };
 
-                for (let categoryNode of seriesNode.children) {
-                    let catindex = findcat(categoryNode.identity);
-                    if (catindex === -1)
-                        categories.push({ value: categoryNode.value, identity: categoryNode.identity });
+                for (let seriesNode of oldChildren) {
+                    series.push({ value: seriesNode.value, identity: seriesNode.identity });
+
+                    for (let categoryNode of seriesNode.children) {
+                        addCategory(categoryNode.identity, categoryNode.value);
+                    }
                 }
             }
             
@@ -264,7 +277,7 @@ module powerbi.data {
             for (let j = 0; j < series.length; ++j) { // outer is series
                 let seriesNode = oldChildren[j];
                 for (let categoryNode of seriesNode.children) { // inner is categories but maybe a subset
-                    let i = findcat(categoryNode.identity); // must lookup actual category index
+                    let i = findCategory(categoryNode.identity); // must lookup actual category index
 
                     if (!matrixValues[i])
                         matrixValues[i] = new Array<DataViewMatrixNodeValues>(series.length);

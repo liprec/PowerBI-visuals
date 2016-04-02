@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-
-
 module powerbitests {
     import DataDotChart = powerbi.visuals.DataDotChart;
     import dataDotChartCapabilities = powerbi.visuals.dataDotChartCapabilities;
@@ -468,11 +466,11 @@ module powerbitests {
 
             dataViewBuilder.onDataChanged();
 
-            let labels = $(".dataDotChart .axisGraphicsContext .y.axis .tick").find("text");
+            let labels = helpers.getAxisTicks('y').find("text");
 
             setTimeout(() => {
-                expect($(".dataDotChart .axisGraphicsContext .x.axis .tick").length).toBeGreaterThan(0);
-                expect($(".dataDotChart .axisGraphicsContext .y.axis .tick").length).toBeGreaterThan(0);
+                expect(helpers.getAxisTicks('x').length).toBeGreaterThan(0);
+                expect(helpers.getAxisTicks('y').length).toBeGreaterThan(0);
 
                 expect(helpers.findElementText($(labels).first())).toBe("0.0M");
                 expect(helpers.findElementTitle($(labels).first())).toBe("0.0M");
@@ -678,7 +676,7 @@ module powerbitests {
 
                 spyOn(dataViewBuilder.hostServices, "onSelect").and.callThrough();
 
-                (<any>dots.first()).d3Click(0, 0);
+                dots.first().d3Click(0, 0);
 
                 expect(dots[0].style.fillOpacity).toBe(defaultOpacity);
                 expect(dots[1].style.fillOpacity).toBe(dimmedOpacity);
@@ -710,7 +708,7 @@ module powerbitests {
 
                 spyOn(dataViewBuilder.hostServices, "onSelect").and.callThrough();
 
-                (<any>dots.first()).d3Click(0, 0);
+                dots.first().d3Click(0, 0);
                 
                 expect(dots[0].style.fillOpacity).toBe(defaultOpacity);
                 expect(dots[1].style.fillOpacity).toBe(dimmedOpacity);
@@ -741,8 +739,8 @@ module powerbitests {
 
                 spyOn(dataViewBuilder.hostServices, "onSelect").and.callThrough();
 
-                (<any>dots.first()).d3Click(0, 0);
-                (<any>dots.last()).d3Click(0, 0, EventType.CtrlKey);
+                dots.first().d3Click(0, 0);
+                dots.last().d3Click(0, 0, EventType.CtrlKey);
 
                 dataViewBuilder.visual.onClearSelection();
 
@@ -765,12 +763,12 @@ module powerbitests {
 
                 let dots = $(".dataDotChart .dot");                
 
-                (<any>dots.first()).d3Click(0, 0);
-                (<any>dots.last()).d3Click(0, 0, EventType.CtrlKey);
+                dots.first().d3Click(0, 0);
+                dots.last().d3Click(0, 0, EventType.CtrlKey);
 
                 spyOn(dataViewBuilder.hostServices, "onSelect").and.callThrough();
 
-                (<any>($(".clearCatcher").last())).d3Click(0, 0);
+                $(".clearCatcher").last().d3Click(0, 0);
 
                 expect(dots[0].style.fillOpacity).toBe(defaultOpacity);
                 expect(dots[1].style.fillOpacity).toBe(defaultOpacity);

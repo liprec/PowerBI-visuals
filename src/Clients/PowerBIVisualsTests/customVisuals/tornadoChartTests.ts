@@ -24,14 +24,22 @@
  *  THE SOFTWARE.
  */
 
-
-
 module powerbitests.customVisuals {
     import VisualClass = powerbi.visuals.samples.TornadoChart;
 
+    powerbitests.mocks.setLocale();
+
     describe("TornadoChart", () => {
         describe('capabilities', () => {
-            it("registered capabilities", () => expect(VisualClass.capabilities).toBeDefined());
+            let tornadoChartCapabilities = VisualClass.capabilities;
+
+            it("registered capabilities", () => expect(tornadoChartCapabilities).toBeDefined());
+
+            it("Capabilities should include dataViewMappings", () => expect(tornadoChartCapabilities.dataViewMappings).toBeDefined());
+
+            it("Capabilities should include dataRoles", () => expect(tornadoChartCapabilities.dataRoles).toBeDefined());
+
+            it("Capabilities should include objects", () => expect(tornadoChartCapabilities.objects).toBeDefined());
         });
 
         describe("DOM tests", () => {
@@ -43,14 +51,23 @@ module powerbitests.customVisuals {
                 dataViews = [new powerbitests.customVisuals.sampleDataViews.SalesByCountryData().getDataView()];
             });
 
-            it("svg element created", () =>expect(visualBuilder.mainElement[0]).toBeInDOM());
+            it("svg element created", () => expect(visualBuilder.mainElement[0]).toBeInDOM());
 
             it("update", (done) => {
                 visualBuilder.update(dataViews);
                 setTimeout(() => {
-                    var renderedCategories = visualBuilder.mainElement.children("g").first().children().first().children().length/2;
+                    var renderedCategories = visualBuilder.mainElement.find('.columns').children().length / 2;
                     expect(renderedCategories).toBeGreaterThan(0);
                     expect(renderedCategories).toBeLessThan(dataViews[0].categorical.categories[0].values.length + 1);
+                    done();
+                }, powerbitests.DefaultWaitForRender);
+            });
+
+            it("Clear catcher covers the whole visual", (done) => {
+                visualBuilder.update(dataViews);
+                setTimeout(() => {
+                    var clearCatcher = visualBuilder.mainElement.children("g").first().children().first().find('clearCatcher');
+                    expect(clearCatcher).toBeDefined();
                     done();
                 }, powerbitests.DefaultWaitForRender);
             });
@@ -63,7 +80,7 @@ module powerbitests.customVisuals {
             this.build();
             this.init();
         }
-        
+
         public get mainElement() {
             return this.element.children('svg.tornado-chart');
         }

@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.visuals {
     import createClassAndSelector = jsCommon.CssConstants.createClassAndSelector;
     import StringExtensions = jsCommon.StringExtensions;
@@ -41,6 +39,7 @@ module powerbi.visuals {
     
     /** Represents a rich text box that supports view & edit mode. */
     export class Textbox implements IVisual {
+        private static ClassName = 'textbox';
         private editor: RichText.QuillWrapper;
         private element: JQuery;
         private host: IVisualHostServices;
@@ -52,11 +51,6 @@ module powerbi.visuals {
             this.element = options.element;
             this.host = options.host;
             this.viewport = options.viewport;
-            this.element.addClass('richtextbox');
-            this.element.css({
-                'font-family': RichText.defaultFont,
-                'font-size': RichText.defaultFontSize,
-            });
 
             this.readOnly = (this.host.getViewMode() === ViewMode.View);
             this.paragraphs = [];
@@ -118,7 +112,13 @@ module powerbi.visuals {
                 }
 
                 this.element.empty();
-                this.element.append(RichTextConversion.convertParagraphsToHtml(this.paragraphs));
+                let htmlContent = RichTextConversion.convertParagraphsToHtml(this.paragraphs);
+                htmlContent.addClass(Textbox.ClassName);
+                htmlContent.css({
+                    'font-family': RichText.defaultFont,
+                    'font-size': RichText.defaultFontSize,
+                });
+                this.element.append(htmlContent);
             }
             else {
                 // Showing the Quill editor.
@@ -128,7 +128,13 @@ module powerbi.visuals {
                     this.editor.textChanged = (delta, source) => this.saveContents();
 
                     this.element.empty();
-                    this.element.append(this.editor.getElement());
+                    let editorElement = this.editor.getElement();
+                    editorElement.addClass(Textbox.ClassName);
+                    editorElement.css({
+                        'font-family': RichText.defaultFont,
+                        'font-size': RichText.defaultFontSize,
+                    });
+                    this.element.append(editorElement);
                 }
 
                 this.editor.setContents(RichTextConversion.convertParagraphsToOps(this.paragraphs));
@@ -263,7 +269,7 @@ module powerbi.visuals {
                     if (styleDef) {
                         let css = {};
                         if (styleDef.fontFamily) {
-                            css['font-family'] = RichText.getFontFamily(removeQuotes(styleDef.fontFamily));
+                            css['font-family'] = RichText.getCssFontFamily(removeQuotes(styleDef.fontFamily));
                         }
 
                         if (styleDef.fontSize) {
@@ -336,7 +342,7 @@ module powerbi.visuals {
                     let styleDef = textRunDef.textStyle;
                     if (styleDef) {
                         if (styleDef.fontFamily) {
-                            formats.font = RichText.getFontFamily(removeQuotes(styleDef.fontFamily));
+                            formats.font = RichText.getCssFontFamily(removeQuotes(styleDef.fontFamily));
                         }
 
                         if (styleDef.fontSize) {
@@ -381,9 +387,13 @@ module powerbi.visuals {
                 style.fontWeight = 'bold';
             }
             if (attributes.font) {
-                // TODO: "Heading"?
-                // NOTE: We should always save font names without any quotes.
-                style.fontFamily = removeQuotes(attributes.font);
+                // We should always save font names without any quotes.
+                let font = removeQuotes(attributes.font);
+
+                // Convert built-in font families back into their proper font families (e.g. wf_segoe-ui_normal -> Segoe UI)
+                font = RichText.getFontFamilyForBuiltInFont(font);
+
+                style.fontFamily = font;
             }
             if (attributes.italic) {
                 style.fontStyle = 'italic';
@@ -458,8 +468,8 @@ module powerbi.visuals {
             'Wingdings',
             'Wingdings 2',
             'Wingdings 3',
-        ].map((font) => <ListValueOption> { label: font, value: getFontFamily(font) });
-        export let defaultFont = getFontFamily('Segoe UI Light');
+        ].map((font) => <ListValueOption>{ label: font, value: getCssFontFamily(font) });
+        export let defaultFont = getCssFontFamily('Segoe UI Light');
 
         const fontSizes: ListValueOption[] = [
             '8', '9', '10', '10.5', '11', '12', '14', '16', '18', '20', '24', '28', '32', '36', '40', '42', '44', '54', '60', '66', '72', '80', '88', '96'
@@ -470,9 +480,12 @@ module powerbi.visuals {
             'Left',
             'Center',
             'Right',
-        ].map((alignment) => <ListValueOption> { label: alignment, value: alignment.toLowerCase() });
+        ].map((alignment) => <ListValueOption>{ label: alignment, value: alignment.toLowerCase() });
 
-        export function getFontFamily(font: string): string {
+        /**
+         * Given a font family returns the value we should use for the font-family css property.
+         */
+        export function getCssFontFamily(font: string): string {
             let family: string = fontMap[font];
             if (family == null)
                 family = font;
@@ -483,6 +496,14 @@ module powerbi.visuals {
             }
 
             return family;
+        }
+
+        /**
+         * Convert built-in font families back into their proper font families (e.g. wf_segoe-ui_normal -> Segoe UI)
+         */
+        export function getFontFamilyForBuiltInFont(font: string): string {
+            let fontFamily = _.findKey(fontMap, (value) => value === font);
+            return fontFamily || font;
         }
 
         export class QuillWrapper {
@@ -529,6 +550,7 @@ module powerbi.visuals {
             constructor(readOnly: boolean, host: IVisualHostServices) {
                 this.host = host;
                 this.$container = $('<div>');
+
                 this.readOnly = readOnly;
 
                 this.localizationProvider = {

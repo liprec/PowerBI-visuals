@@ -24,15 +24,14 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.visuals {
     export const textboxCapabilities: VisualCapabilities = {
         objects: {
             general: {
                 properties: {
                     paragraphs: {
-                        type: { paragraphs: {} }
+                        type: { paragraphs: {} },
+                        suppressFormatPainterCopy: true,
                     }
                 }
             }

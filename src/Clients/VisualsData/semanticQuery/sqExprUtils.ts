@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.data {
     import StringExtensions = jsCommon.StringExtensions;
 
@@ -76,6 +74,17 @@ module powerbi.data {
             return emptyList;
         }
 
+        export function supportsArithmetic(expr: SQExpr, schema: FederatedConceptualSchema): boolean {
+            let metadata = expr.getMetadata(schema),
+                type = metadata && metadata.type;
+
+            if (!metadata || !type) {
+                return false;
+            }
+            
+            return type.numeric || type.dateTime || type.duration;
+        }
+
         export function isSupportedAggregate(
             expr: SQExpr,
             schema: FederatedConceptualSchema,
@@ -110,8 +119,8 @@ module powerbi.data {
 
             return true;
         }
-
-        export function uniqueName(namedItems: NamedSQExpr[], expr: SQExpr): string {
+        
+        export function uniqueName(namedItems: NamedSQExpr[], expr: SQExpr, exprDefaultName?: string): string {
             debug.assertValue(namedItems, 'namedItems');
 
             // Determine all names
@@ -119,7 +128,7 @@ module powerbi.data {
             for (let i = 0, len = namedItems.length; i < len; i++)
                 names[namedItems[i].name] = true;
 
-            return StringExtensions.findUniqueName(names, defaultName(expr));
+            return StringExtensions.findUniqueName(names, exprDefaultName || defaultName(expr));
         }
 
         /** Generates a default expression name  */
@@ -156,6 +165,15 @@ module powerbi.data {
             return capabilities && capabilities.discourageQueryAggregateUsage;
         }
 
+        export function getAggregateBehavior(expr: SQExpr, schema: FederatedConceptualSchema): ConceptualAggregateBehavior {
+            debug.assertValue(expr, 'expr');
+            debug.assertValue(schema, 'schema');
+
+            let column = getConceptualColumn(expr, schema);
+            if (column)
+                return column.aggregateBehavior;
+        }
+
         export function getSchemaCapabilities(expr: SQExpr, schema: FederatedConceptualSchema): ConceptualCapabilities {
             debug.assertValue(expr, 'expr');
             debug.assertValue(schema, 'schema');
@@ -178,6 +196,16 @@ module powerbi.data {
             let kpiTrendProperty = getKpiTrendProperty(expr, schema);
             if (kpiTrendProperty)
                 return kpiTrendProperty.kpiValue.measure.kpi.trendMetadata;
+        }
+
+        export function getConceptualEntity(entityExpr: SQEntityExpr, schema: FederatedConceptualSchema): ConceptualEntity {
+            debug.assertValue(entityExpr, 'entityExpr');
+
+            let conceptualEntity = schema
+                .schema(entityExpr.schema)
+                .entities
+                .withName(entityExpr.entity);
+            return conceptualEntity;
         }
 
         function getKpiStatusProperty(expr: SQExpr, schema: FederatedConceptualSchema): ConceptualProperty {
@@ -211,6 +239,12 @@ module powerbi.data {
         }
 
         export function getDefaultValue(fieldSQExpr: SQExpr, schema: FederatedConceptualSchema): SQConstantExpr {
+            let column = getConceptualColumn(fieldSQExpr, schema);
+            if (column)
+                return column.defaultValue;
+        }
+
+        function getConceptualColumn(fieldSQExpr: SQExpr, schema: FederatedConceptualSchema): ConceptualColumn {
             if (!fieldSQExpr || !schema)
                 return;
 
@@ -224,8 +258,8 @@ module powerbi.data {
                 if (schema.schema(column.schema) && sqField.column.name) {
                     let property = schema.schema(column.schema).findProperty(column.entity, sqField.column.name);
 
-                    if (property && property.column)
-                        return property.column.defaultValue;
+                    if (property)
+                        return property.column;
                 }
             }
             else {
@@ -239,8 +273,8 @@ module powerbi.data {
 
                         if (hierarchy) {
                             let hierarchyLevel: ConceptualHierarchyLevel = hierarchy.levels.withName(hierarchyLevelField.level);
-                            if (hierarchyLevel && hierarchyLevel.column && hierarchyLevel.column.column)
-                                return hierarchyLevel.column.column.defaultValue;
+                            if (hierarchyLevel && hierarchyLevel.column)
+                                return hierarchyLevel.column.column;
                         }
                     }
                 }
@@ -313,6 +347,10 @@ module powerbi.data {
                 return QueryAggregateFunction[expr.func] + '(' + expr.arg.accept(this) + ')';
             }
 
+            public visitArithmetic(expr: SQArithmeticExpr, fallback: string): string {
+                return powerbi.data.getArithmeticOperatorName(expr.operator) + '(' + expr.left.accept(this) + ', ' + expr.right.accept(this) + ')';
+            }
+
             public visitConstant(expr: SQConstantExpr): string {
                 return 'const';
             }
@@ -330,6 +368,10 @@ module powerbi.data {
             }
 
             public visitAggr(expr: SQAggregationExpr): boolean {
+                return true;
+            }
+
+            public visitArithmetic(expr: SQArithmeticExpr): boolean {
                 return true;
             }
 

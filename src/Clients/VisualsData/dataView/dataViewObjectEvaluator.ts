@@ -24,7 +24,6 @@
  *  THE SOFTWARE.
  */
  
-/// <reference path="../_references.ts"/>
 
 module powerbi.data {
     /** Responsible for evaluating object property expressions to be applied at various scopes in a DataView. */
@@ -257,6 +256,10 @@ module powerbi.data {
                 return expr.accept(ExpressionEvaluator.instance, evalContext);
             }
 
+            public visitColumnRef(expr: SQColumnRefExpr, evalContext: IEvalContext): PrimitiveValue {
+                return evalContext.getExprValue(expr);
+            }
+
             public visitConstant(expr: SQConstantExpr, evalContext: IEvalContext): PrimitiveValue {
                 return expr.value;
             }
@@ -267,6 +270,16 @@ module powerbi.data {
 
             public visitAggr(expr: SQAggregationExpr, evalContext: IEvalContext): PrimitiveValue {
                 return evalContext.getExprValue(expr);
+            }
+
+            public visitFillRule(expr: SQFillRuleExpr, evalContext: IEvalContext): PrimitiveValue {
+                let inputValue = expr.input.accept(this, evalContext);
+                if (inputValue !== undefined) {
+                    let colorAllocator = evalContext.getColorAllocator(expr);
+                    if (colorAllocator) {
+                        return colorAllocator.color(inputValue);
+                    }
+                }
             }
         }
     }

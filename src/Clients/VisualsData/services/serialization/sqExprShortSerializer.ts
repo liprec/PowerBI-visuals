@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../../_references.ts"/>
-
 module powerbi.data {
     /** Serializes SQExpr in a form optimized in-memory comparison, but not intended for storage on disk. */
     export module SQExprShortSerializer {
@@ -113,6 +111,18 @@ module powerbi.data {
                     const: {
                         t: expr.type.primitiveType,
                         v: expr.value,
+                    }
+                };
+            }
+
+            public visitArithmetic(expr: SQArithmeticExpr): {} {
+                debug.assertValue(expr, 'expr');
+
+                return {
+                    arithmetic: {
+                        o: expr.operator,
+                        l: expr.left.accept(this),
+                        r: expr.right.accept(this)
                     }
                 };
             }

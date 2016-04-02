@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.visuals {
     const defaultLevelOfDetail = 11;
 
@@ -262,6 +260,25 @@ module powerbi.visuals {
             let latitude = 90 - 360 * Math.atan(Math.exp(-y * 2 * Math.PI)) / Math.PI;
             let longitude = 360 * x;
             return new Microsoft.Maps.Location(latitude, longitude);
+        }
+
+        export module CurrentLocation {
+
+            export function createPushpin(location: Microsoft.Maps.Location): Microsoft.Maps.Pushpin {
+                let template = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
+                                   + '<circle fill="#FF5F00" cx="12" cy="12" r="6"/>'
+                                   + '<circle fill="none" stroke="#FF5F00" stroke-width="2" cx="12" cy="12" r="10"/>'
+                                   + '</svg>';
+
+                let options: Microsoft.Maps.PushpinOptions = {
+                    draggable: false,
+                    htmlContent: template,
+                    height: 24,
+                    width: 24
+                };
+
+                return new Microsoft.Maps.Pushpin(location, options);
+            }
         }
     }
 

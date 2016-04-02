@@ -24,40 +24,32 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../../_references.ts"/>
-
 module powerbi.data {
     export interface ICategoricalEvalContext extends IEvalContext {
         setCurrentRowIndex(index: number): void;
     }
 
-    export function createCategoricalEvalContext(
-        dataViewCategorical: DataViewCategorical,
-        identities?: DataViewScopeIdentity[]): ICategoricalEvalContext {
-        return new CategoricalEvalContext(dataViewCategorical, identities);
+    export function createCategoricalEvalContext(colorAllocatorProvider: IColorAllocatorCache, dataViewCategorical: DataViewCategorical): ICategoricalEvalContext {
+        return new CategoricalEvalContext(colorAllocatorProvider, dataViewCategorical);
     }
 
     class CategoricalEvalContext implements ICategoricalEvalContext {
+        private colorAllocatorProvider: IColorAllocatorCache;
         private dataView: DataViewCategorical;
-        private identities: DataViewScopeIdentity[];
         private columnsByRole: { [name: string]: DataViewCategoricalColumn };
         private index: number;
 
-        constructor(dataView: DataViewCategorical, identities?: DataViewScopeIdentity[]) {
+        constructor(colorAllocatorProvider: IColorAllocatorCache, dataView: DataViewCategorical) {
+            debug.assertValue(colorAllocatorProvider, 'colorAllocatorProvider');
             debug.assertValue(dataView, 'dataView');
-            debug.assertAnyValue(identities, 'identities');
 
+            this.colorAllocatorProvider = colorAllocatorProvider;
             this.dataView = dataView;
-            this.identities = identities;
             this.columnsByRole = {};
         }
 
-        public getCurrentIdentity(): DataViewScopeIdentity {
-            let identities = this.identities,
-                index = this.index;
-
-            if (identities && index != null)
-                return identities[index];
+        public getColorAllocator(expr: SQFillRuleExpr): IColorAllocator {
+            return this.colorAllocatorProvider.get(expr);
         }
 
         public getExprValue(expr: SQExpr): PrimitiveValue {

@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.visuals {
     export const multiRowCardCapabilities: VisualCapabilities = {
         dataRoles: [
@@ -105,5 +103,6 @@ module powerbi.visuals {
         }],
         suppressDefaultTitle: true,
         supportsSelection: false,
+        disableVisualDetails: true,
     };
 }

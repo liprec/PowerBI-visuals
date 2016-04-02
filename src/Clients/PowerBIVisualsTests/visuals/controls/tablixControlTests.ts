@@ -24,15 +24,12 @@
  *  THE SOFTWARE.
  */
 
-
-
 module powerbitests {
     import Controls = powerbi.visuals.controls;
     import InternalControls = powerbi.visuals.controls.internal;
     import TablixLayoutManager = powerbi.visuals.controls.internal.TablixLayoutManager;
 
-    let colWidthChangedCallback = false;
-    let colWidthCallback = [50];
+    let colWidths: Controls.ColumnWidthObject[] = [{ queryName: "Column", width: 50 }];
     let parentElement;
 
     describe("TablixGrid", () => {
@@ -64,8 +61,9 @@ module powerbitests {
             grid.onStartRenderingIteration();
             let col0 = grid.getOrCreateColumn(0);
             expect(col0.getContextualWidth()).toBe(50);
-            col0.resize(35);
-            expect(colWidthCallback[0]).toBe(35);
+            col0.onResize(35);
+            col0.onResizeEnd(35);
+            expect(colWidths[0].width).toBe(35);
         });
 
         it("CalculateWidth AutoSize property off ", function () {
@@ -155,7 +153,7 @@ module powerbitests {
                 });
                 layoutManager = tablixControl.layoutManager;
 
-                let actualFontSize = $(parentElement).find('.bi-tablix').css('font-size');
+                let actualFontSize = $(parentElement).find('.tablixCanvas').css('font-size');
                 expect(actualFontSize).toBe('24px');
             });
         });
@@ -212,10 +210,12 @@ module powerbitests {
 
     describe("Scrollbar", () => {
 
-        let scrollbar;
+        let scrollbar: Controls.Scrollbar;
+        let parentDiv: HTMLDivElement;
 
         beforeEach(() => {
-            scrollbar = new Controls.Scrollbar(document.createElement("div"));
+            parentDiv = document.createElement("div");
+            scrollbar = new Controls.Scrollbar(parentDiv, Controls.TablixLayoutKind.Canvas);
         });
 
         it("Uses mouse wheel range", () => {
@@ -235,6 +235,21 @@ module powerbitests {
             scrollbar.onMouseWheel(helpers.createMouseWheelEvent("mousewheel", -240));
 
             expect(callbackCalled).toBeFalsy();
+        });
+
+        it("Scrollbar is attached for Canvas", (done) => {
+            expect(parentDiv.children.length).toBe(1);
+            done();
+        });
+
+        it("Scrollbar is not attached for Dashboard", (done) => {
+            while (parentDiv.firstChild) {
+                parentDiv.removeChild(parentDiv.firstChild);
+            }
+
+            scrollbar = new Controls.Scrollbar(parentDiv, Controls.TablixLayoutKind.DashboardTile);
+            expect(parentDiv.children.length).toBe(0);
+            done();
         });
     });
 
@@ -288,7 +303,8 @@ module powerbitests {
 
     function createMockNavigator(): Controls.ITablixHierarchyNavigator {
         return {
-            getDepth: (hierarchy: any): number=> 1,
+            getColumnHierarchyDepth: (): number=> 1,
+            getRowHierarchyDepth: (): number=> 1,
             getLeafCount: (hierarchy: any): number=> 1,
             getLeafAt: (hierarchy: any, index: number): any=> 1,
             getParent: (item: any): any=> { },
@@ -305,18 +321,21 @@ module powerbitests {
             getCorner: (rowLevel: number, columnLevel: number): any=> { },
             headerItemEquals: (item1: any, item2: any): boolean=> true,
             bodyCellItemEquals: (item1: any, item2: any): boolean=> true,
-            cornerCellItemEquals: (item1: any, item2: any): boolean=> true
+            cornerCellItemEquals: (item1: any, item2: any): boolean=> true,
+            isFirstItem: (item: any, items: any): boolean => true,
+            areAllParentsFirst: (item: any): boolean => true,
+            areAllParentsLast: (item: any): boolean => true,
+            getChildrenLevelDifference: (item: any): number => 1,
         };
     }
 
     function createMockColumnWidthManager(): Controls.TablixColumnWidthManager {
-        let columnWidthManager = new Controls.TablixColumnWidthManager(null /* dataView*/, false);
-        columnWidthManager.columnWidthResizeCallback = () => {
-            colWidthChangedCallback = true;
-            colWidthCallback[0] = 35;
+        let columnWidthManager = new Controls.TablixColumnWidthManager(null /* dataView*/, true, null);
+        columnWidthManager.onColumnWidthChanged = () => {
+            colWidths[0].width = 35;
         };
 
-        columnWidthManager.getColumnWidths = () => colWidthCallback;
+        columnWidthManager['columnWidthObjects'] = colWidths;
         return columnWidthManager;
     }
 } 

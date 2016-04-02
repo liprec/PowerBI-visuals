@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../../../_references.ts"/>
-
 module powerbi.visuals.controls.internal {
     import PixelConverter = jsCommon.PixelConverter;
 
@@ -35,12 +33,6 @@ module powerbi.visuals.controls.internal {
      * widths and heights and store it in this structure.
      */
     export class SizeComputationManager {
-
-        // Unfortunately since we are doing manual layout, we need to hardcode some layout properties here.
-        // These must be kept in sync with what is specified in the .bi-dashboard-tablix class.
-        private static DashboardCellPaddingLeft = 10;
-        private static DashboardCellPaddingRight = 5;
-
         // Minimum size for a column, used to calculate layout
         private static TablixMinimumColumnWidth = 75;
 
@@ -81,7 +73,7 @@ module powerbi.visuals.controls.internal {
         }
 
         public get contentWidth(): number {
-            return this._cellWidth - SizeComputationManager.DashboardCellPaddingLeft - SizeComputationManager.DashboardCellPaddingRight;
+            return this._cellWidth;
         }
 
         public get contentHeight(): number {
@@ -276,7 +268,7 @@ module powerbi.visuals.controls.internal {
         /**
          * Implementing classes must override this to send dimentions to TablixControl.
          */
-        public _sendDimensionsToControl(): void { //extending class overrides this
+        public _sendDimensionsToControl(): void { // extending class overrides this
             debug.assertFail("PureVirtualMethod: DimensionLayoutManager._sendDimensionsToControl");
         }
 
@@ -670,7 +662,7 @@ module powerbi.visuals.controls.internal {
                     let startIndex = owner.getIndex(this._grid);
                     for (let k = 0; k < span; k++) {
                         let item = realizedItems[k + startIndex];
-                        totalSizeInSpan += this.getSizeWithScrolling(item.getContentContextualWidth(), k + startIndex);
+                        totalSizeInSpan += item.getContentContextualWidth();
                         if (k === span - 1)
                             this.updateLastChildSize(cell, item, totalSizeInSpan);
                     }
@@ -702,6 +694,10 @@ module powerbi.visuals.controls.internal {
             this.resizingDelta = 0;
             this.animationFrame = null;
             this.scale = scale;
+        }
+
+        public getNewSize(): number {
+            return this.startColumnWidth + this.resizingDelta;
         }
     }
 
@@ -838,12 +834,16 @@ module powerbi.visuals.controls.internal {
             if (this.isResizing() && this._resizeState.animationFrame !== null) {
                 this.performResizing(); // if we reached the end and we are still waiting for the last animation frame, perform the pending resizing and clear the state 
             }
+
+            this.endResizing();
+
             this._resizeState = null;
         }
 
         public onReset(cell: TablixCell) {
             this._resizeState = new ResizeState(cell._column, -1, 1);
             cell._column.clearSize();
+            this.endResizing();
             this.owner.owner.refresh(false);
             this._resizeState = null;
         }
@@ -867,7 +867,7 @@ module powerbi.visuals.controls.internal {
 
                 if (column !== this._resizeState.column) {  // we moved the item of the column that is being resized to another one 
                     this._resizeState.column = column;
-                    column.resize(this._resizeState.startColumnWidth + this._resizeState.resizingDelta);
+                    column.onResize(this._resizeState.getNewSize());
                     break;
                 }
             }
@@ -876,11 +876,18 @@ module powerbi.visuals.controls.internal {
         private performResizing(): void {
             if (this._resizeState === null) // in case of FireFox we cannot cancel the animation frame request
                 return;
-
             this._resizeState.animationFrame = null;
-            let newSize = this._resizeState.startColumnWidth + this._resizeState.resizingDelta;
-            this._resizeState.column.resize(newSize);
+            let newSize = this._resizeState.getNewSize();
+            this._resizeState.column.onResize(newSize);
             this.owner.owner.refresh(false);
+        }
+
+        private endResizing(): void {
+            if (this._resizeState === null) // in case of FireFox we cannot cancel the animation frame request
+                return;
+         
+            let newSize = this._resizeState.getNewSize();
+            this._resizeState.column.onResizeEnd(newSize);   
         }
 
         /**
@@ -934,7 +941,8 @@ module powerbi.visuals.controls.internal {
                 computedSize = this.owner.getContentWidth(undefined);
             }
 
-            item.resize(computedSize);
+            item.onResize(computedSize);
+            item.onResizeEnd(computedSize);
             return computedSize;
         }
 
@@ -1127,7 +1135,7 @@ module powerbi.visuals.controls.internal {
 
         protected _calculateSize(item: ITablixGridItem): number {
             let computedSize = this.owner.getEstimatedRowHeight();
-            item.resize(computedSize);
+            item.onResize(computedSize);
             return computedSize;
         }
 
@@ -1226,6 +1234,17 @@ module powerbi.visuals.controls.internal {
             let column: TablixColumn = this._grid.getOrCreateColumn(columnIndex + this._columnLayoutManager._gridOffset);
             let isLeaf = this.owner.hierarchyNavigator.isLeaf(item);
             let cell: TablixCell = row.getOrCreateColumnHeader(column, this._columnLayoutManager.isScrollableHeader(item, items, columnIndex), isLeaf);
+
+            let rowIdx = this.owner.hierarchyNavigator.getLevel(item);
+            cell.position.row.index = rowIdx;
+            cell.position.row.isFirst = rowIdx === 0;
+            cell.position.row.isLast = isLeaf;
+
+            let colIdx = this.owner.hierarchyNavigator.getIndex(item);
+            cell.position.column.index = colIdx;
+            cell.position.column.isFirst = this.owner.hierarchyNavigator.areAllParentsFirst(item, items);
+            cell.position.column.isLast = this.owner.hierarchyNavigator.areAllParentsLast(item, items);
+
             this.enableCellHorizontalResize(isLeaf, cell);
             return cell;
         }
@@ -1233,6 +1252,7 @@ module powerbi.visuals.controls.internal {
         public getOrCreateRowHeader(item: any, items: any, rowIndex: number, columnIndex: number): ITablixCell {
             let row: TablixRow = this._grid.getOrCreateRow(rowIndex + this._rowLayoutManager._gridOffset);
             let column: TablixColumn = this._grid.getOrCreateColumn(columnIndex);
+            let isLeaf = this.owner.hierarchyNavigator.isLeaf(item);
             let scrollable: boolean = this._rowLayoutManager.isScrollableHeader(item, items, rowIndex);
 
             if (row.getRealizedCellCount() === 0) {
@@ -1240,6 +1260,16 @@ module powerbi.visuals.controls.internal {
             }
 
             let cell: TablixCell = row.getOrCreateRowHeader(column, scrollable, this.owner.hierarchyNavigator.isLeaf(item));
+            let rowIdx = this.owner.hierarchyNavigator.getIndex(item);
+            cell.position.row.index = rowIdx;
+            cell.position.row.isFirst = this.owner.hierarchyNavigator.areAllParentsFirst(item, items);
+            cell.position.row.isLast = this.owner.hierarchyNavigator.areAllParentsLast(item, items);
+
+            let colIdx = this.owner.hierarchyNavigator.getLevel(item);
+            cell.position.column.index = colIdx;
+            cell.position.column.isFirst = colIdx === 0;
+            cell.position.column.isLast = isLeaf;
+
             cell.enableHorizontalResize(false, this._columnLayoutManager);
             return cell;
         }
@@ -1247,9 +1277,21 @@ module powerbi.visuals.controls.internal {
         public getOrCreateCornerCell(item: any, rowLevel: number, columnLevel: number): ITablixCell {
             let row: TablixRow = this._grid.getOrCreateRow(columnLevel);
             let column: TablixColumn = this._grid.getOrCreateColumn(rowLevel);
-            let cell: TablixCell = row.getOrCreateCornerCell(column);
+
             let columnDepth = this._columnLayoutManager.dimension.getDepth();
             let isLeaf = columnLevel === (columnDepth - 1);
+
+            let cell: TablixCell = row.getOrCreateCornerCell(column);
+            let rowIdx = columnLevel;
+            cell.position.row.index = rowIdx;
+            cell.position.row.isFirst = rowIdx === 0;
+            cell.position.row.isLast = isLeaf;
+
+            let colIdx = rowLevel;
+            cell.position.column.index = colIdx;
+            cell.position.column.isFirst = colIdx === 0;
+            cell.position.column.isLast = colIdx === this._rowLayoutManager.dimension.getDepth() - 1;
+
             this.enableCellHorizontalResize(isLeaf, cell);
             return cell;
         }
@@ -1267,6 +1309,7 @@ module powerbi.visuals.controls.internal {
             }
 
             let cell: TablixCell = row.getOrCreateBodyCell(column, scrollable);
+            cell.position = cellItem.position;
             cell.enableHorizontalResize(false, this._columnLayoutManager);
             return cell;
         }
@@ -1279,6 +1322,7 @@ module powerbi.visuals.controls.internal {
             scrollable = (row._realizedBodyCells.length === 0 && this._owner.columnDimension.getFractionScrollOffset() !== 0);
 
             let cell: TablixCell = row.getOrCreateFooterBodyCell(column, scrollable);
+            cell.position = cellItem.position;
             cell.enableHorizontalResize(false, this._columnLayoutManager);
             return cell;
         }
@@ -1290,6 +1334,7 @@ module powerbi.visuals.controls.internal {
             //debug.assert(this.owner.hierarchyNavigator.isLeaf(item), "Leaf item expected");
 
             let cell: TablixCell = row.getOrCreateFooterRowHeader(column);
+            cell.position = undefined;
             cell.enableHorizontalResize(false, this._columnLayoutManager);
             return cell;
         }
@@ -1466,6 +1511,9 @@ module powerbi.visuals.controls.internal {
         public onRowHeaderRealized(item: any, cell: ITablixCell): void {
             let hierarchyNavigator: ITablixHierarchyNavigator = this._owner.hierarchyNavigator;
             let leaf = hierarchyNavigator.isLeaf(item);
+            let tablixCell = (<TablixCell>cell);
+            if (tablixCell.colSpan > 1)
+                tablixCell.setContentWidth(-1);
             this._rowLayoutManager.onHeaderRealized(item, cell, leaf);
         }
 
@@ -1535,7 +1583,7 @@ module powerbi.visuals.controls.internal {
         }
 
         public getTablixClassName(): string {
-            return "bi-dashboard-tablix";
+            return "tablixDashboard";
         }
 
         public getLayoutKind(): TablixLayoutKind {
@@ -1631,7 +1679,7 @@ module powerbi.visuals.controls.internal {
         }
 
         public getTablixClassName(): string {
-            return "bi-tablix";
+            return "tablixCanvas";
         }
 
         public getLayoutKind(): TablixLayoutKind {
@@ -1642,6 +1690,9 @@ module powerbi.visuals.controls.internal {
             // TODO: Use TextMeasurementService once the DOM methods are fixed (they are not working right now)
             let textDiv = controls.internal.TablixUtils.createDiv();
             textDiv.style.cssFloat = 'left';
+            textDiv.style.whiteSpace = 'nowrap';
+            textDiv.style.overflow = 'hidden';
+            textDiv.style.lineHeight = 'normal';
             parentElement.appendChild(textDiv);
 
             let textNode = document.createTextNode("a");

@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-
-
 module powerbitests {
     import DataViewSelfCrossJoin = powerbi.data.DataViewSelfCrossJoin;
     import DataViewTransform = powerbi.data.DataViewTransform;
@@ -4013,7 +4011,7 @@ module powerbitests {
                 }]
             });
 
-            let ticksText: JQuery = $('.columnChart .axisGraphicsContext .x.axis .tick').find('text');
+            let ticksText: JQuery = helpers.getAxisTicks('x').find('text');
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
@@ -4056,7 +4054,7 @@ module powerbitests {
                 }]
             });
 
-            let ticksText: JQuery = $('.columnChart .axisGraphicsContext .x.axis .tick').find('text');
+            let ticksText: JQuery = helpers.getAxisTicks('x').find('text');
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
@@ -4120,12 +4118,12 @@ module powerbitests {
                 }]
             });
 
-            let ticksText: JQuery = $('.columnChart .axisGraphicsContext .y.axis .tick').find('text');
+            let ticksText: JQuery = helpers.getAxisTicks('y').find('text');
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
-                expect($('.columnChart .axisGraphicsContext .x.axis .tick').length).toBe(0);
-                expect($('.columnChart .axisGraphicsContext .y.axis .tick').length).toBeGreaterThan(0);
+                expect(helpers.getAxisTicks('x').length).toBe(0);
+                expect(helpers.getAxisTicks('y').length).toBeGreaterThan(0);
                 expect(helpers.findElementText(ticksText.last())).toBe('10');
                 expect(helpers.findElementTitle(ticksText.last())).toBe('10');
                 done();
@@ -4157,12 +4155,12 @@ module powerbitests {
                 }]
             });
 
-            let ticksText: JQuery = $('.columnChart .axisGraphicsContext .y.axis .tick').find('text');
+            let ticksText: JQuery = helpers.getAxisTicks('y').find('text');
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
-                expect($('.columnChart .axisGraphicsContext .x.axis .tick').length).toBeGreaterThan(0);
-                expect($('.columnChart .axisGraphicsContext .y.axis .tick').length).toBeGreaterThan(0);
+                expect(helpers.getAxisTicks('x').length).toBeGreaterThan(0);
+                expect(helpers.getAxisTicks('y').length).toBeGreaterThan(0);
                 expect(helpers.findElementText(ticksText.last())).toBe('2.5');
                 expect(helpers.findElementTitle(ticksText.last())).toBe('2.5');
                 done();
@@ -4321,6 +4319,7 @@ module powerbitests {
                 dataLabelDecimalPoints: 0,
                 dataLabelHorizontalPosition: powerbi.visuals.referenceLineDataLabelHorizontalPosition.left,
                 dataLabelVerticalPosition: powerbi.visuals.referenceLineDataLabelVerticalPosition.above,
+                dataLabelDisplayUnits: 0,
             };
 
             dataView.metadata.objects = {
@@ -4356,6 +4355,7 @@ module powerbitests {
                             horizontalPosition: powerbi.visuals.referenceLineDataLabelHorizontalPosition.left,
                             text: '20',
                             verticalPosition: powerbi.visuals.referenceLineDataLabelVerticalPosition.above,
+                            displayUnits: 0,
                         },
                     });
 
@@ -4364,6 +4364,7 @@ module powerbitests {
                 yAxisReferenceLine['style'] = powerbi.visuals.lineStyle.dotted;
                 yAxisReferenceLine['position'] = powerbi.visuals.referenceLinePosition.front;
                 yAxisReferenceLine['dataLabelColor'] = { solid: { color: refLineColor2 } };
+                yAxisReferenceLine['dataLabelDisplayUnits'] = 1000;
 
                 v.onDataChanged({
                     dataViews: [dataView]
@@ -4385,8 +4386,137 @@ module powerbitests {
                             label: {
                                 color: refLineColor2,
                                 horizontalPosition: powerbi.visuals.referenceLineDataLabelHorizontalPosition.left,
-                                text: '20',
+                                text: '0K',
                                 verticalPosition: powerbi.visuals.referenceLineDataLabelVerticalPosition.above,
+                                displayUnits: 1000,
+                            },
+                        });
+
+                    yAxisReferenceLine['show'] = false;
+                    yAxisReferenceLine['dataLabelShow'] = false;
+
+                    v.onDataChanged({
+                        dataViews: [dataView]
+                    });
+
+                    setTimeout(() => {
+                        expect($('.y1-ref-line').length).toBe(0);
+                        expect($('.columnChart .labelGraphicsContext .label').length).toBe(0);
+
+                        done();
+                    }, DefaultWaitForRender);
+                }, DefaultWaitForRender);
+            }, DefaultWaitForRender);
+        });
+
+        it('clustered column chart reference line dom validation with M Values', (done) => {
+            let categoryValues = ['a', 'b', 'c', 'd', 'e'];
+            let categoryIdentities = categoryValues.map(d => mocks.dataViewScopeIdentity(d));
+
+            let refLineColor1 = '#ff0000';
+            let refLineColor2 = '#ff00ff';
+
+            let dataView: powerbi.DataView = {
+                metadata: metadata(dataViewMetadataThreeColumn),
+                categorical: {
+                    categories: [{
+                        source: dataViewMetadataThreeColumn[0],
+                        values: categoryValues,
+                        identity: categoryIdentities,
+                    }],
+                    values: DataViewTransform.createValueColumns([
+                        {
+                            source: dataViewMetadataThreeColumn[1],
+                            values: [1000000, 0, 3000000, null, 2000000]
+                        }, {
+                            source: dataViewMetadataThreeColumn[2],
+                            values: [0, 2000000, null, 880000, 1000000]
+                        }])
+                }
+            };
+
+            let yAxisReferenceLine: powerbi.DataViewObject = {
+                show: true,
+                value: 1600000,
+                lineColor: { solid: { color: refLineColor1 } },
+                transparency: 60,
+                style: powerbi.visuals.lineStyle.dashed,
+                position: powerbi.visuals.referenceLinePosition.back,
+                dataLabelShow: true,
+                dataLabelColor: { solid: { color: refLineColor1 } },
+                dataLabelDecimalPoints: 0,
+                dataLabelHorizontalPosition: powerbi.visuals.referenceLineDataLabelHorizontalPosition.left,
+                dataLabelVerticalPosition: powerbi.visuals.referenceLineDataLabelVerticalPosition.above,
+                dataLabelDisplayUnits: 0,
+            };
+
+            dataView.metadata.objects = {
+                y1AxisReferenceLine: [
+                    {
+                        id: '0',
+                        object: yAxisReferenceLine,
+                    }
+                ]
+            };
+
+            v.onDataChanged({
+                dataViews: [dataView]
+            });
+
+            setTimeout(() => {
+                let graphicsContext = $('.columnChart .columnChartMainGraphicsContext');
+
+                let yLine = $('.y1-ref-line');
+                let yLabel = $('.labelGraphicsContext .label').eq(0);
+                helpers.verifyReferenceLine(
+                    yLine,
+                    yLabel,
+                    graphicsContext,
+                    {
+                        inFront: false,
+                        isHorizontal: true,
+                        color: refLineColor1,
+                        style: powerbi.visuals.lineStyle.dashed,
+                        opacity: 0.4,
+                        label: {
+                            color: refLineColor1,
+                            horizontalPosition: powerbi.visuals.referenceLineDataLabelHorizontalPosition.left,
+                            text: '1,600,000',
+                            verticalPosition: powerbi.visuals.referenceLineDataLabelVerticalPosition.above,
+                            displayUnits: 0,
+                        },
+                    });
+
+                yAxisReferenceLine['lineColor'] = { solid: { color: refLineColor2 } };
+                yAxisReferenceLine['transparency'] = 0;
+                yAxisReferenceLine['style'] = powerbi.visuals.lineStyle.dotted;
+                yAxisReferenceLine['position'] = powerbi.visuals.referenceLinePosition.front;
+                yAxisReferenceLine['dataLabelColor'] = { solid: { color: refLineColor2 } };
+                yAxisReferenceLine['dataLabelDisplayUnits'] = 1000000;
+
+                v.onDataChanged({
+                    dataViews: [dataView]
+                });
+
+                setTimeout(() => {
+                    yLine = $('.y1-ref-line');
+                    yLabel = $('.labelGraphicsContext .label').eq(0);
+                    helpers.verifyReferenceLine(
+                        yLine,
+                        yLabel,
+                        graphicsContext,
+                        {
+                            inFront: true,
+                            isHorizontal: true,
+                            color: refLineColor2,
+                            style: powerbi.visuals.lineStyle.dotted,
+                            opacity: 1.0,
+                            label: {
+                                color: refLineColor2,
+                                horizontalPosition: powerbi.visuals.referenceLineDataLabelHorizontalPosition.left,
+                                text: '2M',
+                                verticalPosition: powerbi.visuals.referenceLineDataLabelVerticalPosition.above,
+                                displayUnits: 1000000,
                             },
                         });
 
@@ -4626,7 +4756,7 @@ module powerbitests {
                 }]
             });
 
-            let ticksText: JQuery = $('.columnChart .axisGraphicsContext .y.axis .tick').find('text');
+            let ticksText: JQuery = helpers.getAxisTicks('y').find('text');
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
@@ -4683,7 +4813,7 @@ module powerbitests {
                 }]
             });
 
-            let ticksText: JQuery = $('.columnChart .axisGraphicsContext .y.axis .tick').find('text');
+            let ticksText: JQuery = helpers.getAxisTicks('y').find('text');
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
@@ -5187,7 +5317,7 @@ module powerbitests {
             });
             v.onResizing({ height: 500, width: 500 });
 
-            let ticksText: JQuery = $('.columnChart .axisGraphicsContext .x.axis .tick').find('text');
+            let ticksText: JQuery = helpers.getAxisTicks('x').find('text');
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
@@ -5257,12 +5387,12 @@ module powerbitests {
                 }]
             });
 
-            let ticksText: JQuery = $('.columnChart .axisGraphicsContext .y.axis .tick').find('text');
+            let ticksText: JQuery = helpers.getAxisTicks('y').find('text');
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
                 expect($('.column').length).toBe(2);
-                expect($('.columnChart .axisGraphicsContext .y.axis .tick').length).toBe(4);
+                expect(helpers.getAxisTicks('y').length).toBe(4);
                 expect(helpers.findElementText(ticksText.last())).toBe('3');
                 expect(helpers.findElementTitle(ticksText.last())).toBe('3');
                 done();
@@ -5286,12 +5416,12 @@ module powerbitests {
                 }]
             });
 
-            let ticksText: JQuery = $('.columnChart .axisGraphicsContext .y.axis .tick').find('text');
+            let ticksText: JQuery = helpers.getAxisTicks('y').find('text');
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
-                expect($('.columnChart .axisGraphicsContext .x.axis .tick').length).toBe(0);
-                expect($('.columnChart .axisGraphicsContext .y.axis .tick').length).toBeGreaterThan(0);
+                expect(helpers.getAxisTicks('x').length).toBe(0);
+                expect(helpers.getAxisTicks('y').length).toBeGreaterThan(0);
                 expect(helpers.findElementText(ticksText.last())).toBe('10');
                 expect(helpers.findElementTitle(ticksText.last())).toBe('10');
                 done();
@@ -5323,12 +5453,12 @@ module powerbitests {
                 }]
             });
 
-            let ticksText: JQuery = $('.columnChart .axisGraphicsContext .y.axis .tick').find('text');
+            let ticksText: JQuery = helpers.getAxisTicks('y').find('text');
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
-                expect($('.columnChart .axisGraphicsContext .x.axis .tick').length).toBeGreaterThan(0);
-                expect($('.columnChart .axisGraphicsContext .y.axis .tick').length).toBeGreaterThan(0);
+                expect(helpers.getAxisTicks('x').length).toBeGreaterThan(0);
+                expect(helpers.getAxisTicks('y').length).toBeGreaterThan(0);
                 expect(helpers.findElementText(ticksText.last())).toBe('2.5');
                 expect(helpers.findElementTitle(ticksText.last())).toBe('2.5');
                 done();
@@ -5485,6 +5615,7 @@ module powerbitests {
             }, DefaultWaitForRender);
         });
 
+        // TODO: should be moved to cartesian tests
         it('background image', (done) => {
             let categoryIdentities = [
                 mocks.dataViewScopeIdentity("abc"),
@@ -5520,7 +5651,7 @@ module powerbitests {
             });
 
             setTimeout(() => {
-                let backgroundImage = $('.columnChart .background-image');
+                let backgroundImage = $('.background-image');
                 expect(backgroundImage.length).toBeGreaterThan(0);
                 expect(backgroundImage.css('height')).toBeDefined();
                 expect(backgroundImage.css('width')).toBeDefined();
@@ -5616,7 +5747,7 @@ module powerbitests {
                 }]
             });
 
-            let ticksText: JQuery = $('.columnChart .axisGraphicsContext .y.axis .tick').find('text');
+            let ticksText: JQuery = helpers.getAxisTicks('y').find('text');
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
@@ -5653,7 +5784,7 @@ module powerbitests {
                 }]
             });
 
-            let ticksText: JQuery = $('.columnChart .axisGraphicsContext .y.axis .tick').find('text');
+            let ticksText: JQuery = helpers.getAxisTicks('y').find('text');
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
@@ -5702,7 +5833,7 @@ module powerbitests {
                 }]
             });
 
-            let ticksText: JQuery = $('.columnChart .axisGraphicsContext .y.axis .tick').find('text');
+            let ticksText: JQuery = helpers.getAxisTicks('y').find('text');
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
@@ -5732,8 +5863,8 @@ module powerbitests {
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
-                expect($('.columnChart .axisGraphicsContext .x.axis .tick').length).toBe(0);
-                expect($('.columnChart .axisGraphicsContext .y.axis .tick').length).toBeGreaterThan(0);
+                expect(helpers.getAxisTicks('x').length).toBe(0);
+                expect(helpers.getAxisTicks('y').length).toBeGreaterThan(0);
                 done();
             }, DefaultWaitForRender);
         });
@@ -5987,11 +6118,11 @@ module powerbitests {
                 expect($('.label').length).toBe(0);
 
                 // Y-axis margin should be limited to a % of the chart area, and excess text should be replaced with an ellipsis.
-                expect($('.columnChart .axisGraphicsContext').attr('transform')).toBe('translate(135,8)');
+                expect($('.columnChart.axisGraphicsContext').attr('transform')).toBe('translate(135,8)');
 
                 // Note: the exact text will be different depending on the environment in which the test is run, so we can't do an exact match.
                 // Just check that the text is truncated with ellipses.
-                let labelText = helpers.findElementText($('.columnChart .axisGraphicsContext .y.axis .tick').find('text').first());
+                let labelText = helpers.findElementText(helpers.getAxisTicks('y').find('text').first());
                 expect(labelText.length).toBeLessThan(30);
                 expect(labelText.substr(labelText.length - 1)).toBe('…');
                 done();
@@ -6023,8 +6154,8 @@ module powerbitests {
                 }]
             });
 
-            let xTicksText: JQuery = $('.columnChart .axisGraphicsContext .x.axis .tick').find('text');
-            let yTicksText: JQuery = $('.columnChart .axisGraphicsContext .y.axis .tick').find('text');
+            let xTicksText: JQuery = helpers.getAxisTicks('x').find('text');
+            let yTicksText: JQuery = helpers.getAxisTicks('y').find('text');
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
@@ -6391,12 +6522,12 @@ module powerbitests {
                 expect($('.columnChart')).toBeInDOM();
                 expect($('.bar').length).toBe(2);
 
-                let labels = $('.columnChart .axisGraphicsContext .x.axis .tick').find('text');
+                let labels = helpers.getAxisTicks('x').find('text');
 
                 expect(helpers.findElementText($(labels).last())).toBe('200K');
                 expect(helpers.findElementTitle($(labels).last())).toBe('200K');
 
-                labels = $('.columnChart .axisGraphicsContext .y.axis .tick').find('text');
+                labels = helpers.getAxisTicks('y').find('text');
 
                 expect(helpers.findElementText($(labels).last())).toBe('def');
                 expect(helpers.findElementTitle($(labels).last())).toBe('def');
@@ -6553,9 +6684,9 @@ module powerbitests {
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
                 expect($('.bar').length).toBe(2);
-                expect($('.columnChart .axisGraphicsContext .x.axis .tick').length).toBe(4);
-                expect(helpers.findElementText($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('3');
-                expect(helpers.findElementTitle($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('3');
+                expect(helpers.getAxisTicks('x').length).toBe(4);
+                expect(helpers.findElementText(helpers.getAxisTicks('x').find('text').last())).toBe('3');
+                expect(helpers.findElementTitle(helpers.getAxisTicks('x').find('text').last())).toBe('3');
                 done();
             }, DefaultWaitForRender);
         });
@@ -6579,10 +6710,10 @@ module powerbitests {
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
-                expect($('.columnChart .axisGraphicsContext .y.axis .tick').length).toBe(0);
-                expect($('.columnChart .axisGraphicsContext .x.axis .tick').length).toBeGreaterThan(0);
-                expect(helpers.findElementText($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('10');
-                expect(helpers.findElementTitle($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('10');
+                expect(helpers.getAxisTicks('y').length).toBe(0);
+                expect(helpers.getAxisTicks('x').length).toBeGreaterThan(0);
+                expect(helpers.findElementText(helpers.getAxisTicks('x').find('text').last())).toBe('10');
+                expect(helpers.findElementTitle(helpers.getAxisTicks('x').find('text').last())).toBe('10');
                 done();
             }, DefaultWaitForRender);
         });
@@ -6614,10 +6745,10 @@ module powerbitests {
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
-                expect($('.columnChart .axisGraphicsContext .x.axis .tick').length).toBeGreaterThan(0);
-                expect($('.columnChart .axisGraphicsContext .y.axis .tick').length).toBeGreaterThan(0);
-                expect(helpers.findElementText($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('2.5');
-                expect(helpers.findElementTitle($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('2.5');
+                expect(helpers.getAxisTicks('x').length).toBeGreaterThan(0);
+                expect(helpers.getAxisTicks('y').length).toBeGreaterThan(0);
+                expect(helpers.findElementText(helpers.getAxisTicks('x').find('text').last())).toBe('2.5');
+                expect(helpers.findElementTitle(helpers.getAxisTicks('x').find('text').last())).toBe('2.5');
                 done();
             }, DefaultWaitForRender);
         });
@@ -6861,8 +6992,8 @@ module powerbitests {
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
                 expect($('.bar').length).toBe(2);
-                expect(helpers.findElementText($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('100%');
-                expect(helpers.findElementTitle($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('100%');
+                expect(helpers.findElementText(helpers.getAxisTicks('x').find('text').last())).toBe('100%');
+                expect(helpers.findElementTitle(helpers.getAxisTicks('x').find('text').last())).toBe('100%');
                 done();
             }, DefaultWaitForRender);
         });
@@ -6901,8 +7032,8 @@ module powerbitests {
                     .toBeLessThan(+$('.bar')[0].attributes.getNamedItem('width').value);
                 expect(+$('.highlight')[0].attributes.getNamedItem('x').value)
                     .toBe(+$('.bar')[0].attributes.getNamedItem('x').value);
-                expect(helpers.findElementText($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('100%');
-                expect(helpers.findElementTitle($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('100%');
+                expect(helpers.findElementText(helpers.getAxisTicks('x').find('text').last())).toBe('100%');
+                expect(helpers.findElementTitle(helpers.getAxisTicks('x').find('text').last())).toBe('100%');
                 done();
             }, DefaultWaitForRender);
         });
@@ -6942,8 +7073,8 @@ module powerbitests {
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
                 expect($('.bar').length).toBe(4);
-                expect(helpers.findElementText($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('100%');
-                expect(helpers.findElementTitle($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('100%');
+                expect(helpers.findElementText(helpers.getAxisTicks('x').find('text').last())).toBe('100%');
+                expect(helpers.findElementTitle(helpers.getAxisTicks('x').find('text').last())).toBe('100%');
                 done();
             }, DefaultWaitForRender);
         });
@@ -6967,8 +7098,8 @@ module powerbitests {
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
-                expect($('.columnChart .axisGraphicsContext .y.axis .tick').length).toBe(0);
-                expect($('.columnChart .axisGraphicsContext .x.axis .tick').length).toBeGreaterThan(0);
+                expect(helpers.getAxisTicks('y').length).toBe(0);
+                expect(helpers.getAxisTicks('x').length).toBeGreaterThan(0);
                 done();
             }, DefaultWaitForRender);
         });
@@ -7466,8 +7597,8 @@ module powerbitests {
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
                 expect($('.bar').length).toBe(3);
-                expect(helpers.findElementText($('.columnChart .axisGraphicsContext .y.axis .tick').find('text').last())).toBe('def');
-                expect(helpers.findElementTitle($('.columnChart .axisGraphicsContext .y.axis .tick').find('text').last())).toBe('def');
+                expect(helpers.findElementText(helpers.getAxisTicks('y').find('text').last())).toBe('def');
+                expect(helpers.findElementTitle(helpers.getAxisTicks('y').find('text').last())).toBe('def');
                 done();
             }, DefaultWaitForRender);
         });
@@ -7527,10 +7658,10 @@ module powerbitests {
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
-                expect($('.columnChart .axisGraphicsContext .y.axis .tick').length).toBe(0);
-                expect($('.columnChart .axisGraphicsContext .x.axis .tick').length).toBeGreaterThan(0);
-                expect(helpers.findElementText($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('10');
-                expect(helpers.findElementTitle($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('10');
+                expect(helpers.getAxisTicks('y').length).toBe(0);
+                expect(helpers.getAxisTicks('x').length).toBeGreaterThan(0);
+                expect(helpers.findElementText(helpers.getAxisTicks('x').find('text').last())).toBe('10');
+                expect(helpers.findElementTitle(helpers.getAxisTicks('x').find('text').last())).toBe('10');
                 done();
             }, DefaultWaitForRender);
         });
@@ -7562,10 +7693,10 @@ module powerbitests {
 
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
-                expect($('.columnChart .axisGraphicsContext .x.axis .tick').length).toBeGreaterThan(0);
-                expect($('.columnChart .axisGraphicsContext .y.axis .tick').length).toBeGreaterThan(0);
-                expect(helpers.findElementText($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('2.5');
-                expect(helpers.findElementTitle($('.columnChart .axisGraphicsContext .x.axis .tick').find('text').last())).toBe('2.5');
+                expect(helpers.getAxisTicks('x').length).toBeGreaterThan(0);
+                expect(helpers.getAxisTicks('y').length).toBeGreaterThan(0);
+                expect(helpers.findElementText(helpers.getAxisTicks('x').find('text').last())).toBe('2');
+                expect(helpers.findElementTitle(helpers.getAxisTicks('x').find('text').last())).toBe('2');
                 done();
             }, DefaultWaitForRender);
         });
@@ -7722,6 +7853,7 @@ module powerbitests {
                 dataLabelDecimalPoints: 0,
                 dataLabelHorizontalPosition: powerbi.visuals.referenceLineDataLabelHorizontalPosition.left,
                 dataLabelVerticalPosition: powerbi.visuals.referenceLineDataLabelVerticalPosition.above,
+                dataLabelDisplayUnits: 0
             };
 
             dataView.metadata.objects = {
@@ -7757,6 +7889,7 @@ module powerbitests {
                             horizontalPosition: powerbi.visuals.referenceLineDataLabelHorizontalPosition.left,
                             text: '20',
                             verticalPosition: powerbi.visuals.referenceLineDataLabelVerticalPosition.above,
+                            displayUnits: 0,
                         },
                     });
 
@@ -7765,6 +7898,7 @@ module powerbitests {
                 yAxisReferenceLine['style'] = powerbi.visuals.lineStyle.dotted;
                 yAxisReferenceLine['position'] = powerbi.visuals.referenceLinePosition.front;
                 yAxisReferenceLine['dataLabelColor'] = { solid: { color: refLineColor2 } };
+                yAxisReferenceLine['dataLabelDisplayUnits'] = 1000;
 
                 v.onDataChanged({
                     dataViews: [dataView]
@@ -7786,8 +7920,9 @@ module powerbitests {
                             label: {
                                 color: refLineColor2,
                                 horizontalPosition: powerbi.visuals.referenceLineDataLabelHorizontalPosition.left,
-                                text: '20',
+                                text: '0K',
                                 verticalPosition: powerbi.visuals.referenceLineDataLabelVerticalPosition.above,
+                                displayUnits: 1000,
                             },
                         });
 
@@ -8015,6 +8150,114 @@ module powerbitests {
             }, DefaultWaitForRender);
         });
 
+        it('Verify axis scale type valid values is "Linear" when Start value is equal to zero', (done) => {
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity("5000"),
+                mocks.dataViewScopeIdentity("10000"),
+            ];
+            v.onDataChanged({
+                dataViews: [{
+                    metadata: {
+                        columns: [measureColumn, measureColumn],
+                        objects: {
+                            categoryAxis: {
+                                start: 0,
+                                end: 1
+                            }
+                        }
+                    },
+                    categorical: {
+                        categories: [{
+                            source: measureColumn,
+                            values: [5000, 10000],
+                            identity: categoryIdentities,
+                        }]
+                    }
+                }]
+            });
+
+            setTimeout(() => {
+                var points = <VisualObjectInstanceEnumerationObject>v.enumerateObjectInstances({ objectName: 'categoryAxis' });
+                expect(points.instances[0].validValues["axisScale"][0]).toBe("linear");
+                expect(points.instances[0].validValues["axisScale"][1]).toBeUndefined();
+                done();
+            }, DefaultWaitForRender);
+        });
+
+        it('Verify axis scale type valid values is "Linear" when Ends value is equal to zero', (done) => {
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity("5000"),
+                mocks.dataViewScopeIdentity("10000"),
+            ];
+            v.onDataChanged({
+                dataViews: [{
+                    metadata: {
+                        columns: [measureColumn, measureColumn],
+                        objects: {
+                            categoryAxis: {
+                                start: 1,
+                                end: 0
+                            }
+                        }
+                    },
+                    categorical: {
+                        categories: [{
+                            source: measureColumn,
+                            values: [5000, 10000],
+                            identity: categoryIdentities,
+                        }]
+                    }
+                }]
+            });
+
+            setTimeout(() => {
+                var points = <VisualObjectInstanceEnumerationObject>v.enumerateObjectInstances({ objectName: 'categoryAxis' });
+                expect(points.instances[0].validValues["axisScale"][0]).toBe("linear");
+                expect(points.instances[0].validValues["axisScale"][1]).toBeUndefined();
+                done();
+            }, DefaultWaitForRender);
+        });
+
+        it('Verify axis scale type valid values are "Linear" and "Log" when start and end are above zero', (done) => {
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity("5000"),
+                mocks.dataViewScopeIdentity("10000"),
+            ];
+            v.onDataChanged({
+                dataViews: [{
+                    metadata: {
+                        columns: [measureColumn, measureColumn],
+                        objects: {
+                            categoryAxis: {
+                                start: 1,
+                                end: 2
+                            }
+                        }
+                    },
+                    categorical: {
+                        categories: [{
+                            source: measureColumn,
+                            values: [5000, 10000],
+                            identity: categoryIdentities,
+                        }],
+                        values: DataViewTransform.createValueColumns([{
+                            source: measureColumn,
+                            min: 100000,
+                            max: 200000,
+                            values: [100000, 200000]
+                        }])
+                    }
+                }]
+            });
+
+            setTimeout(() => {
+                var points = <VisualObjectInstanceEnumerationObject>v.enumerateObjectInstances({ objectName: 'categoryAxis' });
+                expect(points.instances[0].validValues["axisScale"][0]).toBe("linear");
+                expect(points.instances[0].validValues["axisScale"][1]).toBe("log");
+                done();
+            }, DefaultWaitForRender);
+        });
+
         it('enumerateObjectInstances: category+multi-measure', (done) => {
             let categoryIdentities = [
                 mocks.dataViewScopeIdentity("red"),
@@ -8083,7 +8326,6 @@ module powerbitests {
 
         it('enumerateObjectInstances: label settings per series where container visible and collapsed', (done) => {
             var featureSwitches: powerbi.visuals.MinervaVisualFeatureSwitches = {
-                seriesLabelFormattingEnabled: true,
             };
             v = powerbi.visuals.visualPluginFactory.createMinerva(featureSwitches).getPlugin('columnChart').create();
             v.init({
@@ -8135,7 +8377,6 @@ module powerbitests {
 
         it('enumerateObjectInstances: label settings per series where container not visible', (done) => {
             var featureSwitches: powerbi.visuals.MinervaVisualFeatureSwitches = {
-                seriesLabelFormattingEnabled: true,
             };
             v = powerbi.visuals.visualPluginFactory.createMinerva(featureSwitches).getPlugin('columnChart').create();
             v.init({
@@ -8182,7 +8423,6 @@ module powerbitests {
 
         it('enumerateObjectInstances: label settings per series where container visible and expanded', (done) => {
             let featureSwitches: powerbi.visuals.MinervaVisualFeatureSwitches = {
-                seriesLabelFormattingEnabled: true,
             };
 
             let expandedSeries = Prototype.inherit(measureColumn);
@@ -8233,7 +8473,6 @@ module powerbitests {
 
         it('enumerateObjectInstances: label settings per series where settings modified', (done) => {
             var featureSwitches: powerbi.visuals.MinervaVisualFeatureSwitches = {
-                seriesLabelFormattingEnabled: true,
             };
 
             var expandedSeries = Prototype.inherit(measureColumn);
@@ -8374,7 +8613,7 @@ module powerbitests {
         beforeEach(() => {
 
             element = powerbitests.helpers.testDom('200', '300');
-            v = powerbi.visuals.visualPluginFactory.createMinerva({ dataDotChartEnabled: false, heatMap: false }).getPlugin('barChart').create();
+            v = powerbi.visuals.visualPluginFactory.createMinerva({ dataDotChartEnabled: false }).getPlugin('barChart').create();
         });
 
         it('Bar chart with dragDataPoint enabled', () => {
@@ -8742,6 +8981,62 @@ module powerbitests {
                 });
         });
 
+        it('Bar chart context menu', () => {
+            let hostServices = mocks.createVisualHostServices();
+            v.init({
+                element: element,
+                host: hostServices,
+                style: powerbi.visuals.visualStyles.create(),
+                viewport: {
+                    height: element.height(),
+                    width: element.width()
+                },
+                animation: { transitionImmediate: true },
+                interactivity: { selection: true },
+            });
+
+            let identities: powerbi.DataViewScopeIdentity[] = [
+                mocks.dataViewScopeIdentity('a'),
+                mocks.dataViewScopeIdentity('b'),
+                mocks.dataViewScopeIdentity('c'),
+                mocks.dataViewScopeIdentity('d'),
+                mocks.dataViewScopeIdentity('e'),
+            ];
+            v.onDataChanged({
+                dataViews: [{
+                    metadata: dataViewMetadataTwoColumn,
+                    categorical: {
+                        categories: [{
+                            source: dataViewMetadataTwoColumn.columns[0],
+                            values: ['a', 'b', 'c', 'd', 'e'],
+                            identity: identities,
+                        }],
+                        values: DataViewTransform.createValueColumns([{
+                            source: dataViewMetadataTwoColumn.columns[1],
+                            values: [0.5, 2.0, 1.5, 1.0, 2.5]
+                        }])
+                    }
+                }]
+            });
+
+            let bars = element.find('.bar');
+            expect(bars.length).toBe(5);
+            
+            spyOn(hostServices, 'onContextMenu').and.callThrough();
+
+            bars.eq(0).d3ContextMenu(5, 15);
+            expect(hostServices.onContextMenu).toHaveBeenCalledWith(
+                {
+                    data: [
+                        {
+                            dataMap: buildSelector('col1', identities[0]),
+                            metadata: 'col2',
+                        }
+                    ],
+                    position: { x: 5, y: 15 }
+                });
+        });
+
         it('Bar chart single and multi selection', () => {
             let hostServices = mocks.createVisualHostServices();
             v.init({
@@ -9077,12 +9372,9 @@ module powerbitests {
         thirdColumnXCoordinateToClick: number,
         thirdColumnYCoordinateToClick: number) {
 
-        let categoryColumn: powerbi.DataViewMetadataColumn = { displayName: 'year', queryName: 'selectYear', type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text) };
         let categoryColumnDate: powerbi.DataViewMetadataColumn = { displayName: 'date', queryName: 'selectDate', type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Date) };
-        let measureColumn: powerbi.DataViewMetadataColumn = { displayName: 'sales', queryName: 'selectSales', isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Integer), objects: { general: { formatString: '$0' } } };
         let measure2Column: powerbi.DataViewMetadataColumn = { displayName: 'tax', queryName: 'selectTax', isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double) };
         let measure3Column: powerbi.DataViewMetadataColumn = { displayName: 'profit', queryName: 'selectProfit', isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double) };
-        let measure4Column: powerbi.DataViewMetadataColumn = { displayName: 'profit', queryName: 'selectProfit', isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double) };
 
         let hostServices = powerbitests.mocks.createVisualHostServices();
         let v: powerbi.IVisual, element: JQuery;
@@ -9145,7 +9437,7 @@ module powerbitests {
             spyOn(barChart, 'selectColumn').and.callThrough();
 
             // click on the graph, expect selectColumn to have been called
-            (<any>$('.columnChartMainGraphicsContext')).d3Click(thirdColumnXCoordinateToClick, thirdColumnYCoordinateToClick);
+            $('.columnChartMainGraphicsContext').d3Click(thirdColumnXCoordinateToClick, thirdColumnYCoordinateToClick);
             expect(barChart.selectColumn).toHaveBeenCalled();
 
             // now, instead of clicking on the graph, which can be unstable due to different user's configurations
@@ -9895,7 +10187,7 @@ module powerbitests {
         let v: powerbi.IVisual;
 
         beforeEach(() => {
-            element = powerbitests.helpers.testDom('100', '100');
+            element = powerbitests.helpers.testDom('140', '140');
             v = getChartWithTooManyValues(chartType, element);
         });
 
@@ -9905,10 +10197,10 @@ module powerbitests {
                 expect($('rect' + columnSelector).length).toBe(4);
                 expect($('rect.extent').length).toBe(1);
                 expect($('rect' + columnSelector)[3].attributes.getNamedItem('y').value).toBeLessThan(element.height());
-                let transform = SVGUtil.parseTranslateTransform($('.columnChart .axisGraphicsContext .y.axis .tick').last().attr('transform'));
+                let transform = SVGUtil.parseTranslateTransform(helpers.getAxisTicks('y').last().attr('transform'));
                 expect(transform.y).toBeLessThan(element.height());
                 expect(transform.x).toBe('0');
-                expect($('.brush').attr('transform')).toBe('translate(90,8)');
+                expect($('.brush').attr('transform')).toBe('translate(130,8)');
                 expect(parseInt($('.brush .extent')[0].attributes.getNamedItem('height').value, 0)).toBeGreaterThan(8);
                 expect($('.brush .extent')[0].attributes.getNamedItem('y').value).toBe('0');
 
@@ -9920,7 +10212,7 @@ module powerbitests {
 
         it('should have correct tick labels after scrolling', (done) => {
             setTimeout(() => {
-                let ticks = $('.columnChart .axisGraphicsContext .y.axis .tick');
+                let ticks = helpers.getAxisTicks('y');
                 let tickCount = ticks.length;
 
                 let startIndex = 10;
@@ -9930,7 +10222,7 @@ module powerbitests {
                     (<powerbi.visuals.CartesianChart>v).scrollTo(startIndex);
 
                     setTimeout(() => {
-                        ticks = $('.columnChart .axisGraphicsContext .y.axis .tick');
+                        ticks = helpers.getAxisTicks('y');
                         let tickValues = _.map(ticks.get(), (v) => $(v).clone().find('title').remove().end().text());
 
                         expect(tickValues).toEqual(expectedValues);
@@ -9950,26 +10242,26 @@ module powerbitests {
         let v: powerbi.IVisual;
 
         beforeEach(() => {
-            element = powerbitests.helpers.testDom('100', '100');
+            element = powerbitests.helpers.testDom('140', '140');
             v = getChartWithTooManyValues(chartType, element);
         });
 
         it('DOM Validation', (done) => {
             setTimeout(() => {
                 expect($('.columnChart')).toBeInDOM();
-                expect($('rect' + columnSelector).length).toBe(4);
+                expect($('rect' + columnSelector).length).toBe(5);
                 expect($('rect.extent').length).toBe(1);
                 expect($('rect' + columnSelector)[3].attributes.getNamedItem('x').value).toBeLessThan(element.width());
-                let transform = SVGUtil.parseTranslateTransform($('.columnChart .axisGraphicsContext .x.axis .tick').last().attr('transform'));
+                let transform = SVGUtil.parseTranslateTransform(helpers.getAxisTicks('x').last().attr('transform'));
                 expect(transform.y).toBe('0');
                 expect(transform.x).toBeLessThan(element.width());
 
                 // Windows and Mac OS differ
-                expect(powerbitests.helpers.isTranslateCloseTo($('.brush').attr('transform'), 22, 90)).toBe(true);
+                expect(powerbitests.helpers.isTranslateCloseTo($('.brush').attr('transform'), 22, 130)).toBe(true);
                 let width = parseInt($('.brush .extent')[0].attributes.getNamedItem('width').value, 10);
                 
                 // Windows and Mac OS differ
-                expect(powerbitests.helpers.isInRange(width, 13, 15)).toBe(true);
+                expect(powerbitests.helpers.isInRange(width, 23, 25)).toBe(true);
                 expect($('.brush .extent')[0].attributes.getNamedItem('x').value).toBe('0');
                 v.onResizing({ height: 500, width: 500 });
                 expect($('.brush')).not.toBeInDOM();
@@ -9979,7 +10271,7 @@ module powerbitests {
 
         it('should have correct tick labels after scrolling', (done) => {
             setTimeout(() => {
-                let ticks = $('.columnChart .axisGraphicsContext .x.axis .tick');
+                let ticks = helpers.getAxisTicks('x');
                 let tickCount = ticks.length;
 
                 let startIndex = 10;
@@ -9989,7 +10281,7 @@ module powerbitests {
                     (<powerbi.visuals.CartesianChart>v).scrollTo(startIndex);
 
                     setTimeout(() => {
-                        ticks = $('.columnChart .axisGraphicsContext .x.axis .tick');
+                        ticks = helpers.getAxisTicks('x');
                         let tickValues = _.map(ticks.get(), (v) => $(v).clone().find('title').remove().end().text());
 
                         expect(tickValues).toEqual(expectedValues);
@@ -10064,8 +10356,9 @@ module powerbitests {
                 }]
             });
 
-            let actualLongLabelTextContent = element.find('.x.axis text')[0].textContent;
-            expect(actualLongLabelTextContent).toContain('…');
+            let lastTick = helpers.getAxisTicks('x').find('text').first();
+            expect(helpers.findElementText(lastTick)).toContain('…');
+            expect(helpers.findElementTitle(lastTick)).not.toContain('…');
         });
     });
 
@@ -10082,7 +10375,7 @@ module powerbitests {
         let dataViewMetadataTwoColumn: powerbi.DataViewMetadata;
 
         beforeEach(() => {
-            element = powerbitests.helpers.testDom('500', '900');
+            element = powerbitests.helpers.testDom('600', '900');
             v = powerbi.visuals.visualPluginFactory.create().getPlugin('columnChart').create();
             v.init({
                 element: element,
@@ -10180,13 +10473,13 @@ module powerbitests {
                 }]
             });
 
-            labels = $('.x.axis').children('.tick').find('text');            
+            labels = helpers.getAxisTicks('x').find('text');
 
             //Verify begin&end labels
             expect(helpers.findElementText(labels.first())).toBe('0.00000M');
             expect(helpers.findElementText(labels.last())).toBe('0.10000M');
 
-            labels = $('.y.axis').children('.tick').find('text');            
+            labels = helpers.getAxisTicks('y').find('text');
 
             //Verify begin&end labels
             expect(helpers.findElementText(labels.first())).toBe('0.00000M');
@@ -10283,7 +10576,7 @@ module powerbitests {
                 }]
             });
             bars = $('.column');
-            labels = $('.x.axis').children('.tick').find('text');
+            labels = helpers.getAxisTicks('x').find('text');
             unitLength = (bars[1].getAttribute('x') - bars[0].getAttribute('x')) / 1500;
             columnWidth = bars[0].getAttribute('width');
 
@@ -10345,7 +10638,7 @@ module powerbitests {
                 }]
             });
             bars = $('.column');
-            labels = $('.x.axis').children('.tick').find('text');
+            labels = helpers.getAxisTicks('x').find('text');
             unitLength = (bars[1].getAttribute('x') - bars[0].getAttribute('x')) / 19950;
             columnWidth = bars[0].getAttribute('width');
 
@@ -10408,7 +10701,7 @@ module powerbitests {
                 }]
             });
             bars = $('.column');
-            labels = $('.x.axis').children('.tick').find('text');
+            labels = helpers.getAxisTicks('x').find('text');
             unitLength = (+bars[1].getAttribute('x') - +bars[0].getAttribute('x')) / 50;
             columnWidth = bars[0].getAttribute('width');
 
@@ -10471,7 +10764,7 @@ module powerbitests {
                 }]
             };
             v.onDataChanged(dataChangedOptions);
-            let fill = $('.x.axis').children('.tick').find('text').css('fill');
+            let fill = helpers.getAxisTicks('x').find('text').css('fill');
             helpers.assertColorsMatch(fill, labelColor);
         });
 
@@ -10527,7 +10820,7 @@ module powerbitests {
 
             v.onDataChanged(dataChangedOptions);
 
-            let axisLabels = $('.x.axis .tick text');
+            let axisLabels = helpers.getAxisTicks('x').find('text');
             expect(axisLabels.length).toBe(4);
 
             //check text
@@ -10574,7 +10867,7 @@ module powerbitests {
                 }]
             });
             bars = $('.column');
-            labels = $('.x.axis').children('.tick').find('text');
+            labels = helpers.getAxisTicks('x').find('text');
 
             expect(helpers.findElementText(labels.first())).toBe('500.00');
             expect(helpers.findElementTitle(labels.first())).toBe('500.00');
@@ -10605,7 +10898,7 @@ module powerbitests {
                 }]
             });
             bars = $('.column');
-            labels = $('.x.axis').children('.tick').find('text');
+            labels = helpers.getAxisTicks('x').find('text');
 
             expect(helpers.findElementText(labels.first())).toBe('1,000.00');
             expect(helpers.findElementTitle(labels.first())).toBe('1,000.00');
@@ -10702,7 +10995,7 @@ module powerbitests {
                 }]
             });
             bars = $('.column');
-            labels = $('.y.axis').children('.tick').find('text');
+            labels = helpers.getAxisTicks('y').find('text');
 
             expect(helpers.findElementText(labels.first())).toBe('0K');
             expect(helpers.findElementTitle(labels.first())).toBe('0K');
@@ -10739,7 +11032,7 @@ module powerbitests {
                 }]
             });
             bars = $('.column');
-            labels = $('.y.axis').children('.tick').find('text');
+            labels = helpers.getAxisTicks('y').find('text');
 
             expect(helpers.findElementText(labels.first())).toBe('0K');
             expect(helpers.findElementTitle(labels.first())).toBe('0K');
@@ -10779,7 +11072,7 @@ module powerbitests {
                 }]
             });
             bars = $('.column');
-            labels = $('.y.axis').children('.tick').find('text');
+            labels = helpers.getAxisTicks('y').find('text');
 
             expect(helpers.findElementText(labels.first())).toBe('0K');
             expect(helpers.findElementTitle(labels.first())).toBe('0K');
@@ -10947,7 +11240,7 @@ module powerbitests {
                 }]
             });
 
-            labels = $('.y.axis').children('.tick').find('text');            
+            labels = helpers.getAxisTicks('y').find('text');            
 
             //Verify begin&end labels
             expect(helpers.findElementText(labels.first())).toBe('0.00000M');
@@ -10956,7 +11249,7 @@ module powerbitests {
             expect(helpers.findElementTitle(labels.first())).toBe('0.00000M');
             expect(helpers.findElementTitle(labels.last())).toBe('0.10000M');
 
-            labels = $('.x.axis').children('.tick').find('text');            
+            labels = helpers.getAxisTicks('x').find('text');            
 
             //Verify begin&end labels
             expect(helpers.findElementText(labels.first())).toBe('0.00000M');
@@ -10994,7 +11287,7 @@ module powerbitests {
                 }]
             });
             bars = $('.column');
-            labels = $('.x.axis').children('.tick').find('text');
+            labels = helpers.getAxisTicks('x').find('text');
 
             expect(helpers.findElementText(labels.first())).toBe('0K');
             expect(helpers.findElementTitle(labels.first())).toBe('0K');
@@ -11031,7 +11324,7 @@ module powerbitests {
                 }]
             });
             bars = $('.column');
-            labels = $('.x.axis').children('.tick').find('text');
+            labels = helpers.getAxisTicks('x').find('text');
 
             expect(helpers.findElementText(labels.first())).toBe('0K');
             expect(helpers.findElementTitle(labels.first())).toBe('0K');
@@ -11132,7 +11425,7 @@ module powerbitests {
                 }]
             });
             bars = $('.bar');
-            labels = $('.y.axis').children('.tick').find('text');
+            labels = helpers.getAxisTicks('y').find('text');
             barHeight = bars[0].getAttribute('height');
             barHeightArray = [];
             barArrayLength = bars.length;
@@ -11954,8 +12247,8 @@ module powerbitests {
                     }
                 }]
             });
-            let valueAxisSelector = chartType.indexOf('bar') >= 0 ? '.x.axis' : '.y.axis';
-            let logLabels: any = $(valueAxisSelector).children('.tick').find('text');
+            let axis = chartType.indexOf('bar') >= 0 ? 'x' : 'y';
+            let logLabels: any = helpers.getAxisTicks(axis).find('text');
             expect(logLabels.length).toBeGreaterThan(0);
 
             for (let i = 0, ilen = logLabels.length; i < ilen; i++) {
@@ -12001,8 +12294,8 @@ module powerbitests {
                     }
                 }]
             });
-            let valueAxisSelector = chartType.indexOf('bar') >= 0 ? '.x.axis' : '.y.axis';
-            let logLabels: any = $(valueAxisSelector).children('.tick').find('text');
+            let axis = chartType.indexOf('bar') >= 0 ? 'x' : 'y';
+            let logLabels: any = helpers.getAxisTicks(axis).find('text');
             expect(logLabels.length).toBeGreaterThan(0);
 
             for (let i = 0, ilen = logLabels.length; i < ilen; i++) {
@@ -12068,7 +12361,7 @@ module powerbitests {
                     }
                 }]
             });
-            let logLabels: any = $('.y.axis').children('.tick');
+            let logLabels: any = helpers.getAxisTicks('y');
             expect(logLabels.length).toBe(6);
         });
     };
@@ -12115,7 +12408,7 @@ module powerbitests {
         let hostServices = powerbitests.mocks.createVisualHostServices();
 
         beforeEach(() => {
-            element = powerbitests.helpers.testDom('500', '500');
+            element = powerbitests.helpers.testDom('600', '600');
             v = powerbi.visuals.visualPluginFactory.create().getPlugin(chartType).create();
             v.init({
                 element: element,
@@ -12236,7 +12529,7 @@ module powerbitests {
         let hostServices = powerbitests.mocks.createVisualHostServices();
 
         beforeEach(() => {
-            element = powerbitests.helpers.testDom('500', '500');
+            element = powerbitests.helpers.testDom('600', '600');
             v = powerbi.visuals.visualPluginFactory.create().getPlugin(chartType).create();
             v.init({
                 element: element,

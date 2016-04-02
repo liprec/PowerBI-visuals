@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.visuals {
 
     const BeautifiedFormat: { [x: string]: string } = {
@@ -145,6 +143,7 @@ module powerbi.visuals {
         public onDragStart(): void { }
         public canSelect(): boolean { return false; }
         public onSelect(): void { }
+        public onContextMenu(): void { }
         public loadMoreData(): void { }
         public persistProperties(changes: VisualObjectInstance[] | VisualObjectInstancesToPersist): void { }
         public onCustomSort(args: CustomSortEventArgs) { }
@@ -153,6 +152,7 @@ module powerbi.visuals {
         public setToolbar($toolbar: JQuery): void { }
         public shouldRetainSelection(): boolean { return false; }
         public geocoder(): IGeocoder { return services.createGeocoder(); }
+        public geolocation(): IGeolocation { return services.createGeolocation(); }
         public promiseFactory(): IPromiseFactory { return createJQueryPromiseFactory(); }
         public analyzeFilter(options: FilterAnalyzerOptions): AnalyzedFilter {
             return {

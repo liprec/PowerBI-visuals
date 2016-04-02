@@ -24,11 +24,9 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../../_references.ts"/>
-
 module powerbi.data {
-    export function createMatrixEvalContext(dataViewMatrix: DataViewMatrix): IEvalContext {
+    export function createMatrixEvalContext(colorAllocatorProvider: IColorAllocatorCache, dataViewMatrix: DataViewMatrix): IEvalContext {
         // NOTE: Matrix context-sensitive evaluation is not yet implemented.
-        return createStaticEvalContext();
+        return createStaticEvalContext(colorAllocatorProvider);
     }
 }

@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="_references.ts"/>
-
 module powerbi {
     import IStringResourceProvider = jsCommon.IStringResourceProvider;
 
@@ -45,12 +43,23 @@ module powerbi {
         columnNameFromIndex: (index: number) => string;
     }
 
-    export class UnknownClientError implements IClientError {
+    /**
+     this base class should be derived to give a generic error message but with a unique error code.
+     */
+    export abstract class UnknownClientError implements IClientError {
+        private errorCode: string;
+
         public get code(): string {
-            return 'UnknownClientError';
+            return this.errorCode;
         }
         public get ignorable(): boolean {
             return false;
+        }
+
+        constructor(code: string) {
+            debug.assertValue(code, 'code');
+
+            this.errorCode = code;
         }
 
         public getDetails(resourceProvider: IStringResourceProvider): ErrorDetails {

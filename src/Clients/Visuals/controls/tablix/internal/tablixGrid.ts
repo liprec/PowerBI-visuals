@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../../../_references.ts"/>
-
 module powerbi.visuals.controls.internal {
 
     export interface ITablixResizeHandler {
@@ -40,7 +38,8 @@ module powerbi.visuals.controls.internal {
      */
     export interface ITablixGridItem {
         calculateSize(): number;
-        resize(size: number): void;
+        onResize(size: number): void;
+        onResizeEnd(size: number): void;
         fixSize(): void;
         
         /**
@@ -81,9 +80,11 @@ module powerbi.visuals.controls.internal {
         public item: any;
 
         public _presenter: TablixCellPresenter; // internal
-        public extension: any;
+        public extension: TablixCellPresenter;
 
-        constructor(presenter: TablixCellPresenter, extension: any, row: TablixRow) {
+        public position: internal.TablixUtils.CellPosition;
+
+        constructor(presenter: TablixCellPresenter, extension: TablixCellPresenter, row: TablixRow) {
             this._presenter = presenter;
             this.extension = extension;
             this._presenter.initialize(this);
@@ -96,6 +97,7 @@ module powerbi.visuals.controls.internal {
             this._rowSpan = 1;
             this._contentWidth = -1;
             this._contentHeight = -1;
+            this.position = new internal.TablixUtils.CellPosition();
         }
 
         public get colSpan(): number {
@@ -117,7 +119,14 @@ module powerbi.visuals.controls.internal {
             if (this._rowSpan !== value) {
                 this._presenter.onRowSpanChanged(value);
                 this._rowSpan = value;
+
+                if (value > 1)
+                    this.setContentHeight(this.getCellSpanningHeight());
             }
+        }
+
+        public getCellSpanningHeight(): number {
+            return this._row.getCellSpanningHeight(this);
         }
 
         public get textAlign(): string {
@@ -157,8 +166,10 @@ module powerbi.visuals.controls.internal {
             this._presenter.onInitializeScrolling();
             this._horizontalOffset = 0;
             this._verticalOffset = 0;
-            this.setContentWidth(-1);
-            this.setContentHeight(-1);
+            if (this.colSpan === 1)
+                this.setContentWidth(-1);
+            if (this.rowSpan === 1)
+                this.setContentHeight(-1);
         }
 
         public prepare(scrollable: boolean): void {
@@ -169,14 +180,18 @@ module powerbi.visuals.controls.internal {
         }
 
         public scrollVertically(height: number, offset: number): void {
-            if (!this.isScrollable()) {
-                return;
-            }
-
-            let offsetInPixels: number = -height * offset;
+            // Ceiling the offset because setting a fraction Width on the TD will ceil it
+            // We need to let the TD and the OuterDiv to align in order for Borders to touch
+            let offsetInPixels = Math.ceil(- height * offset);
             this._verticalOffset = offsetInPixels;
-            this._presenter.onVerticalScroll(height, offsetInPixels);
-            this.setContentHeight(height + offsetInPixels);
+
+            if (this.isScrollable()) {
+                this._presenter.onVerticalScroll(height, offsetInPixels);
+                this.setContentHeight(height + offsetInPixels);
+            }
+            else {
+                this.setContentHeight(this._row.getCellSpanningHeight(this) + offsetInPixels);
+            }
         }
 
         public scrollHorizontally(width: number, offset: number) {
@@ -184,7 +199,9 @@ module powerbi.visuals.controls.internal {
                 return;
             }
 
-            let offsetInPixels = -width * offset;
+            // Ceiling the offset because setting a fraction Width on the TD will ceil it
+            // We need to let the TD and the OuterDiv to align in order for Borders to touch
+            let offsetInPixels = Math.ceil(- width * offset);
             this._horizontalOffset = offsetInPixels;
             this._presenter.onHorizontalScroll(width, offsetInPixels);
             this.setContentWidth(width + offsetInPixels);
@@ -377,7 +394,7 @@ module powerbi.visuals.controls.internal {
             return this._footerCell;
         }
 
-        public resize(width: number): void {
+        public onResize(width: number): void {
             if (width === this.getContentContextualWidth())
                 return;
 
@@ -386,10 +403,13 @@ module powerbi.visuals.controls.internal {
             this._sizeFixed = true;
             this._fixedToAligningWidth = false;
             this._aligningWidth = -1;
+        }
+
+        public onResizeEnd(width: number): void {
             // Invoke resize callback
             let gridPresenter = this.owner._presenter;
             if (gridPresenter)
-                gridPresenter.invokeColumnResizeCallBack(this._columnIndex, width);
+                gridPresenter.invokeColumnResizeEndCallback(this._columnIndex, width);
         }
 
         public fixSize(): void {
@@ -458,32 +478,23 @@ module powerbi.visuals.controls.internal {
                 return this._contentWidth;
 
             let contentWidth: number = 0;
-            let count = this._realizedColumnHeaders.length;
 
-            for (let i = 0; i < count; i++) {
-                let cell: TablixCell = this._realizedColumnHeaders[i];
+            for (let cell of this._realizedColumnHeaders){
                 if (cell.colSpan === 1)
                     contentWidth = Math.max(contentWidth, this._presenter.getCellContentWidth(cell));
             }
 
-            count = this._realizedRowHeaders.length;
-
-            for (let i = 0; i < count; i++) {
-                let cell: TablixCell = this._realizedRowHeaders[i];
+            for (let cell of this._realizedRowHeaders) {
                 if (cell.colSpan === 1)
                     contentWidth = Math.max(contentWidth, this._presenter.getCellContentWidth(cell));
             }
 
-            count = this._realizedCornerCells.length;
-
-            for (let i = 0; i < count; i++) {
-                contentWidth = Math.max(contentWidth, this._presenter.getCellContentWidth(this._realizedCornerCells[i]));
+            for (let cell of this._realizedCornerCells) {
+                contentWidth = Math.max(contentWidth, this._presenter.getCellContentWidth(cell));
             }
 
-            count = this._realizedBodyCells.length;
-
-            for (let i = 0; i < count; i++) {
-                contentWidth = Math.max(contentWidth, this._presenter.getCellContentWidth(this._realizedBodyCells[i]));
+            for (let cell of this._realizedBodyCells) {
+                contentWidth = Math.max(contentWidth, this._presenter.getCellContentWidth(cell));
             }
 
             if (this._footerCell !== null) {
@@ -503,32 +514,22 @@ module powerbi.visuals.controls.internal {
         }
 
         private setContentWidth(value: number): void {
-            let count = this._realizedColumnHeaders.length;
-
-            for (let i = 0; i < count; i++) {
-                let cell: TablixCell = this._realizedColumnHeaders[i];
+            for (let cell of this._realizedColumnHeaders) {
                 if (cell.colSpan === 1)
                     cell.setContentWidth(value);
             }
 
-            count = this._realizedRowHeaders.length;
-
-            for (let i = 0; i < count; i++) {
-                let cell: TablixCell = this._realizedRowHeaders[i];
+            for (let cell of this._realizedRowHeaders) {
                 if (cell.colSpan === 1)
                     cell.setContentWidth(value);
             }
 
-            count = this._realizedCornerCells.length;
-
-            for (let i = 0; i < count; i++) {
-                this._realizedCornerCells[i].setContentWidth(value);
+            for (let cell of this._realizedCornerCells) {
+                cell.setContentWidth(value);
             }
 
-            count = this._realizedBodyCells.length;
-
-            for (let i = 0; i < count; i++) {
-                this._realizedBodyCells[i].setContentWidth(value);
+            for (let cell of this._realizedBodyCells) {
+                cell.setContentWidth(value);
             }
 
             if (this._footerCell !== null) {
@@ -536,7 +537,7 @@ module powerbi.visuals.controls.internal {
                     this._footerCell.setContentWidth(value);
             }
 
-            this._width = -1; // invalidate the cell width
+            this._width = value; // set cell width to new value
         }
 
         public getTablixCell(): TablixCell {
@@ -801,7 +802,7 @@ module powerbi.visuals.controls.internal {
             return cell;
         }
 
-        public resize(height: number): void {
+        public onResize(height: number): void {
             if (height === this.getContentContextualWidth())
                 return;
 
@@ -810,6 +811,8 @@ module powerbi.visuals.controls.internal {
             this._heightFixed = true;
             this.setAligningContextualWidth(-1);
         }
+
+        public onResizeEnd(height: number): void { }
 
         public fixSize(): void {
             if (this.sizeFixed())
@@ -827,12 +830,12 @@ module powerbi.visuals.controls.internal {
             return this.presenter.getCellContentHeight(cell);
         }
 
-        public getCellSpanningHeight(cell: ITablixCell, tablixGrid: TablixGrid): number {
+        public getCellSpanningHeight(cell: ITablixCell): number {
             let height = this.getContextualWidth();
 
             if (cell.rowSpan > 1) {
-                let index = this.getIndex(tablixGrid);
-                let rows = tablixGrid.realizedRows;
+                let index = this.getIndex(this.owner);
+                let rows = this.owner.realizedRows;
                 for (let i = 1; i < cell.rowSpan; i++)
                     height += rows[i + index].getContextualWidth();
             }
@@ -901,8 +904,10 @@ module powerbi.visuals.controls.internal {
 
             for (let i = 0; i < count; i++) {
                 let cell: TablixCell = this._realizedRowHeaders[i];
-                if (cell.rowSpan)
+                if (cell.rowSpan === 1)
                     cell.setContentHeight(this._contentHeight);
+                else
+                    cell.setContentHeight(this.getCellSpanningHeight(cell));
             }
 
             count = this._realizedCornerCells.length;
@@ -917,6 +922,8 @@ module powerbi.visuals.controls.internal {
                 let cell: TablixCell = this._realizedColumnHeaders[i];
                 if (cell.rowSpan === 1)
                     cell.setContentHeight(this._contentHeight);
+                else
+                    cell.setContentHeight(this.getCellSpanningHeight(cell));
             }
 
             count = this._realizedBodyCells.length;
@@ -1198,7 +1205,7 @@ module powerbi.visuals.controls.internal {
         }
 
         private initializeRows(): void {
-            //make sure rowDimension confirms it and it's not null in the grid
+            // make sure rowDimension confirms it and it's not null in the grid
             let hasFooter: boolean = this._owner.rowDimension.hasFooter() && (this._footerRow !== null);
 
             this._realizedRows = [];

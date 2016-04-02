@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-
-
 module powerbitests {
     import WaterfallChart = powerbi.visuals.WaterfallChart;
     import ValueType = powerbi.ValueType;
@@ -364,7 +362,7 @@ module powerbitests {
 
                 // Extra small container to force scrolling.
                 v = visualBuilder
-                    .withSize(150, 50)
+                    .withSize(150, 100) // default for waterfall is legend on, top - leave enough vertical room
                     .build(/* use Minerva to get scrolling behavior */ true);
 
                 element = visualBuilder.element;
@@ -378,7 +376,7 @@ module powerbitests {
 
                     expect(brushExtent.length).toBe(1);
 
-                    let tick = getTicks('x').last();
+                    let tick = helpers.getAxisTicks('x').last();
                     let tickTransform = SVGUtil.parseTranslateTransform(tick.attr('transform'));
 
                     expect(parseFloat(tickTransform.x)).toBeLessThan(element.width());
@@ -444,7 +442,7 @@ module powerbitests {
                     }]
                 });
                 setTimeout(() => {
-                    let backgroundImage = $('.waterfallChart .background-image');
+                    let backgroundImage = $('.background-image');
                     expect(backgroundImage.length).toBeGreaterThan(0);
                     expect(backgroundImage.css('height')).toBeDefined();
                     expect(backgroundImage.css('width')).toBeDefined();
@@ -456,7 +454,7 @@ module powerbitests {
 
             it('should have correct tick labels after scrolling', (done) => {
                 setTimeout(() => {
-                    let tickCount = getTicks('x').length;
+                    let tickCount = helpers.getAxisTicks('x').length;
                     let categoryCount = dataBuilder.categoryValues.length + 1;  // +1 for total
 
                     // Scroll so the last ticks are in view.
@@ -467,10 +465,10 @@ module powerbitests {
                         (<powerbi.visuals.CartesianChart>v).scrollTo(startIndex);
 
                         setTimeout(() => {
-                            let tickValues = _.map(getTicks('x').get(), (v) => helpers.findElementText($(v).find('text').first()));
+                            let tickValues = _.map(helpers.getAxisTicks('x').get(), (v) => helpers.findElementText($(v).find('text').first()));
 
                             expect(tickValues.slice(0, tickValues.length - 1)).toEqual(expectedValues);
-                            expect(_.startsWith(_.last(tickValues), 'T')).toBeTruthy();  // "Total" may be truncated
+                            expect(_.startsWith(_.last(tickValues), 'T')).toBe(true);  // "Total" may be truncated
 
                             done();
                         }, DefaultWaitForRender);
@@ -688,7 +686,7 @@ module powerbitests {
                 setTimeout(() => {
                     let rects = getRects();
                     spyOn(visualBuilder.host, 'onSelect').and.callThrough();
-                    (<any>rects.first()).d3Click(0, 0);
+                    rects.first().d3Click(0, 0);
 
                     expect(visualBuilder.host.onSelect).toHaveBeenCalledWith(
                         {
@@ -707,6 +705,36 @@ module powerbitests {
                 }, DefaultWaitForRender);
             });
 
+            it('context menu', (done) => {
+                let dataView = dataBuilder.build();
+
+                v.onDataChanged({ dataViews: [dataView] });
+
+                let dataMap = {};
+                let data = dataBuilder.categoryIdentities[0];
+                dataMap[dataBuilder.categoryColumn.queryName] = data;
+
+                setTimeout(() => {
+                    spyOn(visualBuilder.host, 'onContextMenu').and.callThrough();
+                    let rects = getRects();
+                    rects.first().d3ContextMenu(5, 15);
+
+                    expect(visualBuilder.host.onContextMenu).toHaveBeenCalledWith(
+                        {
+                            data: [
+                                {
+                                    dataMap: dataMap
+                                }
+                            ],
+                            position: {
+                                x: 5,
+                                y: 15
+                            }
+                        });
+                    done();
+                }, DefaultWaitForRender);
+            });
+
             it('should clear chart on clearCatcher click', (done) => {
                 let dataView = dataBuilder.build();
 
@@ -715,10 +743,10 @@ module powerbitests {
                 setTimeout(() => {
                     let rects = getRects();
                     spyOn(visualBuilder.host, 'onSelect').and.callThrough();
-                    (<any>rects.first()).d3Click(0, 0);
+                    rects.first().d3Click(0, 0);
 
                     let clearCatcher = $('.clearCatcher');
-                    (<any>$(clearCatcher[0])).d3Click(0, 0);
+                    clearCatcher.eq(0).d3Click(0, 0);
 
                     expect(visualBuilder.host.onSelect).toHaveBeenCalledWith(
                         {
@@ -946,16 +974,11 @@ module powerbitests {
         }
 
         function getRects(): JQuery {
-            return $(".waterfallChart .mainGraphicsContext rect.column");
+            return $(".mainGraphicsContext rect.column");
         }
 
         function getConnectors(): JQuery {
-            return $(".waterfallChart .mainGraphicsContext line.waterfall-connector");
-        }
-
-        function getTicks(axis: string): JQuery {
-            // axis should be either 'x' or 'y'.
-            return $('.waterfallChart .axisGraphicsContext .' + axis + '.axis .tick');
+            return $(".mainGraphicsContext line.waterfall-connector");
         }
 
         function callCreateLabelDataPoints(v: powerbi.IVisual): powerbi.LabelDataPoint[] {

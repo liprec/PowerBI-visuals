@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.data {
     /** Represents a data reader. */
     export interface IDataReader {
@@ -139,6 +137,7 @@ module powerbi.data {
         command: DataReaderCommand;
         allowCache?: boolean;
         cacheResponseOnServer?: boolean;
+        ignoreViewportForCache?: boolean;
     }
 
     export interface FederatedConceptualSchemaReaderOptions {

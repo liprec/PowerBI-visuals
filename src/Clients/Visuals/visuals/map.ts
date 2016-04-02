@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.visuals {
     import Color = jsCommon.Color;
     import PixelConverter = jsCommon.PixelConverter;
@@ -43,6 +41,7 @@ module powerbi.visuals {
         disablePanning?: boolean;
         isLegendScrollable?: boolean;
         viewChangeThrottleInterval?: number; // Minimum interval between viewChange events (in milliseconds)
+        enableCurrentLocation?: boolean;
     }
 
     export interface IMapControlFactory {
@@ -79,6 +78,7 @@ module powerbi.visuals {
         fill: string;
         stroke: string;
         identity: SelectionId;
+        tooltipInfo: TooltipDataItem[];
     }
 
     export interface MapRendererData {
@@ -284,9 +284,7 @@ module powerbi.visuals {
 
             let bubbleData: MapBubble[] = [];
             let sliceData: MapSlice[][] = [];
-            let formatStringProp = mapProps.general.formatString;
             let categorical: DataViewCategorical = dataView ? dataView.categorical : null;
-            let gradientValueColumn: DataViewValueColumn = GradientUtils.getGradientValueColumn(categorical);
 
             let grouped: DataViewValueColumnGroup[];
             let sizeIndex = -1;
@@ -315,26 +313,6 @@ module powerbi.visuals {
                     let seriesCount = subDataPoints.length;
                     if (seriesCount === 1) {
                         let subDataPoint: MapSubDataPoint = subDataPoints[0];
-                        let value = subDataPoint.value;
-
-                        let seriesData: TooltipSeriesDataItem[] = [];
-                        if (dataValuesSource) {
-                            // Dynamic series
-                            seriesData.push({ value: grouped[0].name, metadata: { source: dataValuesSource, values: [] } });
-                        }
-                        if (sizeIndex > -1) {
-                            seriesData.push({ value: value, metadata: grouped[0].values[sizeIndex] });
-                        }
-
-                        // check for gradient tooltip data 
-                        let gradientToolTipData = TooltipBuilder.createGradientToolTipData(gradientValueColumn, categoryIndex);
-                        if (gradientToolTipData != null)
-                            seriesData.push(gradientToolTipData);
-
-                        let tooltipInfo: TooltipDataItem[];
-                        if (tooltipsEnabled) {
-                            tooltipInfo = TooltipBuilder.createTooltipInfo(formatStringProp, null, categoryValue, null, categorical.categories, seriesData);
-                        }
 
                         bubbleData.push({
                             x: x,
@@ -344,7 +322,7 @@ module powerbi.visuals {
                             fill: subDataPoint.fill,
                             stroke: subDataPoint.stroke,
                             strokeWidth: strokeWidth,
-                            tooltipInfo: tooltipInfo,
+                            tooltipInfo: subDataPoint.tooltipInfo,
                             identity: subDataPoint.identity,
                             selected: false,
                             labelFill: labelSettings.labelColor,
@@ -355,20 +333,6 @@ module powerbi.visuals {
 
                         for (var seriesIndex = 0; seriesIndex < seriesCount; seriesIndex++) {
                             let subDataPoint: MapSubDataPoint = subDataPoints[seriesIndex];
-                            let value = subDataPoint.value;
-
-                            let seriesData: TooltipSeriesDataItem[] = [];
-                            if (dataValuesSource) {
-                                // Dynamic series
-                                seriesData.push({ value: grouped[seriesIndex].name, metadata: { source: dataValuesSource, values: [] } });
-                            }
-                            if (sizeIndex > -1) {
-                                seriesData.push({ value: value, metadata: grouped[0].values[sizeIndex] });
-                            }
-                            let tooltipInfo: TooltipDataItem[];
-                            if (tooltipsEnabled) {
-                                tooltipInfo = TooltipBuilder.createTooltipInfo(formatStringProp, null, categoryValue, null, categorical.categories, seriesData);
-                            }
 
                             slices.push({
                                 x: x,
@@ -378,8 +342,8 @@ module powerbi.visuals {
                                 fill: subDataPoint.fill,
                                 stroke: subDataPoint.stroke,
                                 strokeWidth: strokeWidth,
-                                value: value,
-                                tooltipInfo: tooltipInfo,
+                                value: subDataPoint.value,
+                                tooltipInfo: subDataPoint.tooltipInfo,
                                 identity: subDataPoint.identity,
                                 selected: false,
                                 labelFill: labelSettings.labelColor,
@@ -524,6 +488,7 @@ module powerbi.visuals {
             let labelSettings = this.dataLabelsSettings;
 
             for (let dataPoint of dataPoints) {
+                debug.assertValue(dataPoint, 'dataPoint should never be null/undefined');
                 let text = dataPoint.labeltext;
 
                 let properties: TextProperties = {
@@ -703,7 +668,6 @@ module powerbi.visuals {
             let strokeWidth = 1;
 
             let shapeData: MapShape[] = [];
-            let formatStringProp = mapProps.general.formatString;
 
             let dataPoints = this.mapData ? this.mapData.dataPoints : [];
             for (let categoryIndex = 0, categoryCount = dataPoints.length; categoryIndex < categoryCount; categoryIndex++) {
@@ -726,19 +690,6 @@ module powerbi.visuals {
                     let value = dataPoint.value;
                     let categoryValue = dataPoint.categoryValue;
 
-                    let seriesData: TooltipSeriesDataItem[] = [];
-                    if (dataValuesSource) {
-                        // Dynamic series
-                        seriesData.push({ value: grouped[0].name, metadata: { source: dataValuesSource, values: [] } });
-                    }
-                    if (sizeIndex > -1) {
-                        seriesData.push({ value: value, metadata: grouped[0].values[sizeIndex] });
-                    }
-                    let tooltipInfo: TooltipDataItem[];
-                    if (this.tooltipsEnabled) {
-                        tooltipInfo = TooltipBuilder.createTooltipInfo(formatStringProp, null, value, null, categorical.categories, seriesData);
-                    }
-
                     let identity = subDataPoint.identity;
                     let idKey = identity.getKey();
                     let formattersCache = NewDataLabelUtils.createColumnFormatterCacheManager();
@@ -758,7 +709,7 @@ module powerbi.visuals {
                             fill: subDataPoint.fill,
                             stroke: subDataPoint.stroke,
                             strokeWidth: strokeWidth,
-                            tooltipInfo: tooltipInfo,
+                            tooltipInfo: subDataPoint.tooltipInfo,
                             identity: identity,
                             selected: false,
                             key: JSON.stringify({ id: idKey, pIdx: pathIndex }),
@@ -983,6 +934,8 @@ module powerbi.visuals {
         min: number;
         max: number;
     }
+    
+    const DefaultLocationZoomLevel = 11;
 
     export class Map implements IVisual {
         public currentViewport: IViewport;
@@ -1029,6 +982,8 @@ module powerbi.visuals {
         private isLegendScrollable: boolean;
         private viewChangeThrottleInterval: number;
         private root: JQuery;
+        private enableCurrentLocation: boolean;
+        private isCurrentLocation: boolean;
 
         constructor(options: MapConstructionOptions) {
             if (options.filledMap) {
@@ -1047,6 +1002,7 @@ module powerbi.visuals {
             this.disablePanning = options.disablePanning;
             this.isLegendScrollable = !!options.behavior;
             this.viewChangeThrottleInterval = options.viewChangeThrottleInterval;
+            this.enableCurrentLocation = options.enableCurrentLocation;
         }
 
         public init(options: VisualInitOptions) {
@@ -1074,8 +1030,40 @@ module powerbi.visuals {
                 Microsoft.Maps.loadModule('Microsoft.Maps.Overlays.Style', {
                     callback: () => {
                         this.initialize(element[0]);
+                        if (this.enableCurrentLocation) {
+                            this.createCurrentLocation(element);
+                        }
                     }
                 });
+            });
+        }
+
+        private createCurrentLocation(element: JQuery): void {
+            let myLocBtn = InJs.DomFactory.div().addClass("mapCurrentLocation").appendTo(element);
+            let pushpin: Microsoft.Maps.Pushpin;
+
+            myLocBtn.on('click',() => {
+                
+                if (this.isCurrentLocation) {
+                    // Restore previous map view and remove pushpin
+                    if (pushpin) {
+                        this.mapControl.entities.remove(pushpin);
+                    }
+                    this.updateInternal(false, false);
+                    this.isCurrentLocation = false;
+                } else {
+                    this.host.geolocation().getCurrentPosition((position: Position) => {
+                        let location = new Microsoft.Maps.Location(position.coords.latitude, position.coords.longitude);
+                        if (pushpin) {
+                            this.mapControl.entities.remove(pushpin);
+                        }
+                        pushpin = MapUtil.CurrentLocation.createPushpin(location);
+                        this.mapControl.entities.push(pushpin);
+                        this.updateMapView(location, DefaultLocationZoomLevel);
+                        this.isCurrentLocation = true;
+                    });
+                }
+
             });
         }
 
@@ -1580,6 +1568,7 @@ module powerbi.visuals {
                 sizeQueryName = '';
             let hasSize = reader.hasValues('Size');
             let geocodingCategory = null;
+            let formatStringProp = mapProps.general.formatString;
 
             if (reader.hasCategories()) {
                 // Calculate category totals and range for radius calculation
@@ -1616,17 +1605,36 @@ module powerbi.visuals {
                         // Get category information
                         let categoryValue = undefined;
                         let categoryObjects = reader.getCategoryObjects(categoryIndex, 'Category');
-                        let location: IGeocodeCoordinate = undefined;
+                        let location: IGeocodeCoordinate;
+                        let categoryTooltipItem: TooltipDataItem;
+                        let latitudeTooltipItem: TooltipDataItem;
+                        let longitudeTooltipItem: TooltipDataItem;
+                        let seriesTooltipItem: TooltipDataItem;
+                        let sizeTooltipItem: TooltipDataItem;
+                        let gradientTooltipItem: TooltipDataItem;
                         if (hasCategoryGroup) {
                             // Set category value
                             categoryValue = reader.getCategoryValue(categoryIndex, 'Category');
+                            categoryTooltipItem = {
+                                displayName: reader.getCategoryDisplayName('Category'),
+                                value: converterHelper.formatFromMetadataColumn(categoryValue, reader.getCategoryMetadataColumn('Category'), formatStringProp),
+                            };
 
                             // Create location from latitude and longitude if they exist as values
                             if (reader.hasValues('Y') && reader.hasValues('X')) {
                                 let latitude = reader.getFirstNonNullValueForCategory('Y', categoryIndex);
                                 let longitude = reader.getFirstNonNullValueForCategory('X', categoryIndex);
-                                if (latitude != null && longitude != null)
+                                if (latitude != null && longitude != null) {
                                     location = { latitude: latitude, longitude: longitude };
+                                }
+                                latitudeTooltipItem = {
+                                    displayName: reader.getValueDisplayName('Y'),
+                                    value: converterHelper.formatFromMetadataColumn(latitude, reader.getValueMetadataColumn('Y'), formatStringProp),
+                                };
+                                longitudeTooltipItem = {
+                                    displayName: reader.getValueDisplayName('X'),
+                                    value: converterHelper.formatFromMetadataColumn(longitude, reader.getValueMetadataColumn('X'), formatStringProp),
+                                };
                             }
                         }
                         else {
@@ -1638,6 +1646,14 @@ module powerbi.visuals {
                                 categoryValue = latitude + ', ' + longitude;
                                 // Create location from latitude and longitude
                                 location = { latitude: latitude, longitude: longitude };
+                                latitudeTooltipItem = {
+                                    displayName: reader.getCategoryDisplayName('Y'),
+                                    value: converterHelper.formatFromMetadataColumn(latitude, reader.getCategoryMetadataColumn('Y'), formatStringProp),
+                                };
+                                longitudeTooltipItem = {
+                                    displayName: reader.getCategoryDisplayName('X'),
+                                    value: converterHelper.formatFromMetadataColumn(longitude, reader.getCategoryMetadataColumn('X'), formatStringProp),
+                                };
                             }
                         }
                         let value: number = hasSize ? categoryTotals[categoryIndex] : undefined;
@@ -1665,7 +1681,43 @@ module powerbi.visuals {
                                 identityBuilder = identityBuilder.withSeries(reader.getSeriesColumns(), reader.getValueColumn('Size', seriesIndex));
                             }
 
-                            let subsliceValue = hasSize ? reader.getValue('Size', categoryIndex, seriesIndex) : undefined;
+                            if (hasDynamicSeries) {
+                                seriesTooltipItem = {
+                                    displayName: reader.getSeriesDisplayName(),
+                                    value: converterHelper.formatFromMetadataColumn(reader.getSeriesName(seriesIndex), reader.getSeriesMetadataColumn(), formatStringProp),
+                                };
+                            }
+                            
+                            let subsliceValue: number;
+                            if (hasSize) {
+                                subsliceValue = reader.getValue('Size', categoryIndex, seriesIndex);
+                                sizeTooltipItem = {
+                                    displayName: reader.getValueDisplayName('Size'),
+                                    value: converterHelper.formatFromMetadataColumn(subsliceValue, reader.getValueMetadataColumn('Size', seriesIndex), formatStringProp),
+                                };
+                            }
+                            if (reader.hasValues('Gradient')) {
+                                gradientTooltipItem = {
+                                    displayName: reader.getValueDisplayName('Gradient'),
+                                    value: converterHelper.formatFromMetadataColumn(reader.getValue('Gradient', categoryIndex, seriesIndex), reader.getValueMetadataColumn('Gradient', seriesIndex), formatStringProp),
+                                };
+                            }
+
+                            // Combine any existing tooltip items
+                            let tooltipInfo: TooltipDataItem[] = [];
+                            if (categoryTooltipItem)
+                                tooltipInfo.push(categoryTooltipItem);
+                            if (seriesTooltipItem)
+                                tooltipInfo.push(seriesTooltipItem);
+                            if (latitudeTooltipItem)
+                                tooltipInfo.push(latitudeTooltipItem);
+                            if (longitudeTooltipItem)
+                                tooltipInfo.push(longitudeTooltipItem);
+                            if (sizeTooltipItem)
+                                tooltipInfo.push(sizeTooltipItem);
+                            if (gradientTooltipItem)
+                                tooltipInfo.push(gradientTooltipItem);
+
                             // Do not create subslices for data points with 0 or null 
                             if (subsliceValue || !hasSize) {
                                 subDataPoints.push({
@@ -1673,6 +1725,7 @@ module powerbi.visuals {
                                     fill: fill,
                                     stroke: stroke,
                                     identity: identityBuilder.createSelectionId(),
+                                    tooltipInfo: tooltipInfo,
                                 });
                             }
                         }
@@ -1844,10 +1897,14 @@ module powerbi.visuals {
                 let levelOfDetail = this.getOptimumLevelOfDetail(mapViewport.width, mapViewport.height);
                 let center = this.getViewCenter(levelOfDetail);
 
-                if (!this.receivedExternalViewChange || !this.interactivityService) {
-                    this.executingInternalViewChange = true;
-                    this.mapControl.setView({ center: center, zoom: levelOfDetail, animate: true });
-                }
+                this.updateMapView(center, levelOfDetail);
+            }
+        }
+
+        private updateMapView(center: Microsoft.Maps.Location, levelOfDetail: number): void {
+            if (!this.receivedExternalViewChange || !this.interactivityService) {
+                this.executingInternalViewChange = true;
+                this.mapControl.setView({ center: center, zoom: levelOfDetail, animate: true });
             }
         }
 

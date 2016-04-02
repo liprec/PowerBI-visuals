@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-
-
 module powerbitests {
     import DataViewTransform = powerbi.data.DataViewTransform;
     import GaugeVisual = powerbi.visuals.Gauge;
@@ -299,7 +297,10 @@ module powerbitests {
             });
         }
     }
-
+    
+    const DefaultFillColor = '#00B8AA';
+    const DefaultTargetColor = '#666666';
+    
     describe("Gauge", () => {
         beforeEach(() => {
             powerbitests.mocks.setLocale();
@@ -419,7 +420,7 @@ module powerbitests {
             }, DefaultWaitForRender);
         });
 
-        it("If value less that zero, then scale should be 0-1, but number should show negative value", (done) => {
+        it("If value less than zero, then scale should be 0-1, but number should show negative value", (done) => {
             gaugeDataBuilder.values = [[-25]];
 
             gaugeDataBuilder.onDataChanged();
@@ -630,7 +631,7 @@ module powerbitests {
                 done();
             }, DefaultWaitForRender);
         });
-
+        
         it("Formatting: Currency format does not fallback to scientific notation", (done) => {
             let dataViewMetadata: powerbi.DataViewMetadata = {
                 columns: [{
@@ -668,6 +669,50 @@ module powerbitests {
                 done();
             }, DefaultWaitForRender);
         });
+        
+        it("Verify correct arc fill color", (done) => {
+            
+            gaugeDataBuilder.singleValue = 20;
+            gaugeDataBuilder.values = [[20], [0], [400], [0]];
+            gaugeDataBuilder.dataViewMetadata.objects = {
+                dataPoint: {
+                    fill: { solid: { color: '#FE9666' } }
+                }
+            };
+            gaugeDataBuilder.buildDataView();
+            gaugeDataBuilder.onDataChanged();
+            setTimeout(() => {
+                let foregroundArc = $(".foregroundArc");
+                let foregroundColor = $(foregroundArc).css("fill");
+                helpers.assertColorsMatch(foregroundColor, "#FE9666");
+
+                let backgroundArc = $(".backgroundArc");
+                let backgroundColor = $(backgroundArc).css("fill");
+                helpers.assertColorsMatch(backgroundColor, "#e9e9e9");
+
+                done();
+            }, DefaultWaitForRender);
+         });
+         
+          it("Verify correct target color", (done) => {
+            
+            gaugeDataBuilder.singleValue = 20;
+            gaugeDataBuilder.values = [[20], [0], [400], [0]];
+            gaugeDataBuilder.dataViewMetadata.objects = {
+                dataPoint: {
+                    target: { solid: { color: '#FE9666' } }
+                }
+            };
+            gaugeDataBuilder.buildDataView();
+            gaugeDataBuilder.onDataChanged();
+            setTimeout(() => {
+                let targetLine = $("line");
+                let targetcolor = $(targetLine).css("stroke");
+                helpers.assertColorsMatch(targetcolor, "#FE9666");
+
+                done();
+            }, DefaultWaitForRender);
+         });
     });
 
     describe("Gauge Data Tests", () => {
@@ -766,6 +811,9 @@ module powerbitests {
                     position: null,
                     fontSize: 8,
                     formatterOptions: null
+                }, dataPointSettings: {
+                    fillColor: DefaultFillColor,
+                    targetColor: DefaultTargetColor
                 }
             };
             expect(data).toEqual(expectedValues);
@@ -801,6 +849,9 @@ module powerbitests {
                     position: null,
                     fontSize: 8,
                     formatterOptions: null
+                }, dataPointSettings: {
+                    fillColor: DefaultFillColor,
+                    targetColor: DefaultTargetColor
                 }
             };
             expect(data).toEqual(expectedValues);
@@ -841,6 +892,9 @@ module powerbitests {
                     position: null,
                     fontSize: 8,
                     formatterOptions: null
+                }, dataPointSettings: {
+                    fillColor: DefaultFillColor,
+                    targetColor: DefaultTargetColor
                 }
             };
 
@@ -997,7 +1051,7 @@ module powerbitests {
             expect(data.targetSettings.max).toEqual(1000);
             expect(data.targetSettings.target).toEqual(100);
         });
-
+         
         describe("Gauge Rendering Tests", () => {
             let gaugeVisualDataBuilder: GaugeVisualDataBuilder;
 
@@ -1213,6 +1267,9 @@ module powerbitests {
                         position: null,
                         fontSize: 8,
                         formatterOptions: null
+                    }, dataPointSettings: {
+                        fillColor: DefaultFillColor,
+                        targetColor: undefined
                     }
                 };
 

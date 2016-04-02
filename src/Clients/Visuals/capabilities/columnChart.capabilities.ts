@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.visuals {
     export function getColumnChartCapabilities(transposeAxes: boolean = false): VisualCapabilities {
         return {
@@ -271,6 +269,12 @@ module powerbi.visuals {
                             displayName: data.createDisplayNameGetter("Visual_Reference_Line_Data_Vertical_Position"),
                             description: data.createDisplayNameGetter('Visual_Reference_Line_Data_Label_Vertical_Position_Description'),
                             type: { enumeration: referenceLineDataLabelVerticalPosition.type }
+                        },
+                        dataLabelDisplayUnits: {
+                            displayName: data.createDisplayNameGetter('Visual_DisplayUnits'),
+                            description: data.createDisplayNameGetter('Visual_DisplayUnitsDescription'),
+                            type: { formatting: { labelDisplayUnits: true } },
+                            suppressFormatPainterCopy: true,
                         },
                     },
                 },

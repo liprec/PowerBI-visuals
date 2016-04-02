@@ -24,13 +24,11 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi {
 
     export interface IColorAllocator {
         /** Computes the color corresponding to the provided value. */
-        color(value: number): string;
+        color(value: PrimitiveValue): string;
     }
 
     export interface IColorAllocatorFactory {

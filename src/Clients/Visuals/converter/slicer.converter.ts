@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.visuals {
     import SemanticFilter = powerbi.data.SemanticFilter;
     import UrlUtils = jsCommon.UrlUtils;
@@ -90,8 +88,13 @@ module powerbi.visuals {
             if (!isInvertedSelectionMode && analyzer.filter)
                 isInvertedSelectionMode = analyzer.isNotFilter;
 
-            if (interactivityService)
+            if (interactivityService) {
+                // To indicate whether the selection is Not selected items
                 interactivityService.setSelectionModeInverted(isInvertedSelectionMode);
+
+                // defaultValueMode will be used when determine show/hide clear button.
+                interactivityService.setDefaultValueMode(SemanticFilter.isDefaultFilter(<SemanticFilter>analyzer.filter));
+            }
 
             let category = categorical.categories[0];
             let categoryValuesLen: number = category && category.values ? category.values.length : 0;
@@ -197,6 +200,7 @@ module powerbi.visuals {
         function createDefaultSettings(dataViewMetadata: DataViewMetadata): SlicerSettings {
             let defaultSettings = Slicer.DefaultStyleProperties();
             let objects = dataViewMetadata.objects;
+            let forceSingleSelect = dataViewMetadata.columns && _.some(dataViewMetadata.columns, (column) => column.discourageAggregationAcrossGroups);
 
             if (objects) {
                 defaultSettings.general.outlineColor = DataViewObjects.getFillColor(objects, slicerProps.general.outlineColor, defaultSettings.general.outlineColor);
@@ -219,8 +223,8 @@ module powerbi.visuals {
                 defaultSettings.slicerText.outline = DataViewObjects.getValue<string>(objects, slicerProps.items.outline, defaultSettings.slicerText.outline);
                 defaultSettings.slicerText.textSize = DataViewObjects.getValue<number>(objects, slicerProps.items.textSize, defaultSettings.slicerText.textSize);
 
-                defaultSettings.selection.selectAllCheckboxEnabled = DataViewObjects.getValue<boolean>(objects, slicerProps.selection.selectAllCheckboxEnabled, defaultSettings.selection.selectAllCheckboxEnabled);
-                defaultSettings.selection.singleSelect = DataViewObjects.getValue<boolean>(objects, slicerProps.selection.singleSelect, defaultSettings.selection.singleSelect);
+                defaultSettings.selection.selectAllCheckboxEnabled = !forceSingleSelect && DataViewObjects.getValue<boolean>(objects, slicerProps.selection.selectAllCheckboxEnabled, defaultSettings.selection.selectAllCheckboxEnabled);
+                defaultSettings.selection.singleSelect = forceSingleSelect || DataViewObjects.getValue<boolean>(objects, slicerProps.selection.singleSelect, defaultSettings.selection.singleSelect);
             }
 
             return defaultSettings;

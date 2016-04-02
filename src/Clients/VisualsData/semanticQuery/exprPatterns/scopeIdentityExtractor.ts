@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../../_references.ts"/>
-
 module powerbi.data {
     import ArrayExtensions = jsCommon.ArrayExtensions;
 
@@ -91,6 +89,10 @@ module powerbi.data {
 
             public visitConstant(expr: SQConstantExpr): void {
                 this.values.push(expr);
+            }
+
+            public visitArithmetic(expr: SQArithmeticExpr): void {
+                this.keys.push(expr);
             }
 
             public visitDefault(expr: SQExpr): void {

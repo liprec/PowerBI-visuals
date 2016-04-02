@@ -24,13 +24,10 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module jsCommon {
 
     export module UrlUtils {
         const urlRegex = /http[s]?:\/\/(\S)+/gi;
-        const imageUrlRegex = /http[s]?:\/\/(\S)+(png|jpg|jpeg|gif|svg)/gi;
 
         export function isValidUrl(value: string): boolean {
             if (StringExtensions.isNullOrEmpty(value))
@@ -48,14 +45,10 @@ module jsCommon {
          * @returns Whether the provided url is valid.
          **/
         export function isValidImageUrl(url: string): boolean {
-            if (_.isEmpty(url))
-                return false;
+            // VSTS: 7252099 / 7112236
+            // For now, passes for any valid Url
 
-            let match = RegExpExtensions.run(imageUrlRegex, url);
-            if (!!match && match.index === 0)
-                return true;
-
-            return false;
+            return isValidUrl(url);
         }
 
         export function findAllValidUrls(text: string): TextMatch[] {

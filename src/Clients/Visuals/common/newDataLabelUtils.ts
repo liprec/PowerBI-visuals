@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.visuals {
     import ClassAndSelector = jsCommon.CssConstants.ClassAndSelector;
     import createClassAndSelector = jsCommon.CssConstants.createClassAndSelector;
@@ -65,7 +63,7 @@ module powerbi.visuals {
         const linesGraphicsContextClass: ClassAndSelector = createClassAndSelector('leader-lines');
         const lineClass: ClassAndSelector = createClassAndSelector('line-label');
 
-        export function drawDefaultLabels(context: D3.Selection, dataLabels: Label[], numeric: boolean = false, twoRows: boolean = false): D3.UpdateSelection {
+        export function drawDefaultLabels(context: D3.Selection, dataLabels: Label[], numeric: boolean = false, twoRows: boolean = false, hasTooltip: boolean = false): D3.UpdateSelection {
             let filteredDataLabels = _.filter(dataLabels, (d: Label) => d.isVisible);
             let labels = context.selectAll(labelsClass.selector)
                 .data(filteredDataLabels, labelKeyFunction);
@@ -134,6 +132,13 @@ module powerbi.visuals {
             secondLineLabels.exit()
                 .remove();
 
+            if (hasTooltip) {
+                labels.append('title').text((d: Label) => d.tooltip);
+                secondLineLabels.append('title').text((d: Label) => d.tooltip);
+                labels.style("pointer-events", "all");
+                secondLineLabels.style("pointer-events", "all");
+            }
+
             return labels;
         }
 
@@ -143,7 +148,8 @@ module powerbi.visuals {
 
             labels.enter()
                 .append("text")
-                .classed(labelsClass.class, true);
+                .classed(labelsClass.class, true)
+                .style('opacity', 0);
 
             let labelAttr = {
                 x: (d: Label) => {
@@ -166,9 +172,13 @@ module powerbi.visuals {
                 .transition()
                 .ease(easeType)
                 .duration(duration)
-                .attr(labelAttr);
+                .attr(labelAttr)
+                .style('opacity', 1);
 
             labels.exit()
+                .transition()
+                .duration(duration)
+                .style('opacity', 0)
                 .remove();
 
             return labels;

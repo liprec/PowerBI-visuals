@@ -24,8 +24,6 @@
 *  THE SOFTWARE.
 */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.visuals {
     export module outline {
         export const none: string = 'None';
@@ -36,6 +34,22 @@ module powerbi.visuals {
         export const topBottom: string = 'TopBottom';
         export const leftRight: string = 'LeftRight';
         export const frame: string = 'Frame';
+
+        export function showTop(outline: string): boolean {
+            return [topOnly, topBottom, frame].some((o) => o === outline);
+        }
+
+        export function showRight(outline: string): boolean {
+            return [rightOnly, leftRight, frame].some((o) => o === outline);
+        }
+
+        export function showBottom(outline: string): boolean {
+            return [bottomOnly, topBottom, frame].some((o) => o === outline);
+        }
+
+        export function showLeft(outline: string): boolean {
+            return [leftOnly, leftRight, frame].some((o) => o === outline);
+        }
 
         export const type: IEnumType = createEnumType([
             { value: none, displayName: resources => resources.get('Visual_Outline_none') },

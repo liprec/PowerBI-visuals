@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-
-
 module powerbitests {
     import lineStyle = powerbi.visuals.lineStyle;
     import referenceLinePosition = powerbi.visuals.referenceLinePosition;
@@ -129,6 +127,7 @@ module powerbitests {
             dataLabelDecimalPoints: 3,
             dataLabelHorizontalPosition: referenceLineDataLabelHorizontalPosition.left,
             dataLabelVerticalPosition: referenceLineDataLabelVerticalPosition.above,
+            dataLabelDisplayUnits: 100000,
         };
 
         export const blueLine: DataViewObject = {
@@ -143,6 +142,7 @@ module powerbitests {
             dataLabelDecimalPoints: 2,
             dataLabelHorizontalPosition: referenceLineDataLabelHorizontalPosition.right,
             dataLabelVerticalPosition: referenceLineDataLabelVerticalPosition.under,
+            dataLabelDisplayUnits: 0,
         };
     }
 }

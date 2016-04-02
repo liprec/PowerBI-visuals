@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../_references.ts"/>
-
 module powerbi.visuals {
     export const scatterChartCapabilities: VisualCapabilities = {
         dataRoles: [
@@ -110,9 +108,25 @@ module powerbi.visuals {
                 },
             },
             trend: {
+                displayName: data.createDisplayNameGetter('Visual_Trend_Line'),
                 properties: {
                     show: {
                         type: { bool: true }
+                    },
+                    lineColor: {
+                        displayName: data.createDisplayNameGetter('Visual_Trend_Line_Color'),
+                        description: data.createDisplayNameGetter('Visual_Trend_Line_Color_Description'),
+                        type: { fill: { solid: { color: true } } }
+                    },
+                    transparency: {
+                        displayName: data.createDisplayNameGetter('Visual_Trend_Line_Transparency'),
+                        description: data.createDisplayNameGetter('Visual_Trend_Line_Transparency_Description'),
+                        type: { numeric: true }
+                    },
+                    style: {
+                        displayName: data.createDisplayNameGetter('Visual_Trend_Line_Style'),
+                        description: data.createDisplayNameGetter('Visual_Trend_Line_Style_Description'),
+                        type: { enumeration: lineStyle.type }
                     },
                 }
             },
@@ -273,6 +287,12 @@ module powerbi.visuals {
                         description: data.createDisplayNameGetter('Visual_Reference_Line_Data_Label_Vertical_Position_Description'),
                         type: { enumeration: referenceLineDataLabelVerticalPosition.type }
                     },
+                    dataLabelDisplayUnits: {
+                        displayName: data.createDisplayNameGetter('Visual_DisplayUnits'),
+                        description: data.createDisplayNameGetter('Visual_DisplayUnitsDescription'),
+                        type: { formatting: { labelDisplayUnits: true } },
+                        suppressFormatPainterCopy: true,
+                    },
                 },
             },
             y1AxisReferenceLine: {
@@ -332,6 +352,12 @@ module powerbi.visuals {
                         displayName: data.createDisplayNameGetter("Visual_Reference_Line_Data_Vertical_Position"),
                         description: data.createDisplayNameGetter('Visual_Reference_Line_Data_Label_Vertical_Position_Description'),
                         type: { enumeration: referenceLineDataLabelVerticalPosition.type }
+                    },
+                    dataLabelDisplayUnits: {
+                        displayName: data.createDisplayNameGetter('Visual_DisplayUnits'),
+                        description: data.createDisplayNameGetter('Visual_DisplayUnitsDescription'),
+                        type: { formatting: { labelDisplayUnits: true } },
+                        suppressFormatPainterCopy: true,
                     },
                 },
             },

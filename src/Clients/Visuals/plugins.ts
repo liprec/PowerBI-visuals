@@ -24,8 +24,6 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="_references.ts"/>
-
 module powerbi.visuals.plugins {
     // This file registers the built-in visualizations
 
@@ -42,6 +40,7 @@ module powerbi.visuals.plugins {
         create: () => new CartesianChart({ chartType: CartesianChartType.Area }),
         customizeQuery: LineChart.customizeQuery,
         getSortableRoles: (visualSortableOptions?: VisualSortableOptions) => ColumnChart.getSortableRoles(visualSortableOptions),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let barChart: IVisualPlugin = {
@@ -51,6 +50,7 @@ module powerbi.visuals.plugins {
         create: () => new CartesianChart({ chartType: CartesianChartType.StackedBar }),
         customizeQuery: ColumnChart.customizeQuery,
         getSortableRoles: (visualSortableOptions?: VisualSortableOptions) => ColumnChart.getSortableRoles(visualSortableOptions),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let basicShape: IVisualPlugin = {
@@ -80,6 +80,7 @@ module powerbi.visuals.plugins {
         create: () => new CartesianChart({ chartType: CartesianChartType.ClusteredBar }),
         customizeQuery: ColumnChart.customizeQuery,
         getSortableRoles: (visualSortableOptions?: VisualSortableOptions) => ColumnChart.getSortableRoles(visualSortableOptions),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let clusteredColumnChart: IVisualPlugin = {
@@ -89,6 +90,7 @@ module powerbi.visuals.plugins {
         create: () => new CartesianChart({ chartType: CartesianChartType.ClusteredColumn }),
         customizeQuery: ColumnChart.customizeQuery,
         getSortableRoles: (visualSortableOptions?: VisualSortableOptions) => ColumnChart.getSortableRoles(visualSortableOptions),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let columnChart: IVisualPlugin = {
@@ -98,6 +100,7 @@ module powerbi.visuals.plugins {
         create: () => new CartesianChart({ chartType: CartesianChartType.StackedColumn }),
         customizeQuery: ColumnChart.customizeQuery,
         getSortableRoles: (visualSortableOptions?: VisualSortableOptions) => ColumnChart.getSortableRoles(visualSortableOptions),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let comboChart: IVisualPlugin = {
@@ -106,13 +109,15 @@ module powerbi.visuals.plugins {
         capabilities: capabilities.comboChart,
         customizeQuery: ComboChart.customizeQuery,
         create: () => new CartesianChart({ chartType: CartesianChartType.ComboChart }),
-        getSortableRoles: (visualSortableOptions?: VisualSortableOptions) => ComboChart.getSortableRoles(visualSortableOptions)
+        getSortableRoles: (visualSortableOptions?: VisualSortableOptions) => ComboChart.getSortableRoles(visualSortableOptions),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let dataDotChart: IVisualPlugin = {
         name: 'dataDotChart',
         capabilities: capabilities.dataDotChart,
-        create: () => new CartesianChart({ chartType: CartesianChartType.DataDot })
+        create: () => new CartesianChart({ chartType: CartesianChartType.DataDot }),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let dataDotClusteredColumnComboChart: IVisualPlugin = {
@@ -120,7 +125,8 @@ module powerbi.visuals.plugins {
         watermarkKey: 'combo',
         capabilities: capabilities.dataDotClusteredColumnComboChart,
         customizeQuery: ComboChart.customizeQuery,
-        create: () => new CartesianChart({ chartType: CartesianChartType.DataDotClusteredColumnCombo })
+        create: () => new CartesianChart({ chartType: CartesianChartType.DataDotClusteredColumnCombo }),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let dataDotStackedColumnComboChart: IVisualPlugin = {
@@ -128,7 +134,8 @@ module powerbi.visuals.plugins {
         watermarkKey: 'combo',
         capabilities: capabilities.dataDotStackedColumnComboChart,
         customizeQuery: ComboChart.customizeQuery,
-        create: () => new CartesianChart({ chartType: CartesianChartType.DataDotStackedColumnCombo })
+        create: () => new CartesianChart({ chartType: CartesianChartType.DataDotStackedColumnCombo }),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let donutChart: IVisualPlugin = {
@@ -159,6 +166,7 @@ module powerbi.visuals.plugins {
         create: () => new CartesianChart({ chartType: CartesianChartType.HundredPercentStackedBar }),
         customizeQuery: ColumnChart.customizeQuery,
         getSortableRoles: (visualSortableOptions?: VisualSortableOptions) => ColumnChart.getSortableRoles(visualSortableOptions),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let hundredPercentStackedColumnChart: IVisualPlugin = {
@@ -168,6 +176,7 @@ module powerbi.visuals.plugins {
         create: () => new CartesianChart({ chartType: CartesianChartType.HundredPercentStackedColumn }),
         customizeQuery: ColumnChart.customizeQuery,
         getSortableRoles: (visualSortableOptions?: VisualSortableOptions) => ColumnChart.getSortableRoles(visualSortableOptions),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let image: IVisualPlugin = {
@@ -183,6 +192,7 @@ module powerbi.visuals.plugins {
         create: () => new CartesianChart({ chartType: CartesianChartType.Line }),
         customizeQuery: LineChart.customizeQuery,
         getSortableRoles: (visualSortableOptions?: VisualSortableOptions) => LineChart.getSortableRoles(visualSortableOptions),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let lineStackedColumnComboChart: IVisualPlugin = {
@@ -192,6 +202,7 @@ module powerbi.visuals.plugins {
         customizeQuery: ComboChart.customizeQuery,
         create: () => new CartesianChart({ chartType: CartesianChartType.LineStackedColumnCombo }),
         getSortableRoles: (visualSortableOptions?: VisualSortableOptions) => ComboChart.getSortableRoles(visualSortableOptions),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let lineClusteredColumnComboChart: IVisualPlugin = {
@@ -201,6 +212,7 @@ module powerbi.visuals.plugins {
         customizeQuery: ComboChart.customizeQuery,
         create: () => new CartesianChart({ chartType: CartesianChartType.LineClusteredColumnCombo }),
         getSortableRoles: (visualSortableOptions?: VisualSortableOptions) => ComboChart.getSortableRoles(visualSortableOptions),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let map: IVisualPlugin = {
@@ -235,7 +247,9 @@ module powerbi.visuals.plugins {
         name: 'scatterChart',
         watermarkKey: 'scatterplot',
         capabilities: capabilities.scatterChart,
-        create: () => new CartesianChart({ chartType: CartesianChartType.Scatter })
+        customizeQuery: ScatterChart.customizeQuery,
+        create: () => new CartesianChart({ chartType: CartesianChartType.Scatter }),
+        getAdditionalTelemetry: (dataView: DataView) => ScatterChart.getAdditionalTelemetry(dataView),
     };
 
     export let stackedAreaChart: IVisualPlugin = {
@@ -245,6 +259,7 @@ module powerbi.visuals.plugins {
         create: () => new CartesianChart({ chartType: CartesianChartType.StackedArea }),
         customizeQuery: LineChart.customizeQuery,
         getSortableRoles: (visualSortableOptions?: VisualSortableOptions) => ColumnChart.getSortableRoles(visualSortableOptions),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let table: IVisualPlugin = {
@@ -282,7 +297,8 @@ module powerbi.visuals.plugins {
         name: 'waterfallChart',
         watermarkKey: 'waterfall',
         capabilities: capabilities.waterfallChart,
-        create: () => new CartesianChart({ chartType: CartesianChartType.Waterfall })
+        create: () => new CartesianChart({ chartType: CartesianChartType.Waterfall }),
+        getAdditionalTelemetry: (dataView) => CartesianChart.getAdditionalTelemetry(dataView),
     };
 
     export let cheerMeter: IVisualPlugin = {
