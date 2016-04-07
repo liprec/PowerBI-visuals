@@ -149,21 +149,21 @@ module powerbi.visuals.plugins {
         create: () => new samples.StreamGraph()
     };
 
-     export var boxWhiskerChart: IVisualPlugin = {
-         name: 'boxWhiskerChart',
-         capabilities: samples.BoxWhiskerChart.capabilities,
-         create: () => new samples.BoxWhiskerChart()
-     };
+    export var boxWhiskerChart: IVisualPlugin = {
+        name: 'boxWhiskerChart',
+        capabilities: samples.BoxWhiskerChart.capabilities,
+        create: () => new samples.BoxWhiskerChart()
+    };
 
-     export var forecastChart: IVisualPlugin = {
-         name: 'forecastChart',
-         capabilities: samples.ForecastChart.capabilities,
-         create: () => new samples.ForecastChart()
-     };
+    export var forecastChart: IVisualPlugin = {
+        name: 'forecastChart',
+        capabilities: samples.ForecastChart.capabilities,
+        create: () => new samples.ForecastChart()
+    };
 
-     export var hierarchySlicer: IVisualPlugin = {
-         name: 'hierarchySlicer',
-         capabilities: samples.HierarchySlicer.capabilities,
-         create: () => new samples.HierarchySlicer()
-     };
+    export var hierarchySlicer: IVisualPlugin = {
+        name: 'hierarchySlicer',
+        capabilities: samples.HierarchySlicer.capabilities,
+        create: () => new samples.HierarchySlicer()
+    };
 }

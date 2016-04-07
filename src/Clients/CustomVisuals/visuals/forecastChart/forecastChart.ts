@@ -1,4 +1,30 @@
-﻿module powerbi.visuals.samples {
+﻿/*
+ *  Power BI Visualizations
+ *
+ *  Copyright (c) Microsoft Corporation
+ *  All rights reserved. 
+ *  MIT License
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the ""Software""), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *   
+ *  The above copyright notice and this permission notice shall be included in 
+ *  all copies or substantial portions of the Software.
+ *   
+ *  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ *  THE SOFTWARE.
+ */
+
+module powerbi.visuals.samples {
     import SelectionManager = utility.SelectionManager;
     import ClassAndSelector = jsCommon.CssConstants.ClassAndSelector;
 
@@ -25,8 +51,16 @@
         identity: SelectionId;
     }
 
+    export interface ForecastChartInfo {
+        alpha: number;
+        beta: number;
+        gamma: number;
+        RMSA: number;
+    }
+
     export interface ForecastChartData {
         dataPoints: ForecastChartDatapoint[][];
+        forecastInfo: ForecastChartInfo;
         legendData: LegendData;
         series: ForecastChartSeries[];
         axisLabels: string[];
@@ -279,6 +313,7 @@
                 !dataView.categorical.categories[0]) {
                 return {
                     dataPoints: [],
+                    forecastInfo: null,
                     legendData: {
                         dataPoints: []
                     },
@@ -371,6 +406,7 @@
                 (this.gamma < 0 && this.gamma > 1)) {
                 return {
                     dataPoints: [],
+                    forecastInfo: null,
                     legendData: {
                         dataPoints: []
                     },
@@ -382,6 +418,13 @@
 
             var finalFit = this.calcHoltWinters(x, initvalues, this.alpha, this.beta, this.gamma, period);
             var predict = this.predict(finalFit.Coefficent, h);
+
+            var forecastInfo: ForecastChartInfo = {
+                alpha: this.alpha,
+                beta: this.beta,
+                gamma: this.gamma,
+                RMSA: this.RMSE,
+            } 
 
             dataPoints.push([]);
 
@@ -458,14 +501,15 @@
                     pi: isRegular ? 0 : pi,
                     forecast: isRegular ? 0 : 1,
                     label: displayName,
-                    color: isRegular ? color : "#000000",
+                    color: isRegular ? color : d3.rgb(color).darker(1).toString(),
                     identity: id,
                     tooltipInfo: tooltipInfo,
                 });
             }
-
+            
             return {
                 dataPoints: dataPoints,
+                forecastInfo: forecastInfo,
                 legendData: legendData,
                 series: series,
                 axisLabels: axisLabels,
@@ -573,8 +617,8 @@
             });
 
             var mainGroup = this.chart;
-            mainGroup.attr('transform', 'scale(1, -1)' + SVGUtil.translate(0, -this.viewport.height + this.AxisSizeX));              
-            
+            mainGroup.attr('transform', 'scale(1, -1)' + SVGUtil.translate(0, -this.viewport.height + this.AxisSizeX));
+
             // calculate scalefactor
             var stack = d3.layout.stack();
             var layers = stack(dataPoints);
@@ -621,7 +665,7 @@
                     code: 'DataSetIvalid',
                     getMessages: () => {
                         var visualMessage: IVisualErrorMessage = {
-                            message: "Dataset is not valid or too small/empty for this visualization.",
+                            message: "Dataset is empty.",
                             title: '',
                             detail: '',
                         };
@@ -634,6 +678,7 @@
 
             this.drawChart(dataPoints, xScale, yScale, duration);
             this.drawAxis(dataPoints, xScale, yScale, duration);
+            this.drawInfo(data.forecastInfo);
         }
 
         private drawAxis(dataPoints: ForecastChartDatapoint[][], xScale: D3.Scale.Scale, yScale: D3.Scale.Scale, duration: number) {
@@ -711,7 +756,7 @@
 
         private drawChart(dataPoints: ForecastChartDatapoint[][], xScale: D3.Scale.Scale, yScale: D3.Scale.Scale, duration: number): void {
             var opacity: number = .5,
-                dotRadius: number = 5;
+                dotRadius: number = 3;
 
             var stack = d3.layout.stack();
             var layers = stack(dataPoints);
@@ -783,7 +828,7 @@
                     });
                     d3.event.stopPropagation();
                 })
-                .style('stroke', value => value[0][0].forecast == 0 ? value[0][0].color : "black")
+                .style('stroke', value => value[0][1].color)
                 .style('stroke-width', 2)
                 .transition()
                 .duration(duration)
@@ -803,9 +848,9 @@
                 .append('path')
                 .classed(ForecastChart.ChartPIArea.class, true);
 
-            piArea.attr("fill", "res")
+            piArea.attr("fill", value => value[0].color)
                 .attr("opacity", .5)
-                .style('stroke', "black")
+                .style('stroke', value => value[0].color)
                 .style('stroke-width', 2)
                 .transition()
                 .duration(duration)
@@ -821,11 +866,13 @@
                 .classed(ForecastChart.ChartDot.class, true);
 
             dots
-                .style("fill", value => value.forecast == 0 ? value.color : "black")
+                .style("fill", value => value.color)
+                .transition()
+                .duration(duration)
                 .attr("d", dotData);
 
             dots.exit().remove();
-            
+
             //var dataLabels = selection.selectAll(ForecastChart.ChartDataLabel.selector)
             //    .data(d => d);
 
@@ -834,7 +881,7 @@
             //    .classed(ForecastChart.ChartDataLabel.class, true);
 
             //var y0 = this.viewport.height + this.AxisSizeX;
-            
+
             //dataLabels.attr("transform", dataLabel => `translate(0 ${y0}) scale(1, -1)`)
             //    .transition()
             //    .duration(duration)
@@ -850,6 +897,10 @@
             }, true);
 
             selection.exit().remove();
+        }
+
+        private drawInfo(info: ForecastChartInfo) {
+            
         }
 
         private getAxisOptions(min: number, max: number): ForecastAxisOptions {
