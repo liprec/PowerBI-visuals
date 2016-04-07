@@ -110,7 +110,7 @@
         }
 
         public rowHeight(rowHeight: number): TreeView {
-            this.options.rowHeight = Math.ceil(rowHeight) + 1;
+            this.options.rowHeight = Math.ceil(rowHeight);
             return this;
         }
 
@@ -141,7 +141,7 @@
                 window.clearTimeout(this.renderTimeoutId);
 
             this.renderTimeoutId = window.setTimeout(() => {
-                this.getRowHeight().then((rowHeight: number) => {
+                this.getRowHeight().then((rowHeight) => {
                     this.renderImpl(rowHeight);
                 });
                 this.renderTimeoutId = undefined;
@@ -785,7 +785,7 @@
                 },
                 slicerText: {
                     textSize: 10,
-                    height: 0,
+                    height: 18,
                     width: 0,
                     fontColor: '#666666',
                     hoverColor: '#212121',
@@ -853,7 +853,7 @@
                 var parentId: string = '';
 
                 for (var c = 0; c < rows[r].length; c++) {
-                    var labelValue = rows[r][c] == null ? "(blank)" : rows[r][c];
+                    var labelValue = valueFormatter.format(rows[r][c]) == null ? "(blank)" : valueFormatter.format(rows[r][c]);
                     var value: data.SQConstantExpr;
 
                     if (rows[r][c] == null) {
@@ -984,7 +984,7 @@
             };
 
             var treeViewOptions: TreeViewOptions = {
-                rowHeight: this.settings.slicerText.height,
+                rowHeight: this.getRowHeight(),
                 enter: rowEnter,
                 exit: rowExit,
                 update: rowUpdate,
@@ -1020,12 +1020,14 @@
             this.updateInternal(resetScrollbarPosition);
         }
 
-        public onresize(viewPort: IViewport) {
+        public onResizing(viewPort: IViewport) {
             this.viewport = viewPort;
             this.updateInternal(false);
         }
 
         private updateInternal(resetScrollbar: boolean) {
+            this.updateSlicerBodyDimensions();
+
             var dataView = this.dataView,
                 data = this.data = this.converter(dataView);
             
@@ -1053,6 +1055,15 @@
             if (objects) {
                 this.slicerContainer.classed('isMultiSelectEnabled', !DataViewObjects.getValue<boolean>(objects, hierarchySlicerProperties.selection.singleselect, this.settings.general.singleselect));
             }
+        }
+
+        private updateSlicerBodyDimensions(): void {
+            var slicerViewport: IViewport = this.getBodyViewport(this.viewport);
+            this.slicerBody
+                .style({
+                    'height': PixelConverter.toString(slicerViewport.height),
+                    'width': '100%',
+                });
         }
 
         private onEnterSelection(rowSelection: D3.Selection): void {
@@ -1169,6 +1180,11 @@
         private getHeaderHeight(): number {
             return TextMeasurementService.estimateSvgTextHeight(
                 HierarchySlicer.getTextProperties(this.settings.header.textSize));
+        }
+
+        private getRowHeight(): number {
+            return TextMeasurementService.estimateSvgTextHeight(
+                HierarchySlicer.getTextProperties(this.settings.slicerText.textSize));
         }
 
         private getBodyViewport(currentViewport: IViewport): IViewport {
