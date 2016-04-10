@@ -4,255 +4,6 @@
     import createClassAndSelector = jsCommon.CssConstants.createClassAndSelector;
     import PixelConverter = jsCommon.PixelConverter;
 
-    export interface ITreeView {
-        data(data: any[], dataIdFunction: (d) => {}, dataAppended: boolean): ITreeView;
-        rowHeight(rowHeight: number): ITreeView;
-        viewport(viewport: IViewport): ITreeView;
-        render(): void;
-        empty(): void;
-    }
-
-    export module TreeViewFactory {
-        export function createTreeView(options): ITreeView {
-            return new TreeView(options);
-        }
-    }
-
-    export interface TreeViewOptions {
-        enter: (selection: D3.Selection) => void;
-        exit: (selection: D3.Selection) => void;
-        update: (selection: D3.Selection) => void;
-        loadMoreData: () => void;
-        baseContainer: D3.Selection;
-        rowHeight: number;
-        viewport: IViewport;
-        scrollEnabled: boolean;
-    }
-
-    /**
-     * A UI Virtualized Tree, that uses the D3 Enter, Update & Exit pattern to update rows.
-     * It can create trees containing either HTML or SVG elements.
-     */
-    class TreeView implements ITreeView {
-        private getDatumIndex: (d: any) => {};
-        private _data: any[];
-        private _totalRows: number;
-
-        private options: TreeViewOptions;
-        private visibleGroupContainer: D3.Selection;
-        private scrollContainer: D3.Selection;
-        private scrollbarInner: D3.Selection;
-        private scrollElementBar: D3.Selection;
-        private cancelMeasurePass: () => void;
-        private renderTimeoutId: number;
-        
-        /**
-         * The value indicates the percentage of data already shown
-         * in the tree view that triggers a loadMoreData call.
-         */
-        private static loadMoreDataThreshold = 0.8;
-        private static defaultRowHeight = 1;
-
-        public constructor(options: TreeViewOptions) {
-            // make a copy of options so that it is not modified later by caller
-            this.options = $.extend(true, {}, options);
-
-            var scrollbarWrapper = options.baseContainer
-                .append('div')
-                .classed('scroll-wrapper', true)
-                .classed('scrollbar-inner', true)
-
-            this.scrollbarInner = scrollbarWrapper
-                .append('div')
-                .classed('scrollbar-inner', true)
-                .classed('scroll-content', true)
-                .on('scroll', () => this.renderImpl(this.options.rowHeight));
-
-            this.scrollContainer = this.scrollbarInner
-                .append('div')
-                .classed('scrollRegion', true);
-
-            var scrollElement = scrollbarWrapper
-                .append('div')
-                .classed('scroll-element', true)
-                .classed('scroll-y', true)
-                .classed('scroll-scrolly_visible', true)
-
-            var scrollElementOuter = scrollElement
-                .append('div')
-                .classed('scroll-element_outer', true);
-
-            var scrollElementSize = scrollElementOuter
-                .append('div')
-                .classed('scroll-element_size', true);
-
-            var scrollElementTrack = scrollElementOuter
-                .append('div')
-                .classed('scroll-element_track', true);
-
-            this.scrollElementBar = scrollElementOuter
-                .append('div')
-                .classed('scroll-bar', true)
-                //.style('top', '0px')
-                .style('height', '82px');
-
-            this.visibleGroupContainer = this.scrollContainer
-                .append('div')
-                .classed('visibleGroup', true);
-
-            $(options.baseContainer.node()).find('.scroll-element').attr('drag-resize-disabled', 'true');
-
-            TreeView.SetDefaultOptions(options);
-        }
-
-        private static SetDefaultOptions(options: TreeViewOptions) {
-            options.rowHeight = options.rowHeight || TreeView.defaultRowHeight;
-        }
-
-        public rowHeight(rowHeight: number): TreeView {
-            this.options.rowHeight = Math.ceil(rowHeight);
-            return this;
-        }
-
-        public data(data: any[], getDatumIndex: (d) => {}, dataReset: boolean = false): ITreeView {
-            this._data = data;
-            this.getDatumIndex = getDatumIndex;
-            this.setTotalRows();
-            if (dataReset)
-                $(this.scrollbarInner.node()).scrollTop(0);
-
-            //this.render();
-            return this;
-        }
-
-        public viewport(viewport: IViewport): ITreeView {
-            this.options.viewport = viewport;
-            //this.render();
-            return this;
-        }
-
-        public empty(): void {
-            this._data = [];
-            this.render();
-        }
-
-        public render(): void {
-            if (this.renderTimeoutId)
-                window.clearTimeout(this.renderTimeoutId);
-
-            this.renderTimeoutId = window.setTimeout(() => {
-                this.getRowHeight().then((rowHeight) => {
-                    this.renderImpl(rowHeight);
-                });
-                this.renderTimeoutId = undefined;
-            }, 0);
-        }
-
-        private renderImpl(rowHeight: number): void {
-            var totalHeight = this.options.scrollEnabled ? Math.max(0, (this._totalRows * rowHeight)) : this.options.viewport.height;
-            this.scrollContainer
-                .style('height', totalHeight + "px")
-                .attr('height', totalHeight);
-            this.scrollToFrame(true /*loadMoreData*/);
-        }
-
-        private scrollToFrame(loadMoreData: boolean): void {
-            var options = this.options;
-            var visibleGroupContainer = this.visibleGroupContainer;
-            var totalRows = this._totalRows;
-            var rowHeight = options.rowHeight || TreeView.defaultRowHeight;
-            var visibleRows = this.getVisibleRows() || 1;
-            var scrollTop: number = this.scrollbarInner.node().scrollTop;
-            var scrollPosition = (scrollTop === 0) ? 0 : Math.floor(scrollTop / rowHeight);
-            var transformAttr = SVGUtil.translateWithPixels(0, scrollPosition * rowHeight);
-
-            visibleGroupContainer.style({
-                //order matters for proper overriding
-                'transform': d => transformAttr,
-                '-webkit-transform': transformAttr
-            });
-
-            var position0 = Math.max(0, Math.min(scrollPosition, totalRows - visibleRows + 1)),
-                position1 = position0 + visibleRows;
-            var rowSelection = visibleGroupContainer.selectAll(".row")
-                .data(this._data.slice(position0, Math.min(position1, totalRows)), this.getDatumIndex);
-
-            rowSelection
-                .enter()
-                .append('div')
-                .classed('row', true)
-                .call(d => options.enter(d));
-            rowSelection.order();
-
-            var rowUpdateSelection = visibleGroupContainer.selectAll('.row:not(.transitioning)');
-
-            rowUpdateSelection.call(d => options.update(d));
-
-            rowSelection
-                .exit()
-                .call(d => options.exit(d))
-                .remove();
-
-            var scrollBarTop = (position0 / (totalRows - visibleRows)) * (this.options.viewport.height - 82);
-            this.scrollElementBar.style('top', scrollBarTop + 'px');
-
-            if (loadMoreData && visibleRows !== totalRows && position1 >= totalRows * TreeView.loadMoreDataThreshold)
-                options.loadMoreData();
-        }
-
-        private setTotalRows(): void {
-            var data = this._data;
-            this._totalRows = data ? data.length : 0;
-        }
-
-        private getVisibleRows(): number {
-            var minimumVisibleRows = 1;
-            var rowHeight = this.options.rowHeight;
-            var viewportHeight = this.options.viewport.height;
-
-            if (!rowHeight || rowHeight < 1)
-                return minimumVisibleRows;
-
-            if (this.options.scrollEnabled)
-                return Math.min(Math.ceil(viewportHeight / rowHeight) + 1, this._totalRows) || minimumVisibleRows;
-
-            return Math.min(Math.floor(viewportHeight / rowHeight), this._totalRows) || minimumVisibleRows;
-        }
-
-        private getRowHeight(): JQueryPromise<number> {
-            var deferred = $.Deferred<number>();
-            var treeView = this;
-            var options = treeView.options;
-            if (this.cancelMeasurePass)
-                this.cancelMeasurePass();
-
-            // if there is no data, resolve and return
-            if (!(this._data && this._data.length && options)) {
-                treeView.rowHeight(TreeView.defaultRowHeight);
-                return deferred.resolve(options.rowHeight).promise();
-            }
-
-            //render the first item to calculate the row height
-            this.scrollToFrame(false /*loadMoreData*/);
-            var requestAnimationFrameId = window.requestAnimationFrame(() => {
-                //measure row height
-                var firstRow = treeView.visibleGroupContainer.select(".row").node().firstChild;
-                var rowHeight: number = $(firstRow).outerHeight(true);
-                treeView.rowHeight(rowHeight);
-                deferred.resolve(rowHeight);
-                treeView.cancelMeasurePass = undefined;
-                window.cancelAnimationFrame(requestAnimationFrameId);
-            });
-
-            this.cancelMeasurePass = () => {
-                window.cancelAnimationFrame(requestAnimationFrameId);
-                deferred.reject();
-            };
-
-            return deferred.promise();
-        }
-    }
-
     export class HierarchySlicerWebBehavior implements IInteractiveBehavior {
         private hostServices: IVisualHostServices;
         private slicers: D3.Selection;
@@ -324,10 +75,6 @@
                     var selected = d.selected;
                     if (selected) {
                         selectionHandler.handleClearSelection();
-                        if (d.isLeaf) {
-                            selectionHandler.handleSelection(d, true);
-                            selected = !selected;
-                        }
                     } else {
                         selectionHandler.handleClearSelection();
                         selectionHandler.handleSelection(d, true);
@@ -445,11 +192,6 @@
                 var slicerItem: HTMLElement = this.getElementsByTagName('div')[0];
                 var shouldCheck: boolean = d.selected;
                 var partialCheck: boolean = false;
-                //if (!d.isLeaf) {
-                //    var c = dataPoints.filter((dp) => dp.parentId == d.ownId && dp.isLeaf).length;
-                //    var s = dataPoints.filter((dp) => dp.parentId == d.ownId && dp.isLeaf && dp.selected).length;
-                //    partialCheck = ((s > 0) && (s != c)) ? true : false;
-                //}
                 var input = slicerItem.getElementsByTagName('input')[0];
                 if (input)
                     input.checked = shouldCheck;
@@ -656,11 +398,12 @@
                 displayName: 'Values'
             }],
             dataViewMappings: [{
-                categorical: {
-                    categories: {
+                table: {
+                    rows: {
                         for: { in: 'Values' },
-                        dataReductionAlgorithm: { window: {} }
-                    }
+                        dataReductionAlgorithm: { window: { count: 500 } }
+                    },
+                    rowCount: { preferred: { min: 1 } }
                 },
                 includeEmptyGroups: true,
             }],
@@ -730,7 +473,7 @@
         private settings: HierarchySlicerSettings;
         private dataView: DataView;
         private data: HierarchySlicerData;
-        private treeView: ITreeView;
+        private treeView: IListView;
         private margin: IMargin;
         private labelFormat: string;
         private waitingForData: boolean;
@@ -945,9 +688,9 @@
             if (this.behavior)
                 this.interactivityService = createInteractivityService(hostServices);
 
-            var containerDiv = document.createElement('div');
-            containerDiv.className = HierarchySlicer.Container.class;
-            this.slicerContainer = d3.select(containerDiv);
+            this.slicerContainer = d3.select(this.element.get(0))
+                .append('div')
+                .classed(HierarchySlicer.Container.class, true);
 
             this.slicerHeader = this.slicerContainer
                 .append('div')
@@ -967,9 +710,8 @@
                 .classed(HierarchySlicer.Body.class, true)
                 .style({
                     'height': PixelConverter.toString(this.viewport.height),
-                    'width': '100%',
+                    'width': PixelConverter.toString(this.viewport.width),
                 });
-            this.element.get(0).appendChild(containerDiv);
 
             var rowEnter = (rowSelection: D3.Selection) => {
                 this.onEnterSelection(rowSelection);
@@ -983,7 +725,7 @@
                 rowSelection.remove();
             };
 
-            var treeViewOptions: TreeViewOptions = {
+            var treeViewOptions: ListViewOptions = {
                 rowHeight: this.getRowHeight(),
                 enter: rowEnter,
                 exit: rowExit,
@@ -994,13 +736,18 @@
                 baseContainer: this.slicerBody,
             };
 
-            this.treeView = TreeViewFactory.createTreeView(treeViewOptions);
+            this.treeView = ListViewFactory.createListView(treeViewOptions);
         }
 
         public update(options: VisualUpdateOptions): void {
             this.viewport = options.viewport;
             this.dataView = options.dataViews[0];
-            
+
+            if (options.viewport.height === this.viewport.height
+                && options.viewport.width === this.viewport.width) {
+                this.waitingForData = false;
+            }
+
             this.updateInternal(false);
         }
 
@@ -1084,7 +831,7 @@
                 var item = d3.select(this);
                 item.append('span')
                     .classed(HierarchySlicer.LabelText.class, true);
-                item.style('margin-left', d.level * 15 + 'px');
+                item.style('padding-left', d.level * 15 + 'px');
             });
 
             treeItemElement.append('span')
