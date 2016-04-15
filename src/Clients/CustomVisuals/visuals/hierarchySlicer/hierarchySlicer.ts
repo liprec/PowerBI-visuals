@@ -357,6 +357,8 @@
         selectable?: boolean;
         id: data.SQExpr;
         isLeaf: boolean;
+        isExpand: boolean;
+        isHidden: boolean;
         ownId: string;
         parentId: string;
     }
@@ -404,8 +406,7 @@
                         dataReductionAlgorithm: { window: { count: 500 } }
                     },
                     rowCount: { preferred: { min: 1 } }
-                },
-                includeEmptyGroups: true,
+                }
             }],
             objects: {
                 general: {
@@ -582,14 +583,11 @@
             }
 
             var objects = dataView.metadata.objects;
-            if (objects) {
-                defaultSettings.general.singleselect = DataViewObjects.getValue<boolean>(objects, hierarchySlicerProperties.selection.singleselect, defaultSettings.general.singleselect);
-
-                defaultSettings.header.title = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.header.title, dataView.categorical.categories[0].source.displayName);
-
-                selectionFilter = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.filterPropertyIdentifier, "");
-                selectedIds = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.filterValuePropertyIdentifier, "").split(',');
-            }
+            
+            defaultSettings.general.singleselect = DataViewObjects.getValue<boolean>(objects, hierarchySlicerProperties.selection.singleselect, defaultSettings.general.singleselect);
+            defaultSettings.header.title = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.header.title, dataView.categorical.categories[0].source.displayName);
+            selectionFilter = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.filterPropertyIdentifier, "");
+            selectedIds = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.filterValuePropertyIdentifier, "").split(',');
 
             for (var r = 0; r < rows.length; r++) {
                 var parentExpr = null;
@@ -636,6 +634,8 @@
                         selectable: true,
                         partialSelected: false,
                         isLeaf: isLeaf,
+                        isExpand: false,
+                        isHidden: c!=0,
                         id: filterExpr,
                         ownId: ownId,
                         parentId: parentId
@@ -734,6 +734,9 @@
                 scrollEnabled: true,
                 viewport: this.getBodyViewport(this.viewport),
                 baseContainer: this.slicerBody,
+                isReadMode: () => {
+                    return (this.hostServices.getViewMode() !== ViewMode.Edit);
+                }
             };
 
             this.treeView = ListViewFactory.createListView(treeViewOptions);
@@ -790,7 +793,7 @@
                 .viewport(this.getBodyViewport(this.viewport))
                 .rowHeight(this.settings.slicerText.height)
                 .data(
-                data.dataPoints,
+                data.dataPoints.filter((d) => !d.isHidden),
                 (d: HierarchySlicerDataPoint) => $.inArray(d, data.dataPoints),
                 resetScrollbar
                 )
@@ -849,7 +852,7 @@
                     this.slicerHeader.style('display', 'none');
                 }
                 this.slicerHeader.select(HierarchySlicer.HeaderText.selector)
-                    .text(settings.header.title.trim() !== "" ? settings.header.title.trim() : "Title")
+                    .text(settings.header.title.trim())
                     .style({
                         'color': settings.slicerText.fontColor,
                         'border-style': 'solid',
