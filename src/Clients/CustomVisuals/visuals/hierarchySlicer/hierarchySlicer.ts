@@ -821,6 +821,17 @@
             var treeItemElement = rowSelection.append('li')
                 .classed(HierarchySlicer.ItemContainer.class, true);
 
+            treeItemElement.each(function (d: HierarchySlicerDataPoint, i: number) {
+                var item = d3.select(this);
+                if (!d.isLeaf) {
+                    item.append('i')
+                        .classed("caret", true)
+                        .classed("glyphicon", true)
+                        .classed("pbi-glyph-caretright", true)
+                        .classed("glyph-mini", true)
+                }
+            });
+
             var labelElement = treeItemElement.append('div')
                 .classed(HierarchySlicer.Input.class, true);
 
