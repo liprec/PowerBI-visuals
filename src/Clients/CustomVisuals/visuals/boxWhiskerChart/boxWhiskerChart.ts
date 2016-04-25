@@ -221,15 +221,10 @@ module powerbi.visuals.samples {
         private static AxisX: ClassAndSelector = { class: "axisX", selector: ".axisX" };
         private static AxisGrid: ClassAndSelector = { class: "axisGrid", selector: ".axisGrid" };
         private static AxisY: ClassAndSelector = { class: "axisY", selector: ".axisY" };
-        private static AxisNode: ClassAndSelector = { class: "axisNode", selector: ".axisNode" };
-        private static AxisLabel: ClassAndSelector = { class: "axisLabel", selector: ".axisLabel" };
         private static Chart: ClassAndSelector = { class: "chart", selector: ".chart" };
         private static ChartNode: ClassAndSelector = { class: 'chartNode', selector: '.chartNode' };
         private static ChartQuartileBox: ClassAndSelector = { class: 'chartQuartileBox', selector: '.chartQuartileBox' };
         private static ChartMedianLine: ClassAndSelector = { class: 'chartMedianLine', selector: '.chartMedianLine' };
-        private static ChartMinLine: ClassAndSelector = { class: 'chartMinLine', selector: '.chartMinLine' };
-        private static ChartMaxLine: ClassAndSelector = { class: 'chartMaxLine', selector: '.chartMaxLine' };
-        private static ChartVerticalLine: ClassAndSelector = { class: 'chartVerticalLine', selector: '.chartVerticalLine' };
         private static ChartAverageDot: ClassAndSelector = { class: 'chartAverageDot', selector: '.chartAverageDot' };
         private static ChartOutlierDot: ClassAndSelector = { class: 'chartOutlierDot', selector: '.chartOutlierDot' };
         private static ChartDataLabel: ClassAndSelector = { class: "chartDataLabel", selector: ".chartDataLabel" };
@@ -286,13 +281,6 @@ module powerbi.visuals.samples {
             }
             var columns = dataView.categorical.values;
 
-            var formatNoSI = d3.format(',.1f');
-            var formatSI = d3.format('.4s');
-
-            var formatLabels = (value) => {
-                return value < 5000 ? formatNoSI(value) : formatSI(value);
-            }
-
             var dataPoints: BoxWhiskerChartDatapoint[][] = [];
             var legendData: LegendData = {
                 fontSize: 8.25,
@@ -303,7 +291,7 @@ module powerbi.visuals.samples {
             for (var i = 0, iLen = columns.length; i < iLen; i++) {
                 var values = columns[i].values.filter(function (value) { return value != null; });
 
-                if (values.length == 0) {
+                if (values.length === 0) {
                     break;
                 }
                 var selector = { data: [columns[i].identity], };
@@ -311,7 +299,7 @@ module powerbi.visuals.samples {
                 var colorHelper = new ColorHelper(this.colors, BoxWhiskerChart.properties.fill, this.colors.getColorByIndex(i).value);
 
                 legendData.dataPoints.push({
-                    label: columns[i].source.groupName == null ? '(blank)' : columns[i].source.groupName,
+                    label: columns[i].source.groupName === null ? '(blank)' : columns[i].source.groupName,
                     color: colorHelper.getColorForSeriesValue(columns.grouped()[i].objects, columns.identityFields, columns.grouped()[i].name),
                     icon: LegendIcon.Box,
                     selected: false,
@@ -324,24 +312,24 @@ module powerbi.visuals.samples {
                     sortedValue[Math.floor((sortedValue.length - 1) / 2)] +
                     sortedValue[Math.ceil((sortedValue.length - 1) / 2)]) / 2;
 
-                var q1 = sortedValue.length == 3 ? 0 : (sortedValue.length - 1) / 4;
+                var q1 = sortedValue.length === 3 ? 0 : (sortedValue.length - 1) / 4;
 
                 var q1LowValue = sortedValue[Math.floor(q1)];
                 var q1HighValue = sortedValue[Math.ceil(q1)];
 
                 var quartile1 = sortedValue.length <= 2 ? null : q1LowValue + ((q1 - Math.floor(q1)) * (q1HighValue - q1LowValue));
 
-                var q3 = sortedValue.length == 3 ? 2 : 3 * q1;
+                var q3 = sortedValue.length === 3 ? 2 : 3 * q1;
 
                 var q3LowValue = sortedValue[Math.floor(q3)];
                 var q3HighValue = sortedValue[Math.ceil(q3)];
 
                 var quartile3 = sortedValue.length <= 2 ? null : q3LowValue + (((3 * q1) - Math.floor(3 * q1)) * (q3HighValue - q3LowValue));
 
-                var minValue
-                var maxValue
-                var minValueLabel
-                var maxValueLabel
+                var minValue;
+                var maxValue;
+                var minValueLabel;
+                var maxValueLabel;
                 var whiskerType = this.getWhiskerType(this.dataView);
 
                 if (!quartile1 || !quartile3) {
@@ -381,7 +369,7 @@ module powerbi.visuals.samples {
                 var outliers = this.getShowOutliers(this.dataView) ?
                     sortedValue
                         .filter((value) => value < minValue || value > maxValue) // Filter outliers 
-                        .filter((value, index, self) => self.indexOf(value) == index) // Make unique
+                        .filter((value, index, self) => self.indexOf(value) === index) // Make unique
                     : [];
 
                 dataPoints[i].push({
@@ -396,17 +384,17 @@ module powerbi.visuals.samples {
                     outliers: outliers,
                     dataLabels: (this.getDataLabelShow(this.dataView)) ?
                         [maxValue, minValue, avgvalue, median, quartile1, quartile3]
-                            .filter((value, index, self) => self.indexOf(value) == index) // Make unique
-                            .map((dataPoint) => { return { value: dataPoint, x: 0, y: 0 } })
-                            .concat(outliers.map((outlier) => { return { value: outlier, x: 0, y: 0 } }))
+                            .filter((value, index, self) => self.indexOf(value) === index) // Make unique
+                            .map((dataPoint) => { return { value: dataPoint, x: 0, y: 0 }; })
+                            .concat(outliers.map((outlier) => { return { value: outlier, x: 0, y: 0 }; }))
                         : [],
-                    label: columns[i].source.groupName == null ? '(blank)' : columns[i].source.groupName,
+                    label: columns[i].source.groupName === null ? '(blank)' : columns[i].source.groupName,
                     identity: id,
                     color: colorHelper.getColorForSeriesValue(columns.grouped()[i].objects, columns.identityFields, columns.grouped()[i].name),
                     tooltipInfo: [
                         {
                             displayName: 'Group',
-                            value: columns[i].source.groupName == null ? '(blank)' : columns[i].source.groupName,
+                            value: columns[i].source.groupName === null ? '(blank)' : columns[i].source.groupName,
                         },
                         {
                             displayName: '# Samples',
@@ -512,7 +500,6 @@ module powerbi.visuals.samples {
             var dataView = this.dataView = options.dataViews[0],
                 data = this.data = this.converter(dataView, this.colors),
                 dataPoints = data.dataPoints,
-                dataViewMetadataColumn: DataViewMetadataColumn,
                 duration = options.suppressAnimations ? 0 : 250;
 
             this.viewport = {
@@ -524,7 +511,7 @@ module powerbi.visuals.samples {
                 show: this.getLegendShow(this.dataView),
                 showTitle: this.getLegendShowTitle(this.dataView),
                 titleText: this.getLegendTitleText(this.dataView),
-            }
+            };
             LegendData.update(data.legendData, legendProperties);
             if (!this.getLegendShow(this.dataView)) {
                 this.LegendSize = this.LegendPadding;
@@ -569,7 +556,7 @@ module powerbi.visuals.samples {
                 .domain([1, dataPoints.length + 1])
                 .range([this.AxisSizeY, this.viewport.width - this.AxisSizeY]);
 
-            if (dataPoints.length == 0) {
+            if (dataPoints.length === 0) {
                 this.chart.selectAll(BoxWhiskerChart.ChartNode.selector).remove();
                 this.axis.selectAll(BoxWhiskerChart.AxisX.selector).remove();
                 this.axis.selectAll(BoxWhiskerChart.AxisY.selector).remove();
@@ -598,9 +585,9 @@ module powerbi.visuals.samples {
         }
 
         private drawAxis(dataPoints: BoxWhiskerChartDatapoint[][], yScale: D3.Scale.Scale, duration: number) {
-            if ((this.axis.selectAll(BoxWhiskerChart.AxisX.selector)[0].length == 0) ||
-                (this.axis.selectAll(BoxWhiskerChart.AxisY.selector)[0].length == 0) ||
-                (this.axis.selectAll(BoxWhiskerChart.AxisGrid.selector)[0].length == 0)) {
+            if ((this.axis.selectAll(BoxWhiskerChart.AxisX.selector)[0].length === 0) ||
+                (this.axis.selectAll(BoxWhiskerChart.AxisY.selector)[0].length === 0) ||
+                (this.axis.selectAll(BoxWhiskerChart.AxisGrid.selector)[0].length === 0)) {
                 this.axisGrid = this.axis
                     .append("g")
                     .classed(BoxWhiskerChart.AxisGrid.class, true);
@@ -672,8 +659,7 @@ module powerbi.visuals.samples {
         }
 
         private drawChart(dataPoints: BoxWhiskerChartDatapoint[][], xScale: D3.Scale.Scale, yScale: D3.Scale.Scale, duration: number): void {
-            var opacity: number = .5,
-                dotRadius: number = 5;
+            var dotRadius: number = 5;
 
             var stack = d3.layout.stack();
             var layers = stack(dataPoints);
@@ -704,7 +690,7 @@ module powerbi.visuals.samples {
                     var y3 = value.samples <= 3 ? yScale(value.max) : yScale(value.quartile3);
                     var y4 = yScale(value.max);
                     return `M ${x1},${y1}L${x3},${y1}L${x2},${y1}L${x2},${y2} L${x1},${y2}L${x1},${y3}L${x2},${y3} L${x2},${y4}L${x1},${y4}L${x3},${y4}L${x2},${y4}L${x2},${y3} L${x3},${y3}L${x3},${y2}L${x2},${y2}L${x2},${y1}`;
-                }).join(' ')
+                }).join(' ');
             };
 
             var medianData = (points) => {
@@ -714,7 +700,7 @@ module powerbi.visuals.samples {
                     var x2 = xScale(value.category + 0.75);
                     var y2 = yScale(value.median);
                     return `M ${x1},${y1} L${x2},${y2}`;
-                }).join(' ')
+                }).join(' ');
             };
 
             var avgData = (points) => {
@@ -724,7 +710,7 @@ module powerbi.visuals.samples {
                     var r = dotRadius;
                     var r2 = 2 * r;
                     return `M ${x1},${y1} m -${r}, 0 a ${r},${r} 0 1,1 ${r2},0 a ${r},${r} 0 1,1 -${r2},0`;
-                }).join(' ')
+                }).join(' ');
             };
 
             var outlierData = (points) => {
@@ -734,7 +720,7 @@ module powerbi.visuals.samples {
                     var r = dotRadius;
                     var r2 = 2 * r;
                     return `M ${x1},${y1} m -${r}, 0 a ${r},${r} 0 1,1 ${r2},0 a ${r},${r} 0 1,1 -${r2},0`;
-                }).join(' ')
+                }).join(' ');
             };
 
             quartile
@@ -811,7 +797,7 @@ module powerbi.visuals.samples {
                             color: d[0].color,
                             value: dataPoint
                         }
-                        ]
+                        ];
                     });
                 }
                 return [];
@@ -838,7 +824,7 @@ module powerbi.visuals.samples {
                     var lowerLabels = d[0].dataLabels
                         .filter((dataLabel) => dataLabel.value <= d[0].median) // Lower half of data labels
                         .sort((dataLabel1, dataLabel2) => dataLabel2.value - dataLabel1.value); // Sort: median index 0
-                    var x = xScale(d[0].category + 0.77)
+                    var x = xScale(d[0].category + 0.77);
 
                     topLabels[0].y = yScale(d[0].median) - 4;
                     topLabels[0].x = xScale(d[0].category + 0.77);
@@ -913,7 +899,7 @@ module powerbi.visuals.samples {
                 return [{
                     displayName: "Outlier value",
                     value: tooltipEvent.data[0].value,
-                }]
+                }];
             }, true);
 
             selection.exit().remove();
@@ -922,11 +908,11 @@ module powerbi.visuals.samples {
         public static getValueArray(nodes: DataViewTreeNode, index: number): Array<number> {
             var rArray: Array<number> = [];
 
-            if (nodes.children == null) {
+            if (nodes.children === null) {
                 if (nodes.values[index].value != null) {
                     rArray.push(nodes.values[index].value);
                 }
-                return rArray
+                return rArray;
             }
             else {
                 for (var i = 0; i < nodes.children.length; i++) {
@@ -937,24 +923,24 @@ module powerbi.visuals.samples {
         }
 
         private getAxisOptions(min: number, max: number): BoxWhiskerAxisOptions {
-            var min1 = min == 0 ? 0 : min > 0 ? (min * .99) - ((max - min) / 100) : (min * 1.01) - ((max - min) / 100);
-            var max1 = max == 0 ? min == 0 ? 1 : 0 : max < 0 ? (max * .99) + ((max - min) / 100) : (max * 1.01) + ((max - min) / 100);
+            var min1 = min === 0 ? 0 : min > 0 ? (min * .99) - ((max - min) / 100) : (min * 1.01) - ((max - min) / 100);
+            var max1 = max === 0 ? min === 0 ? 1 : 0 : max < 0 ? (max * .99) + ((max - min) / 100) : (max * 1.01) + ((max - min) / 100);
 
             var p = Math.log(max1 - min1) / Math.log(10);
             var f = Math.pow(10, p - Math.floor(p));
 
             var scale = 0.2;
 
-            if (f <= 1.2) scale = 0.2
-            else if (f <= 2.5) scale = 0.2
-            else if (f <= 5) scale = 0.5
-            else if (f <= 10) scale = 1
-            else scale = 2
+            if (f <= 1.2) scale = 0.2;
+            else if (f <= 2.5) scale = 0.2;
+            else if (f <= 5) scale = 0.5;
+            else if (f <= 10) scale = 1;
+            else scale = 2;
 
             var tickSize = scale * Math.pow(10, Math.floor(p));
-            var maxValue = tickSize * (Math.floor(max1 / tickSize) + 1)
-            var minValue = tickSize * Math.floor(min1 / tickSize)
-            var ticks = ((maxValue - minValue) / tickSize) + 1
+            var maxValue = tickSize * (Math.floor(max1 / tickSize) + 1);
+            var minValue = tickSize * Math.floor(min1 / tickSize);
+            var ticks = ((maxValue - minValue) / tickSize) + 1;
 
             return {
                 tickSize: tickSize,

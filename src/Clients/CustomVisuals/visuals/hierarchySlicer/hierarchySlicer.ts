@@ -27,7 +27,7 @@
             this.hierarchyType = options.hierarchyType;
 
             var slicerClear = options.slicerClear;
-            var filterPropertyId = hierarchySlicerProperties.filterPropertyIdentifier;
+            //var filterPropertyId = hierarchySlicerProperties.filterPropertyIdentifier;
 
             options.slicerContainer.classed('hasSelection', true);
 
@@ -60,13 +60,13 @@
                         var selectDataPoints = this.getChildDataPoints(this.dataPoints, d.ownId);
                         selectDataPoints = selectDataPoints.concat(selectDataPoints, this.getParentDataPoints(this.dataPoints, d.parentId));
                         for (var i = 0; i < selectDataPoints.length; i++) {
-                            if (selected == selectDataPoints[i].selected) {
+                            if (selected === selectDataPoints[i].selected) {
                                 selectionHandler.handleSelection(selectDataPoints[i], true);
                             }
                         }
                     }
                     if (d.isLeaf) {
-                        if (this.dataPoints.filter((d) => d.selected && d.isLeaf).length == 0) { // Last leaf disabled
+                        if (this.dataPoints.filter((d) => d.selected && d.isLeaf).length === 0) { // Last leaf disabled
                             selectionHandler.handleClearSelection();
                         } 
                     }
@@ -83,14 +83,14 @@
                     var selectDataPoints = this.getChildDataPoints(this.dataPoints, d.ownId);
                     selectDataPoints = selectDataPoints.concat(selectDataPoints, this.getParentDataPoints(this.dataPoints, d.parentId));
                     for (var i = 0; i < selectDataPoints.length; i++) {
-                        if (selected == selectDataPoints[i].selected) {
+                        if (selected === selectDataPoints[i].selected) {
                             selectionHandler.handleSelection(selectDataPoints[i], true);
                         }
                     } 
                 }
 
                 var filter: powerbi.data.SemanticFilter;
-                var rootLevels = this.dataPoints.filter((d) => d.level == 0 && d.selected);
+                var rootLevels = this.dataPoints.filter((d) => d.level === 0 && d.selected);
                  
                 if (rootLevels.length > 0) {
                     var children = this.getChildFilters(this.dataPoints, rootLevels[0].ownId, 1);
@@ -115,7 +115,7 @@
                     var warnings: IVisualWarning[] = [];
 
                     var rootFilter: powerbi.data.SQExpr = rootFilters[0]; 
-                    if ((rootFilters.length == 1) || (this.hierarchyType == HierarchySlicerEnums.HierarchySlicerType.Natural)) {
+                    if ((rootFilters.length === 1) || (this.hierarchyType === HierarchySlicerEnums.HierarchySlicerType.Natural)) {
                         this.hostServices.setWarnings(warnings);
                         
                         for (var i = 1; i < rootFilters.length; i++) {
@@ -186,8 +186,8 @@
         }
 
         public styleSlicerInputs(slicers: D3.Selection, hasSelection: boolean) {
-            var settings = this.settings;
-            var dataPoints = this.dataPoints;
+            //var settings = this.settings;
+            //var dataPoints = this.dataPoints;
             slicers.each(function (d: HierarchySlicerDataPoint) {
                 var slicerItem: HTMLElement = this.getElementsByTagName('div')[0];
                 var shouldCheck: boolean = d.selected;
@@ -206,8 +206,8 @@
         }
 
         private getChildDataPoints(dataPoints: HierarchySlicerDataPoint[], ownId: string): HierarchySlicerDataPoint[] {
-            var children = dataPoints.filter((d) => d.parentId == ownId);
-            if (children.length==0) {
+            var children = dataPoints.filter((d) => d.parentId === ownId);
+            if (children.length === 0) {
                 return [];
             } else if (children[0].isLeaf) {
                 return children;
@@ -221,10 +221,10 @@
         }
 
         private getParentDataPoints(dataPoints: HierarchySlicerDataPoint[], parentId: string): HierarchySlicerDataPoint[] {
-            var parent = dataPoints.filter((d) => d.ownId == parentId);
-            if (parent.length==0) {
+            var parent = dataPoints.filter((d) => d.ownId === parentId);
+            if (parent.length === 0) {
                 return [];
-            } else if (parent[0].level==0) {
+            } else if (parent[0].level === 0) {
                 return parent;
             } else {
                 var returnParents = [];
@@ -236,8 +236,8 @@
         }
 
         private getChildFilters(dataPoints: HierarchySlicerDataPoint[], parentId: string, level: number): data.SQExpr {
-            var childFilters = dataPoints.filter((d) => d.level == level && d.parentId == parentId && d.selected);
-            if (childFilters.length==0) {
+            var childFilters = dataPoints.filter((d) => d.level === level && d.parentId === parentId && d.selected);
+            if (childFilters.length === 0) {
                 return;
             }
             else if (childFilters[0].isLeaf) { // Leaf level
@@ -298,7 +298,7 @@
         filterPropertyIdentifier: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'filter' },
         filterValuePropertyIdentifier: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'filterValues' },
         defaultValue: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'defaultValue' },
-    }
+    };
 
     export interface HierarchySlicerSettings {
         general: {
@@ -466,7 +466,7 @@
 
         private element: JQuery;
         private behavior: HierarchySlicerWebBehavior;
-        private mainGroupElement: D3.Selection;
+        //private mainGroupElement: D3.Selection;
         private selectionManager: SelectionManager;
         private viewport: IViewport;
         private hostServices: IVisualHostServices;
@@ -476,7 +476,7 @@
         private data: HierarchySlicerData;
         private treeView: IListView;
         private margin: IMargin;
-        private labelFormat: string;
+        //private labelFormat: string;
         private waitingForData: boolean;
         private slicerContainer: D3.Selection;
         private slicerHeader: D3.Selection;
@@ -489,7 +489,7 @@
         private static Body: ClassAndSelector = createClassAndSelector('slicerBody');
         private static ItemContainer: ClassAndSelector = createClassAndSelector('slicerItemContainer');
         private static LabelText: ClassAndSelector = createClassAndSelector('slicerText');
-        private static LabelImage: ClassAndSelector = createClassAndSelector('slicerImage');
+        //private static LabelImage: ClassAndSelector = createClassAndSelector('slicerImage');
         private static CountText: ClassAndSelector = createClassAndSelector('slicerCountText');
         private static Checkbox: ClassAndSelector = createClassAndSelector('checkbox');
         private static Header: ClassAndSelector = createClassAndSelector('slicerHeader');
@@ -568,7 +568,7 @@
             }
 
             var rows = dataView.table.rows;
-            var identities = dataView.categorical.categories;
+            //var identities = dataView.categorical.categories;
             var levels = rows[0].length - 1;
             var dataPoints = [];
             var defaultSettings: HierarchySlicerSettings = HierarchySlicer.DefaultSlicerSettings();
@@ -578,7 +578,7 @@
             var hierarchyType = HierarchySlicerEnums.HierarchySlicerType.UnNatural;
 
             var leafs = dataView.categorical.categories[dataView.categorical.categories.length - 1].values;
-            if (leafs.length == leafs.filter((v, i, s) => s.indexOf(v) == i).length) {
+            if (leafs.length === leafs.filter((v, i, s) => s.indexOf(v) === i).length) {
                 hierarchyType = HierarchySlicerEnums.HierarchySlicerType.Natural;
             }
 
@@ -594,10 +594,10 @@
                 var parentId: string = '';
 
                 for (var c = 0; c < rows[r].length; c++) {
-                    var labelValue = valueFormatter.format(rows[r][c]) == null ? "(blank)" : valueFormatter.format(rows[r][c]);
+                    var labelValue = valueFormatter.format(rows[r][c]) === null ? "(blank)" : valueFormatter.format(rows[r][c]);
                     var value: data.SQConstantExpr;
 
-                    if (rows[r][c] == null) {
+                    if (rows[r][c] === null) {
                         value = powerbi.data.SQExprBuilder.nullConstant();
                     } else {
                         value = powerbi.data.SQExprBuilder.text(labelValue);
@@ -614,20 +614,20 @@
                         parentId = "";
                         parentExpr = filterExpr;
                     }
-                    var ownId = parentId + (parentId == "" ? "" : '_') + labelValue.replace(',', '') + '-' + c;
-                    var isLeaf = c == rows[r].length - 1;
+                    var ownId = parentId + (parentId === "" ? "" : '_') + labelValue.replace(',', '') + '-' + c;
+                    var isLeaf = c === rows[r].length - 1;
                     
                     var selector: data.Selector = {
                         data: [data.createDataViewScopeIdentity(parentExpr)],
                     };
                     if (isLeaf) {
-                        selector = { data: [dataView.table.identity[r]] }
+                        selector = { data: [dataView.table.identity[r]] };
                     }
                     var identity = new SelectionId(selector, false);
 
                     var dataPoint = {
                         identity: identity,
-                        selected: selectedIds.filter((d) => d == ownId).length > 0,
+                        selected: selectedIds.filter((d) => d === ownId).length > 0,
                         value: labelValue,
                         tooltip: labelValue,
                         level: c,
@@ -635,15 +635,15 @@
                         partialSelected: false,
                         isLeaf: isLeaf,
                         isExpand: false,
-                        isHidden: c!=0,
+                        isHidden: c !== 0,
                         id: filterExpr,
                         ownId: ownId,
                         parentId: parentId
-                    }
+                    };
 
                     parentId = ownId;
 
-                    if (identityValues.indexOf(ownId) == -1) {
+                    if (identityValues.indexOf(ownId) === -1) {
                         identityValues.push(ownId);
                         dataPoints.push(dataPoint);
                     }
@@ -656,7 +656,7 @@
                 levels: levels,
                 hasSelectionOverride: true,
                 hierarchyType: hierarchyType,
-            }
+            };
         }
 
         public constructor(options?: any) {
@@ -781,7 +781,7 @@
             var dataView = this.dataView,
                 data = this.data = this.converter(dataView);
             
-            if (data.dataPoints.length == 0) {
+            if (data.dataPoints.length === 0) {
                 this.treeView.empty();
                 return;
             }
@@ -828,7 +828,7 @@
                         .classed("caret", true)
                         .classed("glyphicon", true)
                         .classed("pbi-glyph-caretright", true)
-                        .classed("glyph-mini", true)
+                        .classed("glyph-mini", true);
                 }
             });
 
@@ -951,7 +951,7 @@
         private getBodyViewport(currentViewport: IViewport): IViewport {
             var settings = this.settings;
             var headerHeight;
-            var slicerBodyHeight 
+            var slicerBodyHeight;
             if (settings) {
                 headerHeight = settings.header.show ? this.getHeaderHeight() : 0;
                 slicerBodyHeight = currentViewport.height - (headerHeight + settings.header.borderBottomWidth);

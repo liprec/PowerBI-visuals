@@ -256,15 +256,12 @@ module powerbi.visuals.samples {
         private static AxisX: ClassAndSelector = { class: "axisX", selector: ".axisX" };
         private static AxisGrid: ClassAndSelector = { class: "axisGrid", selector: ".axisGrid" };
         private static AxisY: ClassAndSelector = { class: "axisY", selector: ".axisY" };
-        private static AxisNode: ClassAndSelector = { class: "axisNode", selector: ".axisNode" };
-        private static AxisLabel: ClassAndSelector = { class: "axisLabel", selector: ".axisLabel" };
         private static Chart: ClassAndSelector = { class: "chart", selector: ".chart" };
         private static ChartNode: ClassAndSelector = { class: 'chartNode', selector: '.chartNode' };
         private static ChartLine: ClassAndSelector = { class: 'chartLine', selector: '.chartLine' };
         private static ChartDot: ClassAndSelector = { class: 'chartDot', selector: '.chartDot' };
         private static ChartPIArea: ClassAndSelector = { class: 'chartPIArea', selector: '.chartPIArea' };
-        private static ChartDataLabel: ClassAndSelector = { class: "chartDataLabel", selector: ".chartDataLabel" };
-
+        
         private svg: D3.Selection;
         private axis: D3.Selection;
         private chart: D3.Selection;
@@ -369,12 +366,10 @@ module powerbi.visuals.samples {
             var h = this.getPrediction(this.dataView);
             var mseSteps = 11;
 
-            var seasons = x.length / period;
             var residuals: number[] = [];
 
             var ttl: number = 0;
             x.forEach(value => { ttl += value; });
-            var avgvalue = ttl / x.length;
 
             var initvalues = this.initValues(x, period);
 
@@ -393,7 +388,7 @@ module powerbi.visuals.samples {
                 }
             }
 
-            var mseValue = mse.reduce((n1, n2) => { return Math.min(n1, n2) });
+            var mseValue = mse.reduce((n1, n2) => { return Math.min(n1, n2); });
             var mseIndex = mse.indexOf(mseValue);
 
             var a = Math.floor(mseIndex / mseSteps / mseSteps);
@@ -424,22 +419,22 @@ module powerbi.visuals.samples {
                 beta: this.beta,
                 gamma: this.gamma,
                 RMSA: this.RMSE,
-            } 
+            }; 
 
             dataPoints.push([]);
 
             var psi = function (n, a, b, g): number {
                 return a * (1 + (n * b)) +
-                    (n % period == 0 ? 1 : 0) *
-                    g * (1 - a)
-            }
+                    (n % period === 0 ? 1 : 0) *
+                    g * (1 - a);
+            };
 
             var varResiduals = function (a: number[]): number {
                 var m = d3.mean(a);
-                var t = d3.sum(a.map((v) => Math.pow(v - m, 2)))
+                var t = d3.sum(a.map((v) => Math.pow(v - m, 2)));
 
                 return (1 / (a.length - 1)) * t;
-            }
+            };
 
             var vars = function (n, a, b, g, arr: number[]): number {
                 var vars = 1;
@@ -447,13 +442,13 @@ module powerbi.visuals.samples {
                     vars += Math.pow(psi(i, a, b, g), 2);
                 }
                 return varResiduals(arr) * vars;
-            }
+            };
 
             for (var i = 0; i < x.length + h; i++) {
                 var y = i < x.length ? x[i] : predict[i - x.length];
                 var isRegular = i < x.length ? true : false;
 
-                if (y == null) {
+                if (y === null) {
                     y = 0;
                 }
 
@@ -493,7 +488,7 @@ module powerbi.visuals.samples {
                             displayName: isRegular ? null : "PI",
                             value: isRegular ? null : "+/- " + valueFormatter.format(pi, this.format, true),
                         }
-                    ]
+                    ];
 
                 dataPoints[0].push({
                     x: i,
@@ -513,7 +508,7 @@ module powerbi.visuals.samples {
                 legendData: legendData,
                 series: series,
                 axisLabels: axisLabels,
-            }
+            };
         }
 
         public constructor(options?: ForecastChartConstructorOptions) {
@@ -588,7 +583,6 @@ module powerbi.visuals.samples {
             var dataView = this.dataView = options.dataViews[0],
                 data = this.data = this.converter(dataView, this.colors),
                 dataPoints = data.dataPoints,
-                dataViewMetadataColumn: DataViewMetadataColumn,
                 duration = options.suppressAnimations ? 0 : 250;
 
             this.viewport = {
@@ -600,7 +594,7 @@ module powerbi.visuals.samples {
                 show: this.getLegendShow(this.dataView),
                 showTitle: this.getLegendShowTitle(this.dataView),
                 titleText: this.getLegendTitleText(this.dataView),
-            }
+            };
 
             LegendData.update(data.legendData, legendProperties);
             if (!this.getLegendShow(this.dataView)) {
@@ -654,7 +648,7 @@ module powerbi.visuals.samples {
                     })])
                 .range([this.AxisSizeY, this.viewport.width - this.AxisSizeY]);
 
-            if (dataPoints.length == 0) {
+            if (dataPoints.length === 0) {
                 this.chart.selectAll(ForecastChart.ChartNode.selector).remove();
                 this.axis.selectAll(ForecastChart.AxisX.selector).remove();
                 this.axis.selectAll(ForecastChart.AxisY.selector).remove();
@@ -682,9 +676,9 @@ module powerbi.visuals.samples {
         }
 
         private drawAxis(dataPoints: ForecastChartDatapoint[][], xScale: D3.Scale.Scale, yScale: D3.Scale.Scale, duration: number) {
-            if ((this.axis.selectAll(ForecastChart.AxisX.selector)[0].length == 0) ||
-                (this.axis.selectAll(ForecastChart.AxisY.selector)[0].length == 0) ||
-                (this.axis.selectAll(ForecastChart.AxisGrid.selector)[0].length == 0)) {
+            if ((this.axis.selectAll(ForecastChart.AxisX.selector)[0].length === 0) ||
+                (this.axis.selectAll(ForecastChart.AxisY.selector)[0].length === 0) ||
+                (this.axis.selectAll(ForecastChart.AxisGrid.selector)[0].length === 0)) {
                 this.axisGrid = this.axis
                     .append("g")
                     .classed(ForecastChart.AxisGrid.class, true);
@@ -755,8 +749,7 @@ module powerbi.visuals.samples {
         }
 
         private drawChart(dataPoints: ForecastChartDatapoint[][], xScale: D3.Scale.Scale, yScale: D3.Scale.Scale, duration: number): void {
-            var opacity: number = .5,
-                dotRadius: number = 3;
+            var dotRadius: number = 3;
 
             var stack = d3.layout.stack();
             var layers = stack(dataPoints);
@@ -780,7 +773,7 @@ module powerbi.visuals.samples {
                         var y = yScale(value.y);
                         return `${x} ${y}`;
                     }).join(' L ');
-                })
+                });
             };
 
             var dotData = (value) => {
@@ -799,7 +792,7 @@ module powerbi.visuals.samples {
 
             var line = selection.selectAll(ForecastChart.ChartLine.selector).data(d => {
                 if (d && d.length > 0) {
-                    var values = d.filter((p) => p.forecast == 0)
+                    var values = d.filter((p) => p.forecast === 0);
                     return [
                         [values],
                         [d.filter((p, i) => i >= (values.length - 1))]
@@ -838,8 +831,8 @@ module powerbi.visuals.samples {
 
             var piArea = selection.selectAll(ForecastChart.ChartPIArea.selector).data(d => {
                 if (d && d.length > 0) {
-                    var values = d.filter((p) => p.forecast == 0)
-                    return [d.filter((p, i) => i >= (values.length - 1))]
+                    var values = d.filter((p) => p.forecast === 0);
+                    return [d.filter((p, i) => i >= (values.length - 1))];
                 }
                 return [];
             });
@@ -904,14 +897,14 @@ module powerbi.visuals.samples {
         }
 
         private getAxisOptions(min: number, max: number): ForecastAxisOptions {
-            var min1 = min == 0
+            var min1 = min === 0
                 ? 0
                 : min > 0
                     ? (min * .99) - ((max - min) / 100)
                     : (min * 1.01) - ((max - min) / 100);
 
-            var max1 = max == 0
-                ? min == 0
+            var max1 = max === 0
+                ? min === 0
                     ? 1
                     : 0
                 : max < 0
@@ -922,10 +915,10 @@ module powerbi.visuals.samples {
             var f = Math.pow(10, p - Math.floor(p));
 
             var scale = 0.2;
-            if (f <= 1.2) scale = 0.2
-            else if (f <= 2.5) scale = 0.2
-            else if (f <= 5) scale = 0.5
-            else if (f <= 10) scale = 1
+            if (f <= 1.2) scale = 0.2;
+            else if (f <= 2.5) scale = 0.2;
+            else if (f <= 5) scale = 0.5;
+            else if (f <= 10) scale = 1;
             else scale = 2;
 
             var tickSize = scale * Math.pow(10, Math.floor(p));
@@ -962,16 +955,16 @@ module powerbi.visuals.samples {
                     .reduce((v1, v2) => v1 + v2);
             }
 
-            var startvalues = x.slice(0, 2 * p).map((v, i) => v - st[i % p])
+            var startvalues = x.slice(0, 2 * p).map((v, i) => v - st[i % p]);
             
             // line fitting via least squares
-            var ex = startvalues.map((v, i) => i + 1).reduce((v1, v2) => v1 + v2)
-            var ey = startvalues.reduce((v1, v2) => v1 + v2)
-            var exy = startvalues.map((v, i) => v * (i + 1)).reduce((v1, v2) => v1 + v2)
-            var ex2 = startvalues.map((v, i) => Math.pow(i + 1, 2)).reduce((v1, v2) => v1 + v2)
+            var ex = startvalues.map((v, i) => i + 1).reduce((v1, v2) => v1 + v2);
+            var ey = startvalues.reduce((v1, v2) => v1 + v2);
+            var exy = startvalues.map((v, i) => v * (i + 1)).reduce((v1, v2) => v1 + v2);
+            var ex2 = startvalues.map((v, i) => Math.pow(i + 1, 2)).reduce((v1, v2) => v1 + v2);
 
-            bt = ((2 * p * exy) - (ey * ex)) / ((2 * p * ex2) - (ex * ex))
-            lt = (1 / (2 * p) * ey) - ((1 / (2 * p)) * bt * ex)
+            bt = ((2 * p * exy) - (ey * ex)) / ((2 * p * ex2) - (ex * ex));
+            lt = (1 / (2 * p) * ey) - ((1 / (2 * p)) * bt * ex);
 
             return {
                 lt: lt,
@@ -1012,13 +1005,13 @@ module powerbi.visuals.samples {
                 lt: lt[y.length - 1],
                 bt: bt[y.length - 1],
                 st: st.slice(y.length - p, y.length),
-            }
+            };
 
             return {
                 ft: ft,
                 MSE: mse,
                 Coefficent: coefficents,
-            }
+            };
         }
 
         private predict(c: ForecastCoefficients, h: number): number[] {

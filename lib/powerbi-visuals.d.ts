@@ -1061,60 +1061,6 @@ declare module powerbi {
 
 
 declare module powerbi.extensibility {
-
-    export interface VisualVersionOverloads {
-        [name: string]: Function;
-    }
-
-    export interface VisualVersionOverloadFactory {
-        (visual: powerbi.extensibility.IVisual): VisualVersionOverloads;
-    }
-
-    export interface VisualHostAdapter {
-        (host: powerbi.IVisualHostServices): IVisualHost;
-    }
-
-    export interface VisualVersion {
-        version: string;
-        overloads?: VisualVersionOverloadFactory;
-        hostAdapter: VisualHostAdapter;
-    }
-
-    /**
-     * Extends the interface of a visual wrapper (IVisual) to include
-     * the unwrap method which returns a direct reference to the wrapped visual. 
-     * Used in SafeExecutionWrapper and VisualAdapter
-     */
-    export interface WrappedVisual {
-        /** Returns this visual inside of this wrapper */
-        unwrap: () => powerbi.IVisual;
-    }
-}
-
-
-declare module powerbi.extensibility {
-    import DataViewObjectDescriptors = powerbi.data.DataViewObjectDescriptors;
-
-    /** Defines the capabilities of an IVisual. */
-    export interface VisualCapabilities {
-        /** Defines what roles the visual expects, and how those roles should be populated.  This is useful for visual generation/editing. */
-        dataRoles?: VisualDataRole[];
-
-        /** Defines the set of objects supported by this IVisual. */
-        objects?: DataViewObjectDescriptors;
-
-        /** Defines how roles that the visual understands map to the DataView.  This is useful for query generation. */
-        dataViewMappings?: DataViewMapping[];
-
-        /** Indicates whether cross-highlight is supported by the visual. This is useful for query generation. */
-        supportsHighlight?: boolean;
-    }
-
-}
-
-
-
-declare module powerbi.extensibility {
     import ISelectionId = visuals.ISelectionId;
 
     export interface ISelectionIdBuilder {
@@ -1152,6 +1098,38 @@ declare module powerbi.extensibility {
     export interface VisualConstructorOptions { }
 }
 
+
+
+declare module powerbi.extensibility {
+
+    export interface VisualVersionOverloads {
+        [name: string]: Function;
+    }
+
+    export interface VisualVersionOverloadFactory {
+        (visual: powerbi.extensibility.IVisual): VisualVersionOverloads;
+    }
+
+    export interface VisualHostAdapter {
+        (host: powerbi.IVisualHostServices): IVisualHost;
+    }
+
+    export interface VisualVersion {
+        version: string;
+        overloads?: VisualVersionOverloadFactory;
+        hostAdapter: VisualHostAdapter;
+    }
+
+    /**
+     * Extends the interface of a visual wrapper (IVisual) to include
+     * the unwrap method which returns a direct reference to the wrapped visual. 
+     * Used in SafeExecutionWrapper and VisualAdapter
+     */
+    export interface WrappedVisual {
+        /** Returns this visual inside of this wrapper */
+        unwrap: () => powerbi.IVisual;
+    }
+}
 
 
 /**
@@ -1228,6 +1206,28 @@ declare module powerbi.extensibility.v110 {
     export interface VisualConstructorOptions extends extensibility.VisualConstructorOptions {
         element: HTMLElement;
         host: IVisualHost;
+    }
+
+}
+
+
+
+declare module powerbi.extensibility {
+    import DataViewObjectDescriptors = powerbi.data.DataViewObjectDescriptors;
+
+    /** Defines the capabilities of an IVisual. */
+    export interface VisualCapabilities {
+        /** Defines what roles the visual expects, and how those roles should be populated.  This is useful for visual generation/editing. */
+        dataRoles?: VisualDataRole[];
+
+        /** Defines the set of objects supported by this IVisual. */
+        objects?: DataViewObjectDescriptors;
+
+        /** Defines how roles that the visual understands map to the DataView.  This is useful for query generation. */
+        dataViewMappings?: DataViewMapping[];
+
+        /** Indicates whether cross-highlight is supported by the visual. This is useful for query generation. */
+        supportsHighlight?: boolean;
     }
 
 }
@@ -1639,65 +1639,6 @@ declare module powerbi {
     /** Describes instances of value type objects. */
     export type PrimitiveValue = string | number | boolean | Date;
 }
-﻿
-
-declare module powerbi {
-    import Selector = powerbi.data.Selector;
-    
-    export interface VisualObjectInstance {
-        /** The name of the object (as defined in VisualCapabilities). */
-        objectName: string;
-
-        /** A display name for the object instance. */
-        displayName?: string;
-
-        /** The set of property values for this object.  Some of these properties may be defaults provided by the IVisual. */
-        properties: {
-            [propertyName: string]: DataViewPropertyValue;
-        };
-
-        /** The selector that identifies this object. */
-        selector: Selector;
-
-        /** Defines the constrained set of valid values for a property. */
-        validValues?: {
-            [propertyName: string]: string[];
-        };
-
-        /** (Optional) VisualObjectInstanceEnumeration category index. */
-        containerIdx?: number;
-    }
-
-    export type VisualObjectInstanceEnumeration = VisualObjectInstance[] | VisualObjectInstanceEnumerationObject;
-
-    export interface VisualObjectInstanceEnumerationObject {
-        /** The visual object instances. */
-        instances: VisualObjectInstance[];
-
-        /** Defines a set of containers for related object instances. */
-        containers?: VisualObjectInstanceContainer[];
-    }
-
-    export interface VisualObjectInstanceContainer {
-        displayName: data.DisplayNameGetter;
-    }
-
-    export interface VisualObjectInstancesToPersist {
-        /** Instances which should be merged with existing instances. */
-        merge?: VisualObjectInstance[];
-
-        /** Instances which should replace existing instances. */
-        replace?: VisualObjectInstance[];
-
-        /** Instances which should be deleted from the existing instances. */
-        remove?: VisualObjectInstance[];
-    }
-    
-    export interface EnumerateVisualObjectInstancesOptions {
-        objectName: string;
-    }
-}
-
 ﻿
 
 declare module powerbi {
@@ -2275,7 +2216,66 @@ declare module powerbi {
     export interface IStyleInfo {
         className?: string;
     }
-};declare module powerbi.visuals.telemetry {
+}
+﻿
+
+declare module powerbi {
+    import Selector = powerbi.data.Selector;
+    
+    export interface VisualObjectInstance {
+        /** The name of the object (as defined in VisualCapabilities). */
+        objectName: string;
+
+        /** A display name for the object instance. */
+        displayName?: string;
+
+        /** The set of property values for this object.  Some of these properties may be defaults provided by the IVisual. */
+        properties: {
+            [propertyName: string]: DataViewPropertyValue;
+        };
+
+        /** The selector that identifies this object. */
+        selector: Selector;
+
+        /** Defines the constrained set of valid values for a property. */
+        validValues?: {
+            [propertyName: string]: string[];
+        };
+
+        /** (Optional) VisualObjectInstanceEnumeration category index. */
+        containerIdx?: number;
+    }
+
+    export type VisualObjectInstanceEnumeration = VisualObjectInstance[] | VisualObjectInstanceEnumerationObject;
+
+    export interface VisualObjectInstanceEnumerationObject {
+        /** The visual object instances. */
+        instances: VisualObjectInstance[];
+
+        /** Defines a set of containers for related object instances. */
+        containers?: VisualObjectInstanceContainer[];
+    }
+
+    export interface VisualObjectInstanceContainer {
+        displayName: data.DisplayNameGetter;
+    }
+
+    export interface VisualObjectInstancesToPersist {
+        /** Instances which should be merged with existing instances. */
+        merge?: VisualObjectInstance[];
+
+        /** Instances which should replace existing instances. */
+        replace?: VisualObjectInstance[];
+
+        /** Instances which should be deleted from the existing instances. */
+        remove?: VisualObjectInstance[];
+    }
+    
+    export interface EnumerateVisualObjectInstancesOptions {
+        objectName: string;
+    }
+}
+;declare module powerbi.visuals.telemetry {
     /**
      * Creates a client-side Guid string.
      * @returns A string representation of a Guid.
