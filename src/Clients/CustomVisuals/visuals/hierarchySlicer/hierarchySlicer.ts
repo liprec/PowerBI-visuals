@@ -395,14 +395,14 @@
     export class HierarchySlicer implements IVisual {
         public static capabilities: VisualCapabilities = {
             dataRoles: [{
-                name: 'Values',
+                name: 'Fields',
                 kind: powerbi.VisualDataRoleKind.Grouping,
-                displayName: 'Values'
+                displayName: 'Fields'
             }],
             dataViewMappings: [{
                 table: {
                     rows: {
-                        for: { in: 'Values' },
+                        for: { in: 'Fields' },
                         dataReductionAlgorithm: { window: { count: 500 } }
                     },
                     rowCount: { preferred: { min: 1 } }
@@ -568,7 +568,8 @@
             }
 
             var rows = dataView.table.rows;
-            //var identities = dataView.categorical.categories;
+            var columns = dataView.table.columns;
+            var identities = dataView.categorical.categories;
             var levels = rows[0].length - 1;
             var dataPoints = [];
             var defaultSettings: HierarchySlicerSettings = HierarchySlicer.DefaultSlicerSettings();
@@ -594,17 +595,30 @@
                 var parentId: string = '';
 
                 for (var c = 0; c < rows[r].length; c++) {
-                    var labelValue = valueFormatter.format(rows[r][c]) === null ? "(blank)" : valueFormatter.format(rows[r][c]);
+                    var columnCategoryIndex: number = identities.map((v, i) => { return v.source.queryName === columns[c].queryName ? i : null }).filter((v) => { return v !== null; })[0];
+                    var format = dataView.categorical.categories[columnCategoryIndex].source.format ? dataView.categorical.categories[columnCategoryIndex].source.format : null;
+                    var dataType: ValueTypeDescriptor = dataView.categorical.categories[columnCategoryIndex].source.type ? dataView.categorical.categories[columnCategoryIndex].source.type : "";
+                    var labelValue = valueFormatter.format(rows[r][c], format) === null ? "(blank)" : valueFormatter.format(rows[r][c], format);
                     var value: data.SQConstantExpr;
 
                     if (rows[r][c] === null) {
                         value = powerbi.data.SQExprBuilder.nullConstant();
                     } else {
-                        value = powerbi.data.SQExprBuilder.text(labelValue);
+                        if (dataType.text) {
+                            value = powerbi.data.SQExprBuilder.text(rows[r][c]);
+                        } else if (dataType.integer || dataType.numeric) {
+                            value = powerbi.data.SQExprBuilder.integer(rows[r][c]);
+                        } else if (dataType.bool) {
+                            value = powerbi.data.SQExprBuilder.boolean(rows[r][c]);
+                        } else if (dataType.dateTime) {
+                            value = powerbi.data.SQExprBuilder.dateTime(rows[r][c]);
+                        } else {
+                            value = powerbi.data.SQExprBuilder.text(rows[r][c]);
+                        }
                     }
                     var filterExpr = powerbi.data.SQExprBuilder.compare(
                         data.QueryComparisonKind.Equal,
-                        <powerbi.data.SQExpr>dataView.categorical.categories[0].identityFields[c],
+                        <powerbi.data.SQExpr>dataView.categorical.categories[0].identityFields[columnCategoryIndex],
                         value);
 
                     if (c > 0) {
@@ -676,7 +690,7 @@
 
         public init(options: VisualInitOptions): void {
             var hostServices = this.hostServices = options.host;
-
+            
             this.element = options.element;
             this.viewport = options.viewport;
             this.hostServices = options.host;
@@ -688,9 +702,34 @@
             if (this.behavior)
                 this.interactivityService = createInteractivityService(hostServices);
 
-            this.slicerContainer = d3.select(this.element.get(0))
-                .append('div')
-                .classed(HierarchySlicer.Container.class, true);
+            //this.slicerContainer = d3.select(this.element.get(0))
+            //    .append('div')
+            //    .classed(HierarchySlicer.Container.class, true);
+
+            //this.slicerHeader = this.slicerContainer
+            //    .append('div')
+            //    .classed(HierarchySlicer.Header.class, true);
+
+            //this.slicerHeader
+            //    .append('span')
+            //    .classed(HierarchySlicer.Clear.class, true)
+            //    .attr('title', 'Clear');
+
+            //this.slicerHeader
+            //    .append('div')
+            //    .classed(HierarchySlicer.HeaderText.class, true);
+
+            //this.slicerBody = this.slicerContainer
+            //    .append('div')
+            //    .classed(HierarchySlicer.Body.class, true)
+            //    .style({
+            //        'height': PixelConverter.toString(this.viewport.height),
+            //        'width': PixelConverter.toString(this.viewport.width),
+            //    });
+
+            var containerDiv = document.createElement('div');
+            containerDiv.className = HierarchySlicer.Container.class;
+            var container = this.slicerContainer = d3.select(containerDiv);
 
             this.slicerHeader = this.slicerContainer
                 .append('div')
@@ -705,9 +744,7 @@
                 .append('div')
                 .classed(HierarchySlicer.HeaderText.class, true);
 
-            this.slicerBody = this.slicerContainer
-                .append('div')
-                .classed(HierarchySlicer.Body.class, true)
+            this.slicerBody = container.append('div').classed(HierarchySlicer.Body.class, true)
                 .style({
                     'height': PixelConverter.toString(this.viewport.height),
                     'width': PixelConverter.toString(this.viewport.width),
@@ -740,6 +777,10 @@
             };
 
             this.treeView = ListViewFactory.createListView(treeViewOptions);
+
+            // Append container to DOM
+            this.element.get(0).appendChild(containerDiv);
+
         }
 
         public update(options: VisualUpdateOptions): void {
@@ -793,7 +834,8 @@
                 .viewport(this.getBodyViewport(this.viewport))
                 .rowHeight(this.settings.slicerText.height)
                 .data(
-                data.dataPoints.filter((d) => !d.isHidden),
+                //data.dataPoints.filter((d) => !d.isHidden), // Expand/Collapse
+                data.dataPoints,
                 (d: HierarchySlicerDataPoint) => $.inArray(d, data.dataPoints),
                 resetScrollbar
                 )
@@ -821,16 +863,17 @@
             var treeItemElement = rowSelection.append('li')
                 .classed(HierarchySlicer.ItemContainer.class, true);
 
-            treeItemElement.each(function (d: HierarchySlicerDataPoint, i: number) {
-                var item = d3.select(this);
-                if (!d.isLeaf) {
-                    item.append('i')
-                        .classed("caret", true)
-                        .classed("glyphicon", true)
-                        .classed("pbi-glyph-caretright", true)
-                        .classed("glyph-mini", true);
-                }
-            });
+            // Expand/collapse
+            //treeItemElement.each(function (d: HierarchySlicerDataPoint, i: number) {
+            //    var item = d3.select(this);
+            //    if (!d.isLeaf) {
+            //        item.append('i')
+            //            .classed("caret", true)
+            //            .classed("glyphicon", true)
+            //            .classed("pbi-glyph-caretright", true)
+            //            .classed("glyph-mini", true);
+            //    }
+            //});
 
             var labelElement = treeItemElement.append('div')
                 .classed(HierarchySlicer.Input.class, true);
@@ -990,6 +1033,9 @@
 
             switch (options.objectName) {
                 case "selection":
+                    if (this.data.hierarchyType === HierarchySlicerEnums.HierarchySlicerType.UnNatural) {
+                        break;
+                    }
                     var selectionOptions: VisualObjectInstance = {
                         objectName: "selection",
                         displayName: "Selection",
