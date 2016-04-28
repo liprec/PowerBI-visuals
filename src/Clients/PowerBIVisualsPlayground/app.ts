@@ -46,14 +46,13 @@ module powerbi.visuals {
      * Demonstrates Power BI visualization elements and the way to embed them in standalone web page.
      */
     export class Playground {
-        private static disabledVisuals: string[] = [
+         private static disabledVisuals: string[] = [
             "basicShape",
             "matrix",
             "playChart",
             "kpi",
             "scriptVisual",
             "slicer",
-            "bulletChart",
             "forceGraph",
             "mekkoChart",
             "gantt",
