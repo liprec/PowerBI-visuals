@@ -31,6 +31,9 @@
         "visuals/streamGraph/visual/streamGraph.ts",
         "visuals/pulseChart/visual/pulseChart.ts",
         "visuals/sunburst/visual/sunburst.ts",
+        "visuals/boxWhiskerChart/boxWhiskerChart.ts",
+        "visuals/forecastChart/forecastChart.ts",
+        "visuals/hierarchySlicer/hierarchySlicer.ts",
         "plugins.ts",
         "services/customVisualPluginService.ts"
     ]
