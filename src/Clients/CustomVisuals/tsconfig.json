@@ -33,7 +33,7 @@
         "visuals/sunburst/visual/sunburst.ts",
         "visuals/boxWhiskerChart/boxWhiskerChart.ts",
         "visuals/forecastChart/forecastChart.ts",
-        "visuals/hierarchySlicer/hierarchySlicer.ts",
+        "visuals/hierarchySlicer/visual/hierarchySlicer.ts",
         "plugins.ts",
         "services/customVisualPluginService.ts"
     ]

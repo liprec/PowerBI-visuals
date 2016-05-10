@@ -4,6 +4,261 @@
     import createClassAndSelector = jsCommon.CssConstants.createClassAndSelector;
     import PixelConverter = jsCommon.PixelConverter;
 
+    export interface ITreeView {
+        data(data: any[], dataIdFunction: (d) => {}, dataAppended: boolean): ITreeView;
+        rowHeight(rowHeight: number): ITreeView;
+        viewport(viewport: IViewport): ITreeView;
+        render(): void;
+        empty(): void;
+    }
+
+    export module TreeViewFactory {
+        export function createListView(options): ITreeView {
+            return new TreeView(options);
+        }
+    }
+
+    /**
+     * A UI Virtualized List, that uses the D3 Enter, Update & Exit pattern to update rows.
+     * It can create lists containing either HTML or SVG elements.
+     */
+    class TreeView implements ITreeView {
+        private getDatumIndex: (d: any) => {};
+        private _data: any[];
+        private _totalRows: number;
+
+        private options: ListViewOptions;
+        private visibleGroupContainer: D3.Selection;
+        private scrollContainer: D3.Selection;
+        private scrollbarInner: D3.Selection;
+        private cancelMeasurePass: () => void;
+        private renderTimeoutId: number;
+
+        /**
+         * The value indicates the percentage of data already shown
+         * in the list view that triggers a loadMoreData call.
+         */
+        private static loadMoreDataThreshold = 0.8;
+        private static defaultRowHeight = 1;
+
+        public constructor(options: ListViewOptions) {
+            // make a copy of options so that it is not modified later by caller
+            this.options = $.extend(true, {}, options);
+
+            this.scrollbarInner = options.baseContainer
+                .append('div')
+                .classed('scrollbar-inner', true)
+                .on('scroll', () => this.renderImpl(this.options.rowHeight));
+
+            this.scrollContainer = this.scrollbarInner
+                .append('div')
+                .classed('scrollRegion', true)
+                .on('touchstart', () => this.stopTouchPropagation())
+                .on('touchmove', () => this.stopTouchPropagation());
+
+            this.visibleGroupContainer = this.scrollContainer
+                .append('div')
+                .classed('visibleGroup', true);
+
+            var scrollInner = $(this.scrollbarInner.node());
+            scrollInner.scrollbar({
+                ignoreOverlay: false,
+                ignoreMobile: false,
+                onDestroy: function () { return scrollInner.off('scroll'); },
+            });
+
+            $(options.baseContainer.node()).find('.scroll-element').attr('drag-resize-disabled', 'true');
+
+            TreeView.SetDefaultOptions(options);
+        }
+
+        private static SetDefaultOptions(options: ListViewOptions) {
+            options.rowHeight = options.rowHeight || TreeView.defaultRowHeight;
+        }
+
+        public rowHeight(rowHeight: number): TreeView {
+            this.options.rowHeight = Math.ceil(rowHeight);
+            return this;
+        }
+
+        public data(data: any[], getDatumIndex: (d) => {}, dataReset: boolean = false): ITreeView {
+            this._data = data;
+            this.getDatumIndex = getDatumIndex;
+            this.setTotalRows();
+            if (dataReset)
+                $(this.scrollbarInner.node()).scrollTop(0);
+
+            this.render();
+            return this;
+        }
+
+        public viewport(viewport: IViewport): ITreeView {
+            this.options.viewport = viewport;
+            this.render();
+            return this;
+        }
+
+        public empty(): void {
+            this._data = [];
+            this.render();
+        }
+
+        public render(): void {
+            if (this.renderTimeoutId)
+                window.clearTimeout(this.renderTimeoutId);
+
+            this.renderTimeoutId = window.setTimeout(() => {
+                this.renderImpl(this.options.rowHeight);
+                this.renderTimeoutId = undefined;
+            }, 0);
+        }
+
+        private renderImpl(rowHeight: number): void {
+            var totalHeight = this.options.scrollEnabled ? Math.max(0, (this._totalRows * rowHeight)) : this.options.viewport.height;
+            this.scrollContainer
+                .style('height', totalHeight + "px")
+                .attr('height', totalHeight);
+
+            this.scrollToFrame(true /*loadMoreData*/);
+        }
+
+        /*
+         *  This method is called in order to prevent a bug found in the Interact.js.
+         *  The bug is caused when finishing a scroll outside the scroll area.
+         *  In that case the Interact doesn't process a touchcancel event and thinks a touch point still exists.
+         *  since the Interact listens on the visualContainer, by stoping the propagation we prevent the bug from taking place.
+         */
+        private stopTouchPropagation(): void {
+            //Stop the propagation only in read mode so the drag won't be affected.
+            if (this.options.isReadMode()) {
+                if (d3.event.type === "touchstart") {
+                    var event: TouchEvent = <any>d3.event;
+                    //If there is another touch point outside this visual than the event should be propagated.
+                    //This way the pinch to zoom will not be affected.
+                    if (event.touches && event.touches.length === 1) {
+                        d3.event.stopPropagation();
+                    }
+                }
+                if (d3.event.type === "touchmove") {
+                    d3.event.stopPropagation();
+                }
+            }
+        }
+
+        private scrollToFrame(loadMoreData: boolean): void {
+            var options = this.options;
+            var visibleGroupContainer = this.visibleGroupContainer;
+            var totalRows = this._totalRows;
+            var rowHeight = options.rowHeight || TreeView.defaultRowHeight;
+            var visibleRows = this.getVisibleRows() || 1;
+            var scrollTop: number = this.scrollbarInner.node().scrollTop;
+            var scrollPosition = (scrollTop === 0) ? 0 : Math.floor(scrollTop / rowHeight);
+            var transformAttr = SVGUtil.translateWithPixels(0, scrollPosition * rowHeight);
+
+            visibleGroupContainer.style({
+                //order matters for proper overriding
+                'transform': d => transformAttr,
+                '-webkit-transform': transformAttr
+            });
+
+            var position0 = Math.max(0, Math.min(scrollPosition, totalRows - visibleRows + 1)),
+                position1 = position0 + visibleRows;
+
+            if (this.options.scrollEnabled) {
+
+                // Subtract the amount of height of the top row that's hidden when it's partially visible.
+                var topRowHiddenHeight = scrollTop - (scrollPosition * rowHeight);
+                var halfRowHeight = rowHeight * 0.5;
+
+                // If more than half the top row is hidden, we'll need to render an extra item at the bottom
+                if (topRowHiddenHeight > halfRowHeight) {
+                    position1++;  // Add 1 to handle when rows are partially visible (when scrolling)
+                }
+            }
+
+            var rowSelection = visibleGroupContainer.selectAll(".row")
+                .data(this._data.slice(position0, Math.min(position1, totalRows)), this.getDatumIndex);
+
+            rowSelection
+                .enter()
+                .append('div')
+                .classed('row', true)
+                .call(d => options.enter(d));
+            rowSelection.order();
+
+            var rowUpdateSelection = visibleGroupContainer.selectAll('.row:not(.transitioning)');
+
+            rowUpdateSelection.call(d => options.update(d));
+
+            rowSelection
+                .exit()
+                .call(d => options.exit(d))
+                .remove();
+
+            if (loadMoreData && visibleRows !== totalRows && position1 >= totalRows * TreeView.loadMoreDataThreshold)
+                options.loadMoreData();
+        }
+
+        private setTotalRows(): void {
+            var data = this._data;
+            this._totalRows = data ? data.length : 0;
+        }
+
+        private getVisibleRows(): number {
+            var minimumVisibleRows = 1;
+            var rowHeight = this.options.rowHeight;
+            var viewportHeight = this.options.viewport.height;
+
+            if (!rowHeight || rowHeight < 1)
+                return minimumVisibleRows;
+
+            if (this.options.scrollEnabled)
+                return Math.min(Math.ceil(viewportHeight / rowHeight), this._totalRows) || minimumVisibleRows;
+
+            return Math.min(Math.floor(viewportHeight / rowHeight), this._totalRows) || minimumVisibleRows;
+        }
+
+        private getRowHeight(): JQueryPromise<number> {
+            var deferred = $.Deferred<number>();
+            var listView = this;
+            var options = listView.options;
+            if (this.cancelMeasurePass)
+                this.cancelMeasurePass();
+
+            // if there is no data, resolve and return
+            if (!(this._data && this._data.length && options)) {
+                listView.rowHeight(TreeView.defaultRowHeight);
+                return deferred.resolve(options.rowHeight).promise();
+            }
+
+            //render the first item to calculate the row height
+            this.scrollToFrame(false /*loadMoreData*/);
+            var requestAnimationFrameId = window.requestAnimationFrame(() => {
+                //measure row height
+                var rows = listView.visibleGroupContainer.select(".row");
+                if (!rows.empty()) {
+                    var firstRow = rows.node();
+                    // If the container (child) has margins amd the row (parent) doesn't, the child's margins will collapse into the parent.
+                    // outerHeight doesn't report the correct height for the parent in this case, but it does measure the child properly.
+                    // Fix for #7497261 Measures both and take the max to work around this issue.
+                    var rowHeight: number = Math.max($(firstRow).outerHeight(true), $(firstRow).children().first().outerHeight(true));
+                    listView.rowHeight(rowHeight);
+                    deferred.resolve(rowHeight);
+                }
+
+                listView.cancelMeasurePass = undefined;
+                window.cancelAnimationFrame(requestAnimationFrameId);
+            });
+
+            this.cancelMeasurePass = () => {
+                window.cancelAnimationFrame(requestAnimationFrameId);
+                deferred.reject();
+            };
+
+            return deferred.promise();
+        }
+    }
+
     export class HierarchySlicerWebBehavior implements IInteractiveBehavior {
         private hostServices: IVisualHostServices;
         private slicers: D3.Selection;
@@ -403,7 +658,7 @@
                 table: {
                     rows: {
                         for: { in: 'Fields' },
-                        dataReductionAlgorithm: { window: { count: 500 } }
+                        dataReductionAlgorithm: { top: {} }
                     },
                     rowCount: { preferred: { min: 1 } }
                 }
@@ -474,7 +729,7 @@
         private settings: HierarchySlicerSettings;
         private dataView: DataView;
         private data: HierarchySlicerData;
-        private treeView: IListView;
+        private treeView: ITreeView;
         private margin: IMargin;
         //private labelFormat: string;
         private waitingForData: boolean;
@@ -690,7 +945,7 @@
 
         public init(options: VisualInitOptions): void {
             var hostServices = this.hostServices = options.host;
-            
+            //this.addScript("jqueryscrollbar", "https://gromo.github.io/jquery.scrollbar/jquery.scrollbar.min.js");
             this.element = options.element;
             this.viewport = options.viewport;
             this.hostServices = options.host;
@@ -702,34 +957,9 @@
             if (this.behavior)
                 this.interactivityService = createInteractivityService(hostServices);
 
-            //this.slicerContainer = d3.select(this.element.get(0))
-            //    .append('div')
-            //    .classed(HierarchySlicer.Container.class, true);
-
-            //this.slicerHeader = this.slicerContainer
-            //    .append('div')
-            //    .classed(HierarchySlicer.Header.class, true);
-
-            //this.slicerHeader
-            //    .append('span')
-            //    .classed(HierarchySlicer.Clear.class, true)
-            //    .attr('title', 'Clear');
-
-            //this.slicerHeader
-            //    .append('div')
-            //    .classed(HierarchySlicer.HeaderText.class, true);
-
-            //this.slicerBody = this.slicerContainer
-            //    .append('div')
-            //    .classed(HierarchySlicer.Body.class, true)
-            //    .style({
-            //        'height': PixelConverter.toString(this.viewport.height),
-            //        'width': PixelConverter.toString(this.viewport.width),
-            //    });
-
-            var containerDiv = document.createElement('div');
-            containerDiv.className = HierarchySlicer.Container.class;
-            var container = this.slicerContainer = d3.select(containerDiv);
+            this.slicerContainer = d3.select(this.element.get(0))
+                .append('div')
+                .classed(HierarchySlicer.Container.class, true);
 
             this.slicerHeader = this.slicerContainer
                 .append('div')
@@ -744,11 +974,36 @@
                 .append('div')
                 .classed(HierarchySlicer.HeaderText.class, true);
 
-            this.slicerBody = container.append('div').classed(HierarchySlicer.Body.class, true)
+            this.slicerBody = this.slicerContainer
+                .append('div')
+                .classed(HierarchySlicer.Body.class, true)
                 .style({
                     'height': PixelConverter.toString(this.viewport.height),
                     'width': PixelConverter.toString(this.viewport.width),
                 });
+
+            //var containerDiv = document.createElement('div');
+            //containerDiv.className = HierarchySlicer.Container.class;
+            //var container = this.slicerContainer = d3.select(containerDiv);
+
+            //this.slicerHeader = this.slicerContainer
+            //    .append('div')
+            //    .classed(HierarchySlicer.Header.class, true);
+
+            //this.slicerHeader
+            //    .append('span')
+            //    .classed(HierarchySlicer.Clear.class, true)
+            //    .attr('title', 'Clear');
+
+            //this.slicerHeader
+            //    .append('div')
+            //    .classed(HierarchySlicer.HeaderText.class, true);
+
+            //this.slicerBody = container.append('div').classed(HierarchySlicer.Body.class, true)
+            //    .style({
+            //        'height': PixelConverter.toString(this.viewport.height),
+            //        'width': PixelConverter.toString(this.viewport.width),
+            //    });
 
             var rowEnter = (rowSelection: D3.Selection) => {
                 this.onEnterSelection(rowSelection);
@@ -776,11 +1031,7 @@
                 }
             };
 
-            this.treeView = ListViewFactory.createListView(treeViewOptions);
-
-            // Append container to DOM
-            this.element.get(0).appendChild(containerDiv);
-
+            this.treeView = TreeViewFactory.createListView(treeViewOptions);
         }
 
         public update(options: VisualUpdateOptions): void {
@@ -1025,6 +1276,39 @@
                 default:
                     return outlineElement.replace("1", outlineWeight.toString());
             }
+        }
+
+        private addScript(alias: string, uri: string) {
+            var existentScript = document.getElementById(alias);
+            if (existentScript != null) {
+                $('script').each(function () {
+                    if (this.src.indexOf('uri') >= 0) {
+                        // console.log('removed', this.src);
+                        $(this).remove();
+                    }
+                });
+            }
+            var body = document.getElementsByTagName('body')[0];
+            var script = document.createElement('script');
+            script.id = alias;
+            script.type = 'text/javascript';
+            body.appendChild(script);
+            script.src = uri;
+        }
+
+        private addScriptSnippet(alias: string, snippet: string) {
+            var existentScript = document.getElementById(alias);
+            if (existentScript != null) {
+                $('script').each(function () {
+                        $(this).remove();
+                });
+            }
+            var body = document.getElementsByTagName('body')[0];
+            var script = document.createElement('script');
+            script.id = alias;
+            script.type = 'text/javascript';
+            body.appendChild(script);
+            script.innerText = snippet;
         }
 
         public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] {
