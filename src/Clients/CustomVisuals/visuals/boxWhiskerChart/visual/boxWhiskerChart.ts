@@ -80,14 +80,14 @@ module powerbi.visuals.samples {
         public static capabilities: VisualCapabilities = {
             dataRoles: [
                 {
-                    name: 'Groups',
+                    name: 'Category',
                     kind: powerbi.VisualDataRoleKind.Grouping,
-                    displayName: 'Groups'
+                    displayName: 'Category'
                 },
                 {
-                    name: 'Samples',
+                    name: 'Sampling',
                     kind: powerbi.VisualDataRoleKind.Grouping,
-                    displayName: 'Samples'
+                    displayName: 'Sampling'
                 },
                 {
                     name: 'Values',
@@ -97,18 +97,20 @@ module powerbi.visuals.samples {
             ],
             dataViewMappings: [{
                 conditions: [
-                    { 'Groups': { max: 1 }, 'Values': { min: 0, max: 1 } }
+                    { 'Category': { min:0, max: 1 }, 'Sampling': { min: 1 }, 'Values': { min: 0, max: 1 } }
                 ],
-                categorical: {
-                    categories: {
-                        for: { in: 'Samples' }
+                matrix: {
+                    rows: {
+                        for: { in: 'Category' },
+                        dataReductionAlgorithm: { top: { count: 50000 } }
+                    },
+                    columns: {
+                        for: { in: 'Sampling' },
+                        dataReductionAlgorithm: { top: { count: 50000 } }
                     },
                     values: {
-                        group: {
-                            by: 'Groups',
-                            select: [{ for: { in: 'Values' } }]
-                        }
-                    }
+                        for: { in: 'Values' }
+                    }, 
                 }
             }],
             objects: {
@@ -173,26 +175,6 @@ module powerbi.visuals.samples {
                             type: { bool: true }
                         }
                     }
-                },
-                legend: {
-                    displayName: "Legend",
-                    properties: {
-                        show: {
-                            displayName: "Show",
-                            description: "Show legend",
-                            type: { bool: true }
-                        },
-                        showTitle: {
-                            displayName: "Title",
-                            description: "Display a title for legend symbols",
-                            type: { bool: true }
-                        },
-                        titleText: {
-                            displayName: "Legend Name",
-                            description: "Title text",
-                            type: { text: true }
-                        }
-                    }
                 }
             }
         };
@@ -205,9 +187,6 @@ module powerbi.visuals.samples {
             showMinorGridLines: { objectName: "gridLines", propertyName: "minorGrid" },
             fill: { objectName: "dataPoint", propertyName: "fill" },
             dataLabelShow: { objectName: "labels", propertyName: "show" },
-            legendShow: { objectName: "legend", propertyName: "show" },
-            legendShowTitle: { objectName: "legend", propertyName: "showTitle" },
-            legendTitleText: { objectName: "legend", propertyName: "titleText" },
         };
 
         public static formatStringProp: DataViewObjectPropertyIdentifier = {
@@ -247,7 +226,6 @@ module powerbi.visuals.samples {
         private data: BoxWhiskerChartData;
 
         private margin: IMargin;
-        private legend: ILegend;
         private format: string;
 
         private LegendPadding: number = 5;
@@ -266,12 +244,7 @@ module powerbi.visuals.samples {
 
         public converter(dataView: DataView, colors: IDataColorPalette): BoxWhiskerChartData {
             if (!dataView ||
-                dataView.table ||
-                !dataView.categorical.values ||
-                dataView.categorical.values.length < 1 ||
-                !dataView.categorical ||
-                !dataView.categorical.categories ||
-                !dataView.categorical.categories[0]) {
+                !dataView.matrix) {
                 return {
                     dataPoints: [],
                     legendData: {
@@ -279,28 +252,36 @@ module powerbi.visuals.samples {
                     }
                 };
             }
-            var columns = dataView.categorical.values;
+            var categories = dataView.matrix.rows.root.children;
 
             var dataPoints: BoxWhiskerChartDatapoint[][] = [];
             var legendData: LegendData = {
                 fontSize: 8.25,
                 dataPoints: [],
-                title: dataView.categorical.values.source.displayName
             };
-
-            for (var i = 0, iLen = columns.length; i < iLen; i++) {
-                var values = columns[i].values.filter(function (value) { return value != null; });
+            
+            for (var i = 0, iLen = categories.length; i < iLen; i++) {
+                var values = this.getValueArray(dataView.matrix.rows.root.children[i].values,
+                                    dataView.matrix.columns.root.children.length)
+                                    .filter((value) => { return value != null; });
 
                 if (values.length === 0) {
                     break;
                 }
-                var selector = { data: [columns[i].identity], };
-                var id = new SelectionId(selector, false);
+
+                var selector, id;
+                if (categories.length === 1) {
+                    id = SelectionId.createWithMeasure(dataView.matrix.valueSources[0].queryName);
+                }
+                else {
+                    selector = { data: [categories[i].identity], };
+                    id = new SelectionId(selector, false);
+                }
                 var colorHelper = new ColorHelper(this.colors, BoxWhiskerChart.properties.fill, this.colors.getColorByIndex(i).value);
 
                 legendData.dataPoints.push({
-                    label: columns[i].source.groupName === null ? '(blank)' : columns[i].source.groupName,
-                    color: colorHelper.getColorForSeriesValue(columns.grouped()[i].objects, columns.identityFields, columns.grouped()[i].name),
+                    label: categories[i].value === null ? '(blank)' : categories[i].value,
+                    color: colorHelper.getColorForSeriesValue(categories[i].objects, dataView.matrix.rows.root.childIdentityFields, categories[i].name),
                     icon: LegendIcon.Box,
                     selected: false,
                     identity: id
@@ -365,7 +346,7 @@ module powerbi.visuals.samples {
 
                 dataPoints.push([]);
 
-                this.format = dataView.categorical.values[0].source.format ? dataView.categorical.values[0].source.format : "#,0.00";
+                this.format = dataView.matrix.valueSources[0].format ? dataView.matrix.valueSources[0].format : "#,0.00";
                 var outliers = this.getShowOutliers(this.dataView) ?
                     sortedValue
                         .filter((value) => value < minValue || value > maxValue) // Filter outliers 
@@ -388,13 +369,13 @@ module powerbi.visuals.samples {
                             .map((dataPoint) => { return { value: dataPoint, x: 0, y: 0 }; })
                             .concat(outliers.map((outlier) => { return { value: outlier, x: 0, y: 0 }; }))
                         : [],
-                    label: columns[i].source.groupName === null ? '(blank)' : columns[i].source.groupName,
+                    label: categories[i].value === null ? '(blank)' : categories[i].value,
                     identity: id,
-                    color: colorHelper.getColorForSeriesValue(columns.grouped()[i].objects, columns.identityFields, columns.grouped()[i].name),
+                    color: colorHelper.getColorForSeriesValue(categories[i].objects, dataView.matrix.rows.root.childIdentityFields, categories[i].name),
                     tooltipInfo: [
                         {
                             displayName: 'Group',
-                            value: columns[i].source.groupName === null ? '(blank)' : columns[i].source.groupName,
+                            value: categories[i].value === null ? '(blank)' : categories[i].value,
                         },
                         {
                             displayName: '# Samples',
@@ -450,8 +431,6 @@ module powerbi.visuals.samples {
             this.colors = options.style.colorPalette.dataColors;
             this.selectionManager = new SelectionManager({ hostServices: options.host });
 
-            this.legend = createLegend(element, false, null, true, LegendPosition.Top);
-
             if (!this.svg) {
                 this.svg = d3.select(element.get(0)).append('svg');
             }
@@ -484,8 +463,6 @@ module powerbi.visuals.samples {
             this.chart = this.mainGroupElement
                 .append("g")
                 .classed(BoxWhiskerChart.Chart.class, true);
-
-            Legend.positionChartArea(this.svg, this.legend);
         }
 
         public update(options: VisualUpdateOptions): void {
@@ -506,22 +483,6 @@ module powerbi.visuals.samples {
                 height: options.viewport.height > 0 ? options.viewport.height : 0,
                 width: options.viewport.width > 0 ? options.viewport.width : 0
             };
-
-            var legendProperties: DataViewObject = {
-                show: this.getLegendShow(this.dataView),
-                showTitle: this.getLegendShowTitle(this.dataView),
-                titleText: this.getLegendTitleText(this.dataView),
-            };
-            LegendData.update(data.legendData, legendProperties);
-            if (!this.getLegendShow(this.dataView)) {
-                this.LegendSize = this.LegendPadding;
-            }
-            else {
-                this.LegendSize = this.DefaultLegendSize + this.LegendPadding;
-            }
-
-            this.legend.changeOrientation(LegendPosition.Top);
-            this.legend.drawLegend(data.legendData, this.viewport);
 
             this.svg
                 .attr({
@@ -554,7 +515,7 @@ module powerbi.visuals.samples {
 
             var xScale = d3.scale.linear()
                 .domain([1, dataPoints.length + 1])
-                .range([this.AxisSizeY, this.viewport.width - this.AxisSizeY]);
+                .range([this.AxisSizeY, this.viewport.width - this.LegendPadding]);
 
             if (dataPoints.length === 0) {
                 this.chart.selectAll(BoxWhiskerChart.ChartNode.selector).remove();
@@ -603,7 +564,7 @@ module powerbi.visuals.samples {
 
             var xs = d3.scale.ordinal();
             xs.domain(dataPoints.map((values) => { return values[0].label; }))
-                .rangeBands([this.AxisSizeY, this.viewport.width - this.AxisSizeY]);
+                .rangeBands([this.AxisSizeY, this.viewport.width - this.LegendPadding]);
 
             var ys = yScale.range([this.viewport.height - this.AxisSizeX - this.ChartPadding, this.LegendSize]);
 
@@ -905,21 +866,14 @@ module powerbi.visuals.samples {
             selection.exit().remove();
         }
 
-        public static getValueArray(nodes: DataViewTreeNode, index: number): Array<number> {
+        public getValueArray(nodes: any, length: number): Array<number> {
             var rArray: Array<number> = [];
 
-            if (nodes.children === null) {
-                if (nodes.values[index].value != null) {
-                    rArray.push(nodes.values[index].value);
-                }
-                return rArray;
+            for (var i = 0; i < length; i++) {
+                rArray.push(nodes[i].value);
             }
-            else {
-                for (var i = 0; i < nodes.children.length; i++) {
-                    rArray = rArray.concat(this.getValueArray(nodes.children[i], index));
-                }
-                return rArray;
-            }
+
+            return rArray;
         }
 
         private getAxisOptions(min: number, max: number): BoxWhiskerAxisOptions {
@@ -970,18 +924,6 @@ module powerbi.visuals.samples {
             return DataViewObjects.getValue(this.dataView.metadata.objects, BoxWhiskerChart.properties.dataLabelShow, false);
         }
 
-        private getLegendShow(dataView: DataView): boolean {
-            return DataViewObjects.getValue(this.dataView.metadata.objects, BoxWhiskerChart.properties.legendShow, true);
-        }
-
-        private getLegendShowTitle(dataView: DataView): boolean {
-            return DataViewObjects.getValue(this.dataView.metadata.objects, BoxWhiskerChart.properties.legendShowTitle, true);
-        }
-
-        private getLegendTitleText(dataView: DataView): string {
-            return DataViewObjects.getValue(dataView.metadata.objects, BoxWhiskerChart.properties.legendTitleText, this.data.legendData.title);
-        }
-
         public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] {
             var instances: VisualObjectInstance[] = [];
 
@@ -999,7 +941,7 @@ module powerbi.visuals.samples {
                     instances.push(chartOptions);
                     break;
                 case "dataPoint":
-                    var categories = this.dataView.categorical.values;
+                    var categories = this.dataView.matrix.rows.root.children;
                     for (var i = 0; i < categories.length; i++) {
                         var dataPoint: VisualObjectInstance = {
                             objectName: "dataPoint",
@@ -1034,19 +976,6 @@ module powerbi.visuals.samples {
                         }
                     };
                     instances.push(labels);
-                    break;
-                case "legend":
-                    var legend: VisualObjectInstance = {
-                        objectName: "legend",
-                        displayName: "Legend",
-                        selector: null,
-                        properties: {
-                            show: this.getLegendShow(this.dataView),
-                            showTitle: this.getLegendShowTitle(this.dataView),
-                            titleText: this.getLegendTitleText(this.dataView)
-                        }
-                    };
-                    instances.push(legend);
                     break;
             }
 
