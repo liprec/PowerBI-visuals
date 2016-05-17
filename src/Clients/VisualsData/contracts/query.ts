@@ -71,6 +71,7 @@ module powerbi.data {
         Column?: QueryColumnExpression;
         Measure?: QueryMeasureExpression;
         Aggregation?: QueryAggregationExpression;
+        Percentile?: QueryPercentileExpression;
         Hierarchy?: QueryHierarchyExpression;
         HierarchyLevel?: QueryHierarchyLevelExpression;
         PropertyVariationSource?: QueryPropertyVariationSourceExpression;
@@ -108,12 +109,13 @@ module powerbi.data {
 
         Arithmetic?: QueryArithmeticExpression;
 
+        // Evaluation Expressions
+        ScopedEval?: QueryScopedEvalExpression;
+
         // Client-only expressions
         FillRule?: QueryFillRuleExpression;
         ResourcePackageItem?: QueryResourcePackageItem;
-
-        // Evaluation Expressions
-        ScopedEval?: QueryScopedEvalExpression;
+        SelectRef?: QuerySelectRefExpression;
     }
 
     export interface QueryPropertyExpression {
@@ -131,9 +133,19 @@ module powerbi.data {
         Source: string;
     }
 
+    export interface QuerySelectRefExpression {
+        ExpressionName: string;
+    }
+
     export interface QueryAggregationExpression {
         Function: QueryAggregateFunction;
         Expression: QueryExpressionContainer;
+    }
+
+    export interface QueryPercentileExpression {
+        Expression: QueryExpressionContainer;
+        K: number;
+        Exclusive?: boolean;
     }
 
     export interface QueryHierarchyExpression {

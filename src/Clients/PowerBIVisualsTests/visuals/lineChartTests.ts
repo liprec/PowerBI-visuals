@@ -59,31 +59,36 @@ module powerbitests {
                     displayName: 'col1',
                     queryName: 'col1',
                     type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                    roles: { Category: true },
                 },
                 {
                     displayName: 'col2',
                     queryName: 'col2',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true },
                 },
                 {
                     displayName: 'col3',
                     queryName: 'col3',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true },
                 },
                 {
                     displayName: 'col4',
                     queryName: 'col4',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true },
                 },
                 {
                     // for secondary grouping (legend/series)
                     displayName: 'col5',
                     queryName: 'col5',
                     isMeasure: false,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                    roles: { Series: true },
                 },
             ]
         };
@@ -814,39 +819,6 @@ module powerbitests {
             expect(actualData).toEqual(expectedData);
         });
 
-        it('Check convert categorical dynamic series with undefined grouped', () => {
-            dataViewMetadata.objects = undefined;
-            let dataView: powerbi.DataView = {
-                metadata: dataViewMetadata,
-                categorical: {
-                    categories: [{
-                        source: dataViewMetadata.columns[0],
-                        values: ['John Domo', 'Delta Force', 'Jean Tablau']
-                    }],
-                    values: DataViewTransform.createValueColumns([
-                        {
-                            source: dataViewMetadata.columns[1],
-                            values: [100, 200, 700],
-                        }, {
-                            source: dataViewMetadata.columns[2],
-                            values: [700, 100, 200],
-                        }, {
-                            source: dataViewMetadata.columns[3],
-                            values: [200, 700, 100],
-                        }],
-                        undefined,
-                        dataViewMetadata.columns[4]),
-                },
-            };
-
-            // set grouped() to return an empty array
-            dataView.categorical.values.grouped = () => [];
-
-            let actualData = LineChart.converter(dataView, blankCategoryValue, colors, false);
-
-            expect(actualData.series.length).toBe(3);
-        });
-
         it('Check convert non-category multi-measure + fill colors', () => {
             let seriesColors = [
                 '#41BEE0',
@@ -855,8 +827,8 @@ module powerbitests {
 
             let metadata: powerbi.DataViewMetadata = {
                 columns: [
-                    powerbi.Prototype.inherit(dataViewMetadata.columns[0], c => c.objects = { dataPoint: { fill: { solid: { color: seriesColors[0] } } } }),
-                    powerbi.Prototype.inherit(dataViewMetadata.columns[1], c => c.objects = { dataPoint: { fill: { solid: { color: seriesColors[1] } } } }),
+                    powerbi.Prototype.inherit(dataViewMetadata.columns[1], c => c.objects = { dataPoint: { fill: { solid: { color: seriesColors[0] } } } }),
+                    powerbi.Prototype.inherit(dataViewMetadata.columns[2], c => c.objects = { dataPoint: { fill: { solid: { color: seriesColors[1] } } } }),
                 ]
             };
             let dataView: powerbi.DataView = {
@@ -872,7 +844,7 @@ module powerbitests {
                         }])
                 }
             };
-            let ids = [SelectionId.createWithMeasure('col1'), SelectionId.createWithMeasure('col2')];
+            let ids = [SelectionId.createWithMeasure('col2'), SelectionId.createWithMeasure('col3')];
             let keys = [ids[0].getKey(), ids[1].getKey()];
             let defaultLabelSettings = powerbi.visuals.dataLabelUtils.getDefaultLineChartLabelSettings();
             let actualData = LineChart.converter(dataView, blankCategoryValue, colors, false).series;
@@ -892,7 +864,7 @@ module powerbitests {
                                 value: 100,
                                 categoryIndex: 0,
                                 seriesIndex: 0,
-                                tooltipInfo: [{ displayName: "col1", value: "100" }],
+                                tooltipInfo: [{ displayName: "col2", value: "100" }],
                                 identity: ids[0],
                                 selected: false,
                                 key: JSON.stringify({ series: keys[0], category: 0 }),
@@ -918,7 +890,7 @@ module powerbitests {
                                 value: 200,
                                 categoryIndex: 0,
                                 seriesIndex: 1,
-                                tooltipInfo: [{ displayName: "col2", value: "200" }],
+                                tooltipInfo: [{ displayName: "col3", value: "200" }],
                                 identity: ids[1],
                                 selected: false,
                                 key: JSON.stringify({ series: keys[1], category: 0 }),
@@ -937,8 +909,8 @@ module powerbitests {
 
         let dateTimeColumnsMetadata: powerbi.DataViewMetadata = {
             columns: [
-                { displayName: 'Date', queryName: 'Date', type: ValueType.fromDescriptor({ dateTime: true }) },
-                { displayName: 'PowerBI Customers', queryName: 'PowerBI Customers', isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double) }]
+                { displayName: 'Date', queryName: 'Date', type: ValueType.fromDescriptor({ dateTime: true }), roles: { Category: true } },
+                { displayName: 'PowerBI Customers', queryName: 'PowerBI Customers', isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double), roles: { Y: true } }]
         };
 
         it('Check convert date time', () => {
@@ -1522,24 +1494,28 @@ module powerbitests {
                     displayName: 'col1',
                     queryName: 'col1',
                     type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                    roles: { Category: true },
                 },
                 {
                     displayName: 'col2',
                     queryName: 'col2',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true },
                 },
                 {
                     displayName: 'col3',
                     queryName: 'col3',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true },
                 },
                 {
                     displayName: 'col4',
                     queryName: 'col4',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true },
                 },
                 {
 
@@ -1547,7 +1523,8 @@ module powerbitests {
                     displayName: 'col5',
                     queryName: 'col5',
                     isMeasure: false,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                    roles: { Series: true },
                 },
             ]
         };
@@ -1582,7 +1559,8 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                        roles: { Category: true },
                     },
                     {
                         displayName: 'col2',
@@ -1590,6 +1568,7 @@ module powerbitests {
                         isMeasure: true,
                         type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
                         objects: { general: { formatString: '0.###' } },
+                        roles: { Y: true },
                     },
                     {
                         displayName: 'col3',
@@ -1597,6 +1576,7 @@ module powerbitests {
                         isMeasure: false,
                         type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.DateTime),
                         objects: { general: { formatString: 'd' } },
+                        roles: { Y: true },
                     },
                     {
                         displayName: 'col4',
@@ -1604,6 +1584,7 @@ module powerbitests {
                         isMeasure: true,
                         type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Integer),
                         objects: { general: { formatString: '0' } },
+                        roles: { Y: true },
                     }],
             };
             let dataViewMetadataWithScalarObject = powerbi.Prototype.inherit(dataViewMetadata);
@@ -1701,6 +1682,53 @@ module powerbitests {
                     expect(warningSpy).toHaveBeenCalled();
                     expect(warningSpy.calls.count()).toBe(1);
                     expect(warningSpy.calls.argsFor(0)[0][0].code).toBe('ValuesOutOfRange');
+                    done();
+                }, DefaultWaitForRender);
+            });
+
+            it("Log scale doesn't show warning for positive not zero values.", (done)=> {
+                let options = getOptionsForValuesWarning([5000, 495000, 490000, 480000, 500000]);
+                let logMetadata = _.cloneDeep(dataViewMetadata);
+                logMetadata.objects = {};
+                logMetadata.objects["valueAxis"] = {
+                        show: true,
+                        start: 1,
+                        showAxisTitle: true,
+                        axisStyle: true,
+                        axisScale: AxisScale.log
+                };
+                options.dataViews[0].metadata = logMetadata;
+                
+                let warningSpy = jasmine.createSpy('warning');
+                hostServices.setWarnings = warningSpy;
+                v.onDataChanged(options);
+
+                setTimeout(() => {
+                    expect(warningSpy).not.toHaveBeenCalled();
+                    done();
+                }, DefaultWaitForRender);
+            });
+
+            it("Log scale shows warning for zero values.", (done) => {
+                let options = getOptionsForValuesWarning([0, 495000, 490000, 480000, 500000]);
+                let logMetadata = _.cloneDeep(dataViewMetadata);
+                logMetadata.objects = {};
+                logMetadata.objects["valueAxis"] = {
+                    show: true,
+                    start: 1,
+                    showAxisTitle: true,
+                    axisStyle: true,
+                    axisScale: AxisScale.log
+                };
+                options.dataViews[0].metadata = logMetadata;
+
+                let warningSpy = jasmine.createSpy('warning');
+                hostServices.setWarnings = warningSpy;
+                v.onDataChanged(options);
+
+                setTimeout(() => {
+                    expect(warningSpy).toHaveBeenCalled();
+                    expect(warningSpy.calls.count()).toBe(1);
                     done();
                 }, DefaultWaitForRender);
             });
@@ -1862,8 +1890,8 @@ module powerbitests {
             it('line chart check if date time axis has margin allocated in DOM', (done) => {
                 let dateTimeColumnsMetadata: powerbi.DataViewMetadata = {
                     columns: [
-                        { displayName: 'Date', queryName: 'col1', type: ValueType.fromDescriptor({ dateTime: true }) },
-                        { displayName: 'PowerBI Customers', queryName: 'col2', isMeasure: true }]
+                        { displayName: 'Date', queryName: 'col1', type: ValueType.fromDescriptor({ dateTime: true }), roles: { Category: true } },
+                        { displayName: 'PowerBI Customers', queryName: 'col2', isMeasure: true, roles: { Y: true } }]
                 };
 
                 let dataView: powerbi.DataView = {
@@ -1904,8 +1932,8 @@ module powerbitests {
             it('Line chart with an undefined domain', (done) => {
                 let dateTimeColumnsMetadata: powerbi.DataViewMetadata = {
                     columns: [
-                        { displayName: 'Date', queryName: 'Date', type: ValueType.fromDescriptor({ dateTime: true }) },
-                        { displayName: 'PowerBI Fans', queryName: 'PowerBI Fans', isMeasure: true, type: ValueType.fromDescriptor({ numeric: true }) }]
+                        { displayName: 'Date', queryName: 'Date', type: ValueType.fromDescriptor({ dateTime: true }), roles: { Category: true } },
+                        { displayName: 'PowerBI Fans', queryName: 'PowerBI Fans', isMeasure: true, type: ValueType.fromDescriptor({ numeric: true }), roles: { Y: true } }]
                 };
 
                 let dataView: powerbi.DataView = {
@@ -2010,19 +2038,22 @@ module powerbitests {
                         {
                             displayName: 'col1',
                             queryName: 'col1',
-                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                            roles: { Category: true }
                         },
                         {
                             displayName: 'col2',
                             queryName: 'col2',
                             isMeasure: true,
-                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                            roles: { Y: true }
                         },
                         {
                             displayName: 'col3',
                             queryName: 'col3',
                             isMeasure: true,
-                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                            roles: { Y: true }
                         }]
                 };
 
@@ -2536,8 +2567,8 @@ module powerbitests {
             it('line chart non-category multi-measure dom validation', (done) => {
                 let metadata: powerbi.DataViewMetadata = {
                     columns: [
-                        { displayName: 'col1', isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double) },
-                        { displayName: 'col2', isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double) }
+                        { displayName: 'col1', isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double), roles: { Y: true } },
+                        { displayName: 'col2', isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double), roles: { Y: true } }
                     ]
                 };
                 v.onDataChanged({
@@ -2546,10 +2577,10 @@ module powerbitests {
                         categorical: {
                             values: DataViewTransform.createValueColumns([
                                 {
-                                    source: dataViewMetadata.columns[0],
+                                    source: dataViewMetadata.columns[1],
                                     values: [100]
                                 }, {
-                                    source: dataViewMetadata.columns[1],
+                                    source: dataViewMetadata.columns[2],
                                     values: [200]
                                 }])
                         }
@@ -2575,13 +2606,15 @@ module powerbitests {
                             displayName: 'col1',
                             queryName: 'col1',
                             properties: { Series: true },
-                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                            roles: { Category: true }
                         },
                         {
                             displayName: 'col2',
                             queryName: 'col2',
                             properties: { Y: true },
-                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                            roles: { Y: true }
                         }
                     ]
                 };
@@ -2713,13 +2746,15 @@ module powerbitests {
                         {
                             displayName: 'col1',
                             queryName: 'col1',
-                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                            roles: { Category: true }
                         },
                         {
                             displayName: 'col2',
                             queryName: 'col2',
                             isMeasure: true,
-                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                            roles: { Y: true }
                         }],
                 };
 
@@ -2783,14 +2818,14 @@ module powerbitests {
                         {
                             displayName: 'col1',
                             isMeasure: false,
-                            properties: { Series: true },
-                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                            roles: { Category: true },
                         },
                         {
                             displayName: 'col2',
                             isMeasure: false,
-                            properties: { Y: true },
-                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                            roles: { Y: true },
                         }
                     ]
                 };
@@ -3221,6 +3256,135 @@ module powerbitests {
                 }, DefaultWaitForRender);
             });
 
+            it('line chart reference line dom validation label precision', (done) => {
+                let refLineColor1 = '#ff0000';
+                let refLineColor2 = '#ff00ff';
+                let metadata: powerbi.DataViewMetadata = {
+                    columns: [
+                        dataViewMetadata.columns[0],
+                        dataViewMetadata.columns[1],
+                    ],
+                };
+
+                let dataView: powerbi.DataView = {
+                    metadata: metadata,
+                    categorical: {
+                        categories: [{
+                            source: metadata.columns[0],
+                            values: ['John Domo', 'Delta Force', 'Jean Tablau']
+                        }],
+                        values: DataViewTransform.createValueColumns([
+                            {
+                                source: metadata.columns[1],
+                                values: [100, 200, 700],
+                            }],
+                            undefined,
+                            metadata.columns[2])
+                    },
+                };
+
+                let yAxisReferenceLine: powerbi.DataViewObject = {
+                    show: true,
+                    value: 450,
+                    lineColor: { solid: { color: refLineColor1 } },
+                    transparency: 60,
+                    style: lineStyle.dashed,
+                    position: powerbi.visuals.referenceLinePosition.back,
+                    dataLabelShow: true,
+                    dataLabelColor: { solid: { color: refLineColor1 } },
+                    dataLabelDecimalPoints: 2,
+                    dataLabelHorizontalPosition: powerbi.visuals.referenceLineDataLabelHorizontalPosition.left,
+                    dataLabelVerticalPosition: powerbi.visuals.referenceLineDataLabelVerticalPosition.above,
+                    dataLabelDisplayUnits: 0,
+                };
+
+                dataView.metadata.objects = {
+                    y1AxisReferenceLine: [
+                        {
+                            id: '0',
+                            object: yAxisReferenceLine,
+                        }
+                    ]
+                };
+
+                v.onDataChanged({
+                    dataViews: [dataView]
+                });
+
+                setTimeout(() => {
+                    let graphicsContext = $('.lineChart .lineChartSVG');
+
+                    let yLine = $('.y1-ref-line');
+                    let yLabel = $('.labelGraphicsContext .label').eq(0);
+                    helpers.verifyReferenceLine(
+                        yLine,
+                        yLabel,
+                        graphicsContext,
+                        {
+                            inFront: false,
+                            isHorizontal: true,
+                            color: refLineColor1,
+                            style: lineStyle.dashed,
+                            opacity: 0.4,
+                            label: {
+                                color: refLineColor1,
+                                horizontalPosition: powerbi.visuals.referenceLineDataLabelHorizontalPosition.left,
+                                text: '450.00',
+                                verticalPosition: powerbi.visuals.referenceLineDataLabelVerticalPosition.above,
+                                displayUnits: 0,
+                            },
+                        });
+
+                    yAxisReferenceLine['lineColor'] = { solid: { color: refLineColor2 } };
+                    yAxisReferenceLine['transparency'] = 0;
+                    yAxisReferenceLine['style'] = lineStyle.dotted;
+                    yAxisReferenceLine['position'] = powerbi.visuals.referenceLinePosition.front;
+                    yAxisReferenceLine['dataLabelColor'] = { solid: { color: refLineColor2 } };
+                    yAxisReferenceLine['dataLabelDisplayUnits'] = 1000000;
+
+                    v.onDataChanged({
+                        dataViews: [dataView]
+                    });
+
+                    setTimeout(() => {
+                        yLine = $('.y1-ref-line');
+                        yLabel = $('.labelGraphicsContext .label').eq(0);
+                        helpers.verifyReferenceLine(
+                            yLine,
+                            yLabel,
+                            graphicsContext,
+                            {
+                                inFront: true,
+                                isHorizontal: true,
+                                color: refLineColor2,
+                                style: lineStyle.dotted,
+                                opacity: 1.0,
+                                label: {
+                                    color: refLineColor2,
+                                    horizontalPosition: powerbi.visuals.referenceLineDataLabelHorizontalPosition.left,
+                                    text: '0.00M',
+                                    verticalPosition: powerbi.visuals.referenceLineDataLabelVerticalPosition.above,
+                                    displayUnits: 1000000,
+                                },
+                            });
+
+                        yAxisReferenceLine['show'] = false;
+                        yAxisReferenceLine['dataLabelShow'] = false;
+
+                        v.onDataChanged({
+                            dataViews: [dataView]
+                        });
+
+                        setTimeout(() => {
+                            expect($('.y1-ref-line').length).toBe(0);
+                            expect($('.columnChart .labelGraphicsContext .label').length).toBe(0);
+
+                            done();
+                        }, DefaultWaitForRender);
+                    }, DefaultWaitForRender);
+                }, DefaultWaitForRender);
+            });
+
             describe('trend lines', () => {
                 it('combined series', (done) => {
                     let trendLineColor = '#FF0000';
@@ -3362,13 +3526,15 @@ module powerbitests {
                         {
                             displayName: 'col1',
                             queryName: 'col1',
-                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.DateTime)
+                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.DateTime),
+                            roles: { Category: true }
                         },
                         {
                             displayName: 'col2',
                             queryName: 'col2',
                             isMeasure: true,
-                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                            roles: { Y: true }
                         }],
                 };
 
@@ -3420,22 +3586,26 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                        roles: { Category: true }
                     }, {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true }
                     }, {
                         displayName: 'col3',
                         queryName: 'col3',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true }
                     }, {
                         displayName: 'col4',
                         queryName: 'col4',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true }
                     }]
             };
 
@@ -3686,22 +3856,26 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Category: true }
                     },{
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true }
                     },{
                         displayName: 'col3',
                         queryName: 'col3',
                         type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
-                        isMeasure: true
+                        isMeasure: true,
+                        roles: { Y: true }
                     },{
                         displayName: 'col4',
                         queryName: 'col4',
                         type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
-                        isMeasure: true
+                        isMeasure: true,
+                        roles: { Y: true }
                     }],
                 objects: {
                     labels: {
@@ -4133,12 +4307,14 @@ module powerbitests {
                     displayName: 'col1',
                     queryName: 'col1',
                     format: 'd',
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Date)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Date),
+                    roles: { Category: true }
                 }, {
                     displayName: 'col2',
                     queryName: 'col2',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true }
                 }],
         };
 
@@ -4195,19 +4371,22 @@ module powerbitests {
                 {
                     displayName: 'col1',
                     queryName: 'col1',
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                    roles: { Category: true }
                 },
                 {
                     displayName: 'col2',
                     queryName: 'col2',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true }
                 },
                 {
                     displayName: 'col3',
                     queryName: 'col3',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true }
                 }],
             objects: {
                 legend: {
@@ -4321,12 +4500,14 @@ module powerbitests {
                 {
                     displayName: 'col1',
                     queryName: 'col1',
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                    roles: { Category: true }
                 }, {
                     displayName: 'col2',
                     queryName: 'col2',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Integer)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Integer),
+                    roles: { Y: true }
                 }],
             objects: {
                 labels: {
@@ -4415,12 +4596,14 @@ module powerbitests {
                 {
                     displayName: 'col1',
                     queryName: 'col1',
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                    roles: { Category: true },
                 }, {
                     displayName: 'col2',
                     queryName: 'col2',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true },
                 }],
         };
 
@@ -4479,24 +4662,28 @@ module powerbitests {
                 {
                     displayName: 'col1',
                     queryName: 'col1',
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                    roles: { Category: true },
                 }, {
                     displayName: 'col2',
                     queryName: 'col2',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true },
                 },
                 {
                     displayName: 'col3',
                     queryName: 'col3',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true },
                 },
                 {
                     displayName: 'col4',
                     queryName: 'col4',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true },
                 }],
         };
 
@@ -4621,12 +4808,14 @@ module powerbitests {
                 {
                     displayName: 'col1',
                     queryName: 'col1',
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                    roles: { Category: true },
                 }, {
                     displayName: 'col2',
                     queryName: 'col2',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true },
                 }],
         };
 
@@ -4692,18 +4881,21 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Category: true },
                     }, {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true },
                     },
                     {
                         displayName: 'col3',
                         queryName: 'col3',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true },
                     }],
             };
             let nonNumericDataViewMetadata: powerbi.DataViewMetadata = {
@@ -4711,18 +4903,21 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                        roles: { Category: true },
                     }, {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true },
                     },
                     {
                         displayName: 'col3',
                         queryName: 'col3',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true },
                     }],
             };
 
@@ -4983,6 +5178,90 @@ module powerbitests {
                 expect(points.instances[0].properties['labelColor']).toBe('#777');
             });
 
+            it('Verify title style of category axis-unitOnly', () => {
+
+                dataViewMetadata.objects = {
+                    valueAxis: {
+                        showAxisTitle: true,
+                        axisStyle: "showUnitOnly"
+                    }
+                };
+
+                v.onDataChanged({
+                    dataViews: [{
+                        metadata: dataViewMetadata,
+                        categorical: {
+                            categories: [{
+                                source: dataViewMetadata.columns[0],
+                                values: [1, 2, 3, 4, 5],
+                            }],
+                            values: DataViewTransform.createValueColumns([{
+                                source: dataViewMetadata.columns[1],
+                                values: [10000, 20000, 30000, 40000, 50000],
+                            }])
+                        }
+                    }]
+                });
+                let title = $('.yAxisLabel').find('title').text();
+                expect(title).toBe('Thousands');
+            });
+
+            it('Verify title style of category axis-titleOnly', () => {
+
+                dataViewMetadata.objects = {
+                    valueAxis: {
+                        showAxisTitle: true,
+                        axisStyle: "showTitleOnly"
+                    }
+                };
+
+                v.onDataChanged({
+                    dataViews: [{
+                        metadata: dataViewMetadata,
+                        categorical: {
+                            categories: [{
+                                source: dataViewMetadata.columns[0],
+                                values: [1, 2, 3, 4, 5],
+                            }],
+                            values: DataViewTransform.createValueColumns([{
+                                source: dataViewMetadata.columns[1],
+                                values: [10000, 20000, 30000, 40000, 50000],
+                            }])
+                        }
+                    }]
+                });
+                let title = $('.yAxisLabel').find('title').text();
+                expect(title).toBe('col2');
+            });
+
+            it('Verify title style of category axis-both', () => {
+
+                dataViewMetadata.objects = {
+                    valueAxis: {
+                        showAxisTitle: true,
+                        axisStyle: "showBoth"
+                    }
+                };
+
+                v.onDataChanged({
+                    dataViews: [{
+                        metadata: dataViewMetadata,
+                        categorical: {
+                            categories: [{
+                                source: dataViewMetadata.columns[0],
+                                values: [1, 2, 3, 4, 5],
+                            }],
+                            values: DataViewTransform.createValueColumns([{
+                                source: dataViewMetadata.columns[1],
+                                values: [1000000, 2000000, 3000000, 4000000, 5000000],
+                            }])
+                        }
+                    }]
+                });
+                let title = $('.yAxisLabel').find('title').text();
+                expect(title).toBe('col2 (Millions)');
+            });
+
             it('enumerateObjectInstances: Verify instances on numerical category axis with empty values array', () => {
 
                 dataViewMetadata.objects = {
@@ -5036,7 +5315,8 @@ module powerbitests {
                         {
                             displayName: 'AxesTitleTest',
                             queryName: 'AxesTitleTest',
-                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                            roles: { Y: true },
                         }],
                     objects: {
                         categoryAxis: {
@@ -5099,12 +5379,14 @@ module powerbitests {
                 {
                     displayName: 'col1',
                     queryName: 'col1',
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                    roles: { Category: true },
                 }, {
                     displayName: 'col2',
                     queryName: 'col2',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true },
                 }],
         };
 
@@ -5166,18 +5448,21 @@ module powerbitests {
                 {
                     displayName: 'col1',
                     queryName: 'col1',
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                    roles: { Category: true },
                 }, {
                     displayName: 'col2',
                     queryName: 'col2',
                     isMeasure: true,
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                    roles: { Y: true },
                 }, {
                     displayName: 'col3',
                     queryName: 'col3',
                     isMeasure: false,
                     type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.DateTime),
                     format: 'MM/dd/yyyy',
+                    roles: { Y: true },
                 }],
         };
 
@@ -5553,12 +5838,14 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Category: true },
                     }, {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true },
                     }],
             };
             let categoryColumnRef = powerbi.data.SQExprBuilder.fieldDef({ schema: 's', entity: 'e', column: 'col1' });
@@ -5609,12 +5896,14 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Category: true },
                     }, {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true },
                     }],
             };
             let categoryColumnRef = powerbi.data.SQExprBuilder.fieldDef({ schema: 's', entity: 'e', column: 'col1' });
@@ -5657,40 +5946,62 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
-                    }, {
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: {
+                            Category: true
+                        }
+                    },
+                    {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: {
+                            Series: true
+                        }
+                    },
+                    {
+                        displayName: 'col3',
+                        queryName: 'col3',
+                        isMeasure: true,
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        groupName: 'series1',
+                        roles: {
+                            Y: true
+                        }
                     },
                     {
                         displayName: 'col3',
                         queryName: 'col3',
                         type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
-                        isMeasure: true
+                        isMeasure: true,
+                        groupName: 'series2',
+                        roles: {
+                            Y: true
+                        }
                     }],
             };
 
             let seriesIdentities = [
-                mocks.dataViewScopeIdentity('col2'),
-                mocks.dataViewScopeIdentity('col3'),
+                mocks.dataViewScopeIdentity('series1'),
+                mocks.dataViewScopeIdentity('series2'),
             ];
 
-            let measureColumnRef = powerbi.data.SQExprBuilder.fieldDef({ schema: 's', entity: 'e', column: 'col2' });
+            let seriesColumnRef = powerbi.data.SQExprBuilder.fieldDef({ schema: 's', entity: 'e', column: 'col2' });
 
             let valueColumns = DataViewTransform.createValueColumns([
                 {
-                    source: dataViewMetadata.columns[1],
-                    values: [500000, 495000, 490000, 480000, 500000],
+                    source: dataViewMetadata.columns[2],
+                    values: [null, null, 470000, 460000, 510000],
                     identity: seriesIdentities[0],
                 }, {
-                    source: dataViewMetadata.columns[2],
-                    values: [null, null, 490000, 480000, 500000],
+                    source: dataViewMetadata.columns[3],
+                    values: [500000, 495000, 490000, 480000, 500000],
                     identity: seriesIdentities[1],
                 }],
-                [measureColumnRef]);
-            valueColumns.source = dataViewMetadata.columns[2];
+                [seriesColumnRef],
+                dataViewMetadata.columns[1]
+            );
 
             let dataView = {
                 metadata: dataViewMetadata,
@@ -5714,19 +6025,19 @@ module powerbitests {
             let pointX: number = 10;
             let seriesData = lineChart.data.series[0];
             let tooltipInfo = getComboOrMobileTooltip(lineChart, seriesData, pointX);
-            expect(tooltipInfo).toEqual([{ displayName: 'col1', value: '2001' }, { displayName: 'col3', value: '(Blank)' }, { displayName: 'col2', value: '500000' }]);
+            expect(tooltipInfo).toEqual([{ displayName: 'col1', value: '2003' }, { displayName: 'col2', value: 'series1' }, { displayName: 'col3', value: '470000' }]);
 
             pointX = 120;
             tooltipInfo = getComboOrMobileTooltip(lineChart, seriesData, pointX);
-            expect(tooltipInfo).toEqual([{ displayName: 'col1', value: '2002' }, { displayName: 'col3', value: '(Blank)' }, { displayName: 'col2', value: '495000' }]);
+            expect(tooltipInfo).toEqual([{ displayName: 'col1', value: '2004' }, { displayName: 'col2', value: 'series1' }, { displayName: 'col3', value: '460000' }]);
 
             pointX = 303;
             tooltipInfo = getComboOrMobileTooltip(lineChart, seriesData, pointX);
-            expect(tooltipInfo).toEqual([{ displayName: 'col1', value: '2004' }, { displayName: 'col3', value: '(Blank)' }, { displayName: 'col2', value: '480000' }]);
+            expect(tooltipInfo).toEqual([{ displayName: 'col1', value: '2005' }, { displayName: 'col2', value: 'series1' }, { displayName: 'col3', value: '510000' }]);
 
             pointX = 450;
             tooltipInfo = getComboOrMobileTooltip(lineChart, seriesData, pointX);
-            expect(tooltipInfo).toEqual([{ displayName: 'col1', value: '2005' }, { displayName: 'col3', value: '(Blank)' }, { displayName: 'col2', value: '500000' }]);
+            expect(tooltipInfo).toEqual([{ displayName: 'col1', value: '2005' }, { displayName: 'col2', value: 'series1' }, { displayName: 'col3', value: '510000' }]);
         });
 
         it('Non scalar xAxis - closest data point', () => {
@@ -5735,12 +6046,14 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                        roles: { Category: true },
                     }, {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true },
                     }],
             };
             let lineChart = (<any>v).layers[0];
@@ -5811,13 +6124,15 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                        roles: { Category: true },
                     }, {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
                         type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
                         format: '0.##;-0.##;0',
+                        roles: { Y: true },
                     }],
                 objects: {
                     labels: {
@@ -5863,12 +6178,14 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                        roles: { Category: true },
                     }, {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true },
                     }],
                 objects: {
                     labels: {
@@ -5918,12 +6235,14 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                        roles: { Category: true },
                     }, {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true },
                     }],
                 objects: {
                     labels: {
@@ -5972,12 +6291,14 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                        roles: { Category: true },
                     }, {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true },
                     }],
                 objects: {
                     labels: {
@@ -6024,12 +6345,14 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                        roles: { Category: true },
                     }, {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true },
                     }],
                 objects: {
                     labels: {
@@ -6076,12 +6399,14 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                        roles: { Category: true },
                     }, {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                        roles: { Y: true },
                     }],
                 objects: {
                     labels: {
@@ -6126,13 +6451,15 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                        roles: { Category: true },
                     }, {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
                         type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
                         format: '0.##;-0.##;0',
+                        roles: { Y: true },
                     }],
                 objects: {
                     labels: {
@@ -6181,9 +6508,14 @@ module powerbitests {
         });
 
         it("Label data points do not have zero width parent for stacked area with scalar axis", () => {
-            let areaChart = powerbi.visuals.visualPluginFactory.createMinerva({
-                lineChartLabelDensityEnabled: true,
-            }).getPlugin('stackedAreaChart').create();
+            let areaChart = new powerbi.visuals.CartesianChart({
+                chartType: powerbi.visuals.CartesianChartType.StackedArea,
+                isScrollable: true,
+                tooltipsEnabled: true,
+                animator: new powerbi.visuals.BaseAnimator(),
+                behavior: new powerbi.visuals.CartesianChartBehavior([new powerbi.visuals.LineChartWebBehavior()]),
+                lineChartLabelDensityEnabled: true
+            });
 
             areaChart.init({
                 element: element,
@@ -6202,13 +6534,15 @@ module powerbitests {
                     {
                         displayName: 'col1',
                         queryName: 'col1',
-                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                        type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                        roles: { Category: true },
                     }, {
                         displayName: 'col2',
                         queryName: 'col2',
                         isMeasure: true,
                         type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
                         format: '0.##;-0.##;0',
+                        roles: { Y: true },
                     }],
                 objects: {
                     labels: {

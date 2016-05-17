@@ -24,68 +24,29 @@
  *  THE SOFTWARE.
  */
 
-@import (reference) "../../../../styles/styles.less";
+module powerbi {
+    import Selector = data.Selector;
 
-.pulseChart {
-    @fontSize: 11px;
+    export module VisualObjectRepetition {
+        /** Determines whether two repetitions are equal. */
+        export function equals(x: VisualObjectRepetition, y: VisualObjectRepetition): boolean {
+            // Normalize falsy to null
+            x = x || null;
+            y = y || null;
 
-    font-family: @regularFontFamily;
+            if (x === y)
+                return true;
 
-    .axisGraphicsContext {
-        font-family: @regularFontFamily;
-        font-size: @fontSize;
-    }
+            if (!x !== !y)
+                return false;
 
-    .axis path,
-    .axis line {
-        fill: none;
-        stroke: #777777;
-        shape-rendering: crispEdges;
-    }
+            debug.assertValue(x, 'x');
+            debug.assertValue(y, 'y');
 
-    .line {
-        fill: none;
-        stroke: steelblue;
-        stroke-width: 2px;
-    }
+            if (!Selector.equals(x.selector, y.selector))
+                return false;
 
-    .xAxisNode {
-        font-size: @fontSize;
-
-        line {
-            display: none;
+            return _.isEqual(x.objects, y.objects);
         }
-
-        text {
-            fill: white;
-        }
-
-        .axisBox {
-            fill: #E1F2F7;
-        }
-    }
-
-    .y {
-        font-size: @fontSize;
-        g.tick {
-            line {
-                opacity: 0.2;
-            }
-        }
-    }
-
-    .gaps .gap {
-        .gapNode {
-            fill: dimgrey;
-        }
-    }
-
-    .animationPlay,
-    .animationPause,
-    .animationReset,
-    .animationPrev,
-    .animationNext,
-    .animationToEnd {
-        cursor: pointer;
     }
 }

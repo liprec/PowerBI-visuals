@@ -32,9 +32,11 @@ module powerbi.data {
         visitColumnRef(expr: SQColumnRefExpr, arg: TArg): T;
         visitMeasureRef(expr: SQMeasureRefExpr, arg: TArg): T;
         visitAggr(expr: SQAggregationExpr, arg: TArg): T;
+        visitPercentile(expr: SQPercentileExpr, arg: TArg): T;
         visitHierarchy(expr: SQHierarchyExpr, arg: TArg): T;
         visitHierarchyLevel(expr: SQHierarchyLevelExpr, arg: TArg): T;
         visitPropertyVariationSource(expr: SQPropertyVariationSourceExpr, arg: TArg): T;
+        visitSelectRef(expr: SQSelectRefExpr, arg: TArg): T;
         visitAnd(expr: SQAndExpr, arg: TArg): T;
         visitBetween(expr: SQBetweenExpr, arg: TArg): T;
         visitIn(expr: SQInExpr, arg: TArg): T;
@@ -77,6 +79,10 @@ module powerbi.data {
             return this.visitDefault(expr, arg);
         }
 
+        public visitPercentile(expr: SQPercentileExpr, arg: TArg): T {
+            return this.visitDefault(expr, arg);
+        }
+
         public visitHierarchy(expr: SQHierarchyExpr, arg: TArg): T {
             return this.visitDefault(expr, arg);
         }
@@ -86,6 +92,10 @@ module powerbi.data {
         }
 
         public visitPropertyVariationSource(expr: SQPropertyVariationSourceExpr, arg: TArg): T {
+            return this.visitDefault(expr, arg);
+        }
+
+        public visitSelectRef(expr: SQSelectRefExpr, arg: TArg): T {
             return this.visitDefault(expr, arg);
         }
 
@@ -192,6 +202,10 @@ module powerbi.data {
             expr.arg.accept(this);
         } 
 
+        public visitPercentile(expr: SQPercentileExpr): void {
+            expr.arg.accept(this);
+        }
+
         public visitHierarchy(expr: SQHierarchyExpr): void {
             expr.arg.accept(this);
         }
@@ -202,6 +216,10 @@ module powerbi.data {
 
         public visitPropertyVariationSource(expr: SQPropertyVariationSourceExpr): void {
             expr.arg.accept(this);
+        }
+
+        public visitSelectRef(expr: SQSelectRefExpr): void {
+            this.visitDefault(expr);
         }
 
         public visitBetween(expr: SQBetweenExpr): void {
@@ -322,6 +340,7 @@ module powerbi.data {
 
         public visitScopedEval(expr: SQScopedEvalExpr): void {
             expr.expression.accept(this);
+
             for (let scopeExpr of expr.scope) {
                 scopeExpr.accept(this);
             }

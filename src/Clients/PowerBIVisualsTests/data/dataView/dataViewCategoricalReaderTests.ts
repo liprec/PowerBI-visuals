@@ -1,4 +1,4 @@
-﻿ /*
+﻿/*
  *  Power BI Visualizations
  *
  *  Copyright (c) Microsoft Corporation
@@ -205,7 +205,7 @@ module powerbitests {
         
         // Series methods
         reader.hasDynamicSeries();
-        reader.getSeriesCount();
+        reader.getSeriesCount("");
         reader.getSeriesObjects(0);
         reader.getSeriesValueColumns();
         reader.getSeriesValueColumnGroup(0);

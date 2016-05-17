@@ -178,7 +178,14 @@ module powerbitests {
 
         beforeEach((done) => {
             element = powerbitests.helpers.testDom('500', '500');
-            visualBuilder = new VisualBuilder("lineClusteredColumnComboChart");
+            visualBuilder = new VisualBuilder(() => new powerbi.visuals.CartesianChart({
+                chartType: powerbi.visuals.CartesianChartType.LineClusteredColumnCombo,
+                isScrollable: true,
+                tooltipsEnabled: true,
+                animator: new powerbi.visuals.WebColumnChartAnimator(),
+                behavior: new powerbi.visuals.CartesianChartBehavior([new powerbi.visuals.ColumnChartWebBehavior(), new powerbi.visuals.LineChartWebBehavior()]),
+                trendLinesEnabled: true
+            }));
 
             done();
         });
@@ -187,7 +194,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewDefault(),
-                    dataViewFactory.buildDataViewInAnotherDomainOneValue()
+                    dataViewFactory.buildDataViewInAnotherDomainOneValue(undefined, true)
                 ]
             });
 
@@ -211,7 +218,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewCustomWithIdentities([[100, 200, 700]]),
-                    dataViewFactory.buildDataViewCustomWithIdentities([[90, 220, 670]])
+                    dataViewFactory.buildDataViewCustomWithIdentities([[90, 220, 670]], true)
                 ]
             });
 
@@ -239,7 +246,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewEmpty(),
-                    dataViewFactory.buildDataViewDefault()
+                    dataViewFactory.buildDataViewDefault(undefined, true)
                 ]
             });
 
@@ -354,7 +361,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewInAnotherDomain(),
-                    dataViewFactory.buildDataViewDefault()
+                    dataViewFactory.buildDataViewDefault(undefined, true)
                 ]
             });
 
@@ -378,7 +385,7 @@ module powerbitests {
                 visualBuilder.onDataChanged({
                     dataViews: [
                         dataViewFactory.buildDataViewInAnotherDomain(),
-                        dataViewFactory.buildDataViewEmpty()
+                        dataViewFactory.buildDataViewEmpty(true)
                     ]
                 });
 
@@ -394,7 +401,7 @@ module powerbitests {
                     visualBuilder.onDataChanged({
                         dataViews: [
                             dataViewFactory.buildDataViewEmpty(),
-                            dataViewFactory.buildDataViewDefault()
+                            dataViewFactory.buildDataViewDefault(undefined, true)
                         ]
                     });
 
@@ -404,7 +411,7 @@ module powerbitests {
                         let catCountFinal = $(".lineChart").find(".cat").length;
                         expect(catCountFinal).toBe(3);
                         let y2tickCountFinal = $($(".y.axis")[1]).find(".tick").length;
-                        
+
                         // y2 axis (line value axis) should be shifted to y1 in this case
                         expect(y2tickCountFinal).toEqual(0);
 
@@ -418,7 +425,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewInAnotherDomain(),
-                    dataViewFactory.buildDataViewDefault()
+                    dataViewFactory.buildDataViewDefault(undefined, true)
                 ]
             });
 
@@ -460,7 +467,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewDefault(),
-                    dataViewFactory.buildDataViewDefault()
+                    dataViewFactory.buildDataViewDefault(undefined, true)
                 ]
             });
 
@@ -489,7 +496,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewDefault(true),
-                    dataViewFactory.buildDataViewInAnotherDomain(true)
+                    dataViewFactory.buildDataViewInAnotherDomain(true, true)
                 ]
             });
 
@@ -512,7 +519,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewDefault(true),
-                    dataViewFactory.buildDataViewDefault(true)
+                    dataViewFactory.buildDataViewDefault(true, true)
                 ]
             });
 
@@ -540,7 +547,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewDefault(true),
-                    dataViewFactory.buildDataViewInAnotherDomain(true)
+                    dataViewFactory.buildDataViewInAnotherDomain(true, true)
                 ]
             });
 
@@ -563,7 +570,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewDefault(true),
-                    dataViewFactory.buildDataViewDefault(true)
+                    dataViewFactory.buildDataViewDefault(true, true)
                 ]
             });
 
@@ -591,7 +598,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewDefault(true),
-                    dataViewFactory.buildDataViewDefault(true)
+                    dataViewFactory.buildDataViewDefault(true, true)
                 ]
             });
 
@@ -601,7 +608,7 @@ module powerbitests {
                 visualBuilder.onDataChanged({
                     dataViews: [
                         dataViewFactory.buildDataViewSuperLongLabels(true),
-                        dataViewFactory.buildDataViewSuperLongLabels(true)
+                        dataViewFactory.buildDataViewSuperLongLabels(true, true)
                     ]
                 });
 
@@ -614,12 +621,19 @@ module powerbitests {
         });
 
         it("Ensure scrollbar is shown at smaller viewport dimensions", (done) => {
-            visualBuilder = new VisualBuilder("lineClusteredColumnComboChart", "100", "100");
+            visualBuilder = new VisualBuilder(() => new powerbi.visuals.CartesianChart({
+                chartType: powerbi.visuals.CartesianChartType.LineClusteredColumnCombo,
+                isScrollable: true,
+                tooltipsEnabled: true,
+                animator: new powerbi.visuals.WebColumnChartAnimator(),
+                behavior: new powerbi.visuals.CartesianChartBehavior([new powerbi.visuals.ColumnChartWebBehavior(), new powerbi.visuals.LineChartWebBehavior()]),
+                trendLinesEnabled: true
+            }), "100", "100");
 
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewManyCategories(true),
-                    dataViewFactory.buildDataViewManyCategories(true)
+                    dataViewFactory.buildDataViewManyCategories(true, true)
                 ]
             });
 
@@ -642,7 +656,7 @@ module powerbitests {
 
         it("Ensure all data points has the default color", (done) => {
             let dataView1 = dataViewFactory.buildDataViewDefault(true);
-            let dataView2 = dataViewFactory.buildDataViewInAnotherDomain(true);
+            let dataView2 = dataViewFactory.buildDataViewInAnotherDomain(true, true);
 
             dataView1.metadata.objects = {
                 dataPoint: {
@@ -680,7 +694,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewNegative(true),
-                    dataViewFactory.buildDataViewNegative(true)
+                    dataViewFactory.buildDataViewNegative(true, true)
                 ]
             });
 
@@ -815,7 +829,7 @@ module powerbitests {
 
         it('validate shoulShowLegendCard with static series for column and line', (done) => {
             let dynamicSeriesDataView = dataViewFactory.buildDataViewDefault();
-            let staticSeriesDataView = dataViewFactory.buildDataViewDefault();
+            let staticSeriesDataView = dataViewFactory.buildDataViewDefault(undefined, true);
 
             visualBuilder.onDataChanged({ dataViews: [dynamicSeriesDataView, staticSeriesDataView] });
 
@@ -829,7 +843,7 @@ module powerbitests {
 
         it('validate dataPoint enumerateObjectInstances for combochart with column and line', (done) => {
             let dataView1 = dataViewFactory.buildDataForLabelsFirstType(undefined, undefined, undefined, undefined, true);
-            let dataView2 = dataViewFactory.buildDataForLabelsFirstType(undefined, undefined, undefined, undefined, true);
+            let dataView2 = dataViewFactory.buildDataForLabelsFirstType(undefined, undefined, undefined, undefined, true, true);
 
             visualBuilder.onDataChanged({ dataViews: [dataView1, dataView2] });
 
@@ -861,7 +875,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewNumber(objects),
-                    dataViewFactory.buildDataViewNumber(objects)]
+                    dataViewFactory.buildDataViewNumber(objects, true)]
             });
 
             setTimeout(() => {
@@ -906,7 +920,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewNumber(objects),
-                    dataViewFactory.buildDataViewNumber(objects)]
+                    dataViewFactory.buildDataViewNumber(objects, true)]
             });
 
             setTimeout(() => {
@@ -948,7 +962,7 @@ module powerbitests {
                 }
             };
 
-            let dataView = dataViewFactory.buildDataViewCustomSingleColumn(objects, [[4000, 6000, 10000]]);
+            let dataView = dataViewFactory.buildDataViewCustomSingleColumn(objects, [[4000, 6000, 10000]], true);
 
             let dataViewAnotherDomain = dataViewFactory.buildDataViewCustom(objects, [[1], [10], [20]]);
 
@@ -974,7 +988,7 @@ module powerbitests {
                 }
             };
 
-            let dataView = dataViewFactory.buildDataViewCustomSingleColumn(objects, [[5, 15, 25]]);
+            let dataView = dataViewFactory.buildDataViewCustomSingleColumn(objects, [[5, 15, 25]], true);
 
             let dataViewAnotherDomain = dataViewFactory.buildDataViewCustom(objects, [[1], [10], [30]]);
 
@@ -1005,12 +1019,12 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewInAnotherDomain(),
-                    dataViewFactory.buildDataViewCustom(undefined, [[-2000, -6000, -7000]])]
+                    dataViewFactory.buildDataViewCustom(undefined, [[-2000, -6000, -7000]], undefined, true)]
             });
 
             setTimeout(() => {
                 let axisLabels = $(".axisGraphicsContext .y.axis").last().find(".tick").find("text");
-                
+
                 //Verify begin&end axis labels
                 expect(helpers.findElementText($(axisLabels).first())).toBe("-7K");
                 expect(helpers.findElementText($(axisLabels).last())).toBe("-2K");
@@ -1036,12 +1050,12 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewNumber(objects),
-                    dataViewFactory.buildDataViewInAnotherDomainOneValue(objects)]
+                    dataViewFactory.buildDataViewInAnotherDomainOneValue(objects, true)]
             });
 
             setTimeout(() => {
                 let textSelector: string = ".yAxisLabel";
-                let lineAxisLabel:number = $(textSelector).length;
+                let lineAxisLabel: number = $(textSelector).length;
 
                 expect(lineAxisLabel).toBe(2);
                 expect(helpers.findElementText($(textSelector).first())).toBe("col2, col3 and col4");
@@ -1059,7 +1073,7 @@ module powerbitests {
             visualBuilder.initVisual();
 
             let dataView1 = dataViewFactory.buildDataForLabelsFirstType();
-            let dataView2 = dataViewFactory.buildDataForLabelsSecondType(undefined, undefined, undefined, undefined, labelDensityMax);
+            let dataView2 = dataViewFactory.buildDataForLabelsSecondType(undefined, undefined, undefined, undefined, labelDensityMax, undefined, true);
 
             visualBuilder.onDataChanged({ dataViews: [dataView1, dataView2] });
             setTimeout(() => {
@@ -1076,7 +1090,7 @@ module powerbitests {
             visualBuilder.initVisual();
 
             let dataView1 = dataViewFactory.buildDataForLabelsFirstType(undefined, undefined, undefined, 12);
-            let dataView2 = dataViewFactory.buildDataForLabelsSecondType(undefined, undefined, undefined, 12, labelDensityMax);
+            let dataView2 = dataViewFactory.buildDataForLabelsSecondType(undefined, undefined, undefined, 12, labelDensityMax, undefined, true);
 
             visualBuilder.onDataChanged({ dataViews: [dataView1, dataView2] });
             setTimeout(() => {
@@ -1102,7 +1116,7 @@ module powerbitests {
             visualBuilder.onDataChanged({
                 dataViews: [
                     dataViewFactory.buildDataViewNumber(objects),
-                    dataViewFactory.buildDataViewInAnotherDomainOneValue(objects)]
+                    dataViewFactory.buildDataViewInAnotherDomainOneValue(objects, true)]
             });
 
             setTimeout(() => {
@@ -1133,7 +1147,7 @@ module powerbitests {
             visualBuilder.initVisual();
 
             let dynamicSeriesDataView = dataViewFactory.buildDataViewDynamicSeries();
-            let staticSeriesDataView = dataViewFactory.buildDataViewDefault();
+            let staticSeriesDataView = dataViewFactory.buildDataViewDefault(undefined, true);
 
             // Column chart has a dynamic series, line chart has a static series.
             visualBuilder.onDataChanged({ dataViews: [dynamicSeriesDataView, staticSeriesDataView] });
@@ -1180,7 +1194,7 @@ module powerbitests {
 
             let dataView1 = dataViewFactory.buildDataViewCustom(undefined, [[100, 200, 700], [1000, 2000, 7000]], ["a", "b"]);
 
-            let dataView2 = dataViewFactory.buildDataViewCustomWithIdentities([[100, 200, 700], [10000, 20000, 70000]]);
+            let dataView2 = dataViewFactory.buildDataViewCustomWithIdentities([[100, 200, 700], [10000, 20000, 70000]], true);
 
             // Both layers have static series
             visualBuilder.onDataChanged({ dataViews: [dataView1, dataView2] });
@@ -1214,7 +1228,7 @@ module powerbitests {
 
             let dataView1 = dataViewFactory.buildDataForLabelsFirstType();
 
-            let dataView2 = dataViewFactory.buildDataForLabelsSecondType(undefined, undefined, undefined, undefined, labelDensityMax);
+            let dataView2 = dataViewFactory.buildDataForLabelsSecondType(undefined, undefined, undefined, undefined, labelDensityMax, undefined, true);
 
             visualBuilder.onDataChanged({ dataViews: [dataView1, dataView2] });
 
@@ -1229,7 +1243,7 @@ module powerbitests {
         it("Ensure line layer doesn't inherit colors from bar layer", (done) => {
             let dataViews: powerbi.DataView[] = [
                 dataViewFactory.buildDataViewDefault(),
-                dataViewFactory.buildDataViewInAnotherDomainOneValue()
+                dataViewFactory.buildDataViewInAnotherDomainOneValue(undefined, true)
             ];
 
             dataViews[0].metadata.columns[0].objects = {
@@ -1346,8 +1360,8 @@ module powerbitests {
                     };
 
                     let [layer1, regression1] = new helpers.TrendLineBuilder({ combineSeries: true, dynamicSeries: true }).withObjects(objects).buildDataViews();
-                    let [layer2, regression2] = new helpers.TrendLineBuilder({ combineSeries: true, dynamicSeries: false }).withObjects(objects).buildDataViews();
-                    
+                    let [layer2, regression2] = new helpers.TrendLineBuilder({ combineSeries: true, dynamicSeries: false, yRole: 'Y2' }).withObjects(objects).buildDataViews();
+
                     visualBuilder.onDataChanged({
                         dataViews: [layer1, layer2, regression1, regression2],
                     });
@@ -1382,7 +1396,7 @@ module powerbitests {
                     };
 
                     let [layer1, regression1] = new helpers.TrendLineBuilder({ combineSeries: false, dynamicSeries: true }).withObjects(objects).buildDataViews();
-                    let [layer2, regression2] = new helpers.TrendLineBuilder({ combineSeries: false, dynamicSeries: false }).withObjects(objects).buildDataViews();
+                    let [layer2, regression2] = new helpers.TrendLineBuilder({ combineSeries: false, dynamicSeries: false, yRole: 'Y2' }).withObjects(objects).buildDataViews();
 
                     visualBuilder.onDataChanged({
                         dataViews: [layer1, layer2, regression1, regression2],
@@ -1416,6 +1430,28 @@ module powerbitests {
                         done();
                     }, DefaultWaitForRender);
                 });
+            });
+        });
+
+        describe('Legend', () => {
+            it('Items with duplicate identities on different layers each have a legend item', (done) => {
+                visualBuilder.initVisual();
+                
+                let dataView1 = dataViewFactory.buildDataViewCustom(undefined, [[100, 200, 700], [1000, 2000, 7000]], ["a", "b"]);
+
+                let dataView2 = dataViewFactory.buildDataViewCustom(undefined, [[100, 200, 700]], ["a"], true);
+
+                // Both layers have static series
+                visualBuilder.onDataChanged({ dataViews: [dataView1, dataView2] });
+
+                setTimeout(() => {
+                    let legend = visualBuilder.element.find('.legend');
+                    let legendItems = legend.find('.legendItem');
+
+                    expect(legendItems.length).toBe(3);
+
+                    done();
+                }, DefaultWaitForRender);
             });
         });
     });
@@ -1674,8 +1710,8 @@ module powerbitests {
             this.init();
         }
 
-        constructor(pluginName: string, width: string = "400", height: string = "400") {
-            this._visual = powerbi.visuals.visualPluginFactory.createMinerva({}).getPlugin(pluginName).create();
+        constructor(visualCreateFn: () => powerbi.IVisual, width: string = "400", height: string = "400") {
+            this._visual = visualCreateFn();
 
             this.setSize(width, height);
         }
@@ -1882,6 +1918,24 @@ module powerbitests {
             { displayName: "col4", queryName: "col4", isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double), roles: { Y: true } }
         ];
 
+        let columnsY2 = [
+            { displayName: "col1", queryName: "col1", index: 0, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text), roles: { Category: true } },
+            { displayName: "col2", queryName: "col2", isMeasure: true, index: 1, groupName: "a", type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double), roles: { Y2: true } },
+            { displayName: "col3", queryName: "col3", isMeasure: true, index: 2, groupName: "b", type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double), roles: { Y2: true } },
+            { displayName: "col4", queryName: "col4", isMeasure: true, index: 3, groupName: "c", type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double), roles: { Y2: true } },
+            { displayName: "col2", queryName: "col2", isMeasure: true, index: 4, groupName: "d", type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double), roles: { Y2: true } },
+            { displayName: "col3", queryName: "col3", isMeasure: true, index: 5, groupName: "e", type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double), roles: { Y2: true } },
+            { displayName: "col4", queryName: "col4", isMeasure: true, index: 6, groupName: "f", type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double), roles: { Y2: true } },
+            { displayName: "col5", queryName: "col5", index: 4, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text), roles: { Series: true } },
+        ];
+
+        let columnsNumberY2 = [
+            { displayName: "col1", queryName: "col1", type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double) },
+            { displayName: "col2", queryName: "col2", isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double), roles: { Y2: true } },
+            { displayName: "col3", queryName: "col3", isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double), roles: { Y2: true } },
+            { displayName: "col4", queryName: "col4", isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double), roles: { Y2: true } }
+        ];
+
         let categoriesValues = ["John Domo", "Delta Force", "Jean Tablau"];
 
         function setGeneral(dataViewBuilder: DataViewBuilder, isGeneral: boolean = false) {
@@ -1895,12 +1949,17 @@ module powerbitests {
             return dataViewBuilder.build();
         }
 
-        export function buildDataViewDefault(isGeneral = false): powerbi.DataView {
+        export function buildDataViewDefault(isGeneral = false, useY2 = false): powerbi.DataView {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
             setGeneral(dataViewBuilder, isGeneral);
 
-            dataViewBuilder.columns = columns;
+            if (useY2) {
+                dataViewBuilder.columns = columnsY2;
+            }
+            else {
+                dataViewBuilder.columns = columns;
+            }
 
             dataViewBuilder.values = [
                 [100, 200, 700],
@@ -1916,12 +1975,17 @@ module powerbitests {
             return build(dataViewBuilder);
         }
 
-        export function buildDataViewCustom(objects, values: any[], identities: any[] = undefined): powerbi.DataView {
+        export function buildDataViewCustom(objects, values: any[], identities: any[] = undefined, useY2: boolean = false): powerbi.DataView {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
             dataViewBuilder.objects = objects;
 
-            dataViewBuilder.columns = columns;
+            if (useY2) {
+                dataViewBuilder.columns = columnsY2;
+            }
+            else {
+                dataViewBuilder.columns = columns;
+            }
 
             if (identities !== undefined) {
                 dataViewBuilder.isBuildCategoryIdentities = true;
@@ -1935,12 +1999,17 @@ module powerbitests {
             return build(dataViewBuilder);
         }
 
-        export function buildDataViewCustomSingleColumn(objects, values: any[]): powerbi.DataView {
+        export function buildDataViewCustomSingleColumn(objects, values: any[], useY2: boolean = false): powerbi.DataView {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
             dataViewBuilder.objects = objects;
-            dataViewBuilder.columns = columns;
-            dataViewBuilder.categoriesColumns = [columns[1]];
+            if (useY2) {
+                dataViewBuilder.columns = columnsY2;
+            }
+            else {
+                dataViewBuilder.columns = columns;
+            }
+            dataViewBuilder.categoriesColumns = [useY2 ? columnsY2[1] : columns[1]];
 
             dataViewBuilder.values = values;
 
@@ -1949,10 +2018,15 @@ module powerbitests {
             return build(dataViewBuilder);
         }
 
-        export function buildDataViewCustomWithIdentities(values: any[]): powerbi.DataView {
+        export function buildDataViewCustomWithIdentities(values: any[], useY2: boolean = false): powerbi.DataView {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
-            dataViewBuilder.columns = columns;
+            if (useY2) {
+                dataViewBuilder.columns = columnsY2;
+            }
+            else {
+                dataViewBuilder.columns = columns;
+            }
             dataViewBuilder.categoriesColumns = [columns[0], columns[1], columns[3]];
 
             dataViewBuilder.values = values;
@@ -1965,12 +2039,17 @@ module powerbitests {
             return build(dataViewBuilder);
         }
 
-        export function buildDataViewInAnotherDomainOneValue(objects: any = undefined): powerbi.DataView {
+        export function buildDataViewInAnotherDomainOneValue(objects: any = undefined, useY2: boolean = false): powerbi.DataView {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
             dataViewBuilder.objects = objects;
 
-            dataViewBuilder.columns = columns;
+            if (useY2) {
+                dataViewBuilder.columns = columnsY2;
+            }
+            else {
+                dataViewBuilder.columns = columns;
+            }
 
             dataViewBuilder.values = [
                 [1]
@@ -1981,33 +2060,43 @@ module powerbitests {
             return build(dataViewBuilder);
         }
 
-        export function buildDataViewEmpty(): powerbi.DataView {
+        export function buildDataViewEmpty(useY2: boolean = false): powerbi.DataView {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
-            dataViewBuilder.columns = columns;
+            if (useY2) {
+                dataViewBuilder.columns = columnsY2;
+            }
+            else {
+                dataViewBuilder.columns = columns;
+            }
             dataViewBuilder.values = [];
             dataViewBuilder.categoriesValues = [];
 
             return build(dataViewBuilder);
         }
 
-        export function buildDataViewInAnotherDomain(isGeneral = false, objects: any = undefined): powerbi.DataView {
+        export function buildDataViewInAnotherDomain(isGeneral = false, objects: any = undefined, useY2: boolean = false): powerbi.DataView {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
             dataViewBuilder.objects = objects;
 
             setGeneral(dataViewBuilder, isGeneral);
 
-            dataViewBuilder.columns = columns;
+            if (useY2) {
+                dataViewBuilder.columns = columnsY2;
+            }
+            else {
+                dataViewBuilder.columns = columns;
+            }
             dataViewBuilder.values = [[1], [10], [20]];
             dataViewBuilder.categoriesValues = categoriesValues;
 
             return build(dataViewBuilder);
         }
 
-        export function buildDataViewSuperLongLabels(isGeneral = false): powerbi.DataView {    
+        export function buildDataViewSuperLongLabels(isGeneral = false, useY2: boolean = false): powerbi.DataView {    
             // must share the same values as the general dataView, only category labels should change.
-            let dataView: powerbi.DataView = buildDataViewDefault(isGeneral);
+            let dataView: powerbi.DataView = buildDataViewDefault(isGeneral, useY2);
 
             dataView.categorical.categories[0].values = [
                 "This is a pretty long label I think",
@@ -2018,12 +2107,17 @@ module powerbitests {
             return dataView;
         }
 
-        export function buildDataViewManyCategories(isGeneral = false): powerbi.DataView {
+        export function buildDataViewManyCategories(isGeneral = false, useY2: boolean = false): powerbi.DataView {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
             setGeneral(dataViewBuilder, isGeneral);
 
-            dataViewBuilder.columns = columns;
+            if (useY2) {
+                dataViewBuilder.columns = columnsY2;
+            }
+            else {
+                dataViewBuilder.columns = columns;
+            }
             dataViewBuilder.categoriesValues = ["John Domo", "Delta Force", "Jean Tablau", "Cat1", "Cat2", "Cat3"];
             dataViewBuilder.values = [
                 [100, 200, 700, 1100, 800, 300],
@@ -2037,12 +2131,17 @@ module powerbitests {
             return build(dataViewBuilder);
         }
 
-        export function buildDataViewNegative(isGeneral = false) {
+        export function buildDataViewNegative(isGeneral = false, useY2: boolean = false) {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
             setGeneral(dataViewBuilder, isGeneral);
 
-            dataViewBuilder.columns = columns;
+            if (useY2) {
+                dataViewBuilder.columns = columnsY2;
+            }
+            else {
+                dataViewBuilder.columns = columns;
+            }
             dataViewBuilder.categoriesValues = categoriesValues;
             dataViewBuilder.values = [
                 [-100, -200, 700],
@@ -2083,7 +2182,7 @@ module powerbitests {
             dataViewBuilder.objects = objects;
         }
 
-        export function buildDataForLabelsFirstType(color?: any, labelDisplayUnits?: number, labelPrecision?: number, fontSize?: number, showAll?: boolean) {
+        export function buildDataForLabelsFirstType(color?: any, labelDisplayUnits?: number, labelPrecision?: number, fontSize?: number, showAll?: boolean, useY2: boolean = false) {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
             setLabels(dataViewBuilder, color, labelDisplayUnits, labelPrecision, fontSize);
@@ -2094,15 +2193,20 @@ module powerbitests {
                 let showAllObjects = dataViewBuilder.objects[objectName] = dataViewBuilder.objects[objectName] || {};
                 showAllObjects[showAllProp.propertyName] = showAll;
             }
-            
-            dataViewBuilder.columns = columns;
+
+            if (useY2) {
+                dataViewBuilder.columns = columnsY2;
+            }
+            else {
+                dataViewBuilder.columns = columns;
+            }
             dataViewBuilder.categoriesValues = ["a", "b", "c", "d", "e"];
             dataViewBuilder.values = [[50, 40, 150, 200, 500]];
 
             return build(dataViewBuilder);
         }
 
-        export function buildDataForLabelsSecondType(color?: any, labelDisplayUnits?: number, labelPrecision?: number, fontSize?: number, labelDensity?: number, showAll?: boolean) {
+        export function buildDataForLabelsSecondType(color?: any, labelDisplayUnits?: number, labelPrecision?: number, fontSize?: number, labelDensity?: number, showAll?: boolean, useY2: boolean = false) {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
             setLabels(dataViewBuilder, color, labelDisplayUnits, labelPrecision, fontSize, labelDensity);
@@ -2113,30 +2217,45 @@ module powerbitests {
                 let showAllObjects = dataViewBuilder.objects[objectName] = dataViewBuilder.objects[objectName] || {};
                 showAllObjects[showAllProp.propertyName] = showAll;
             }
-            
-            dataViewBuilder.columns = columns;
+
+            if (useY2) {
+                dataViewBuilder.columns = columnsY2;
+            }
+            else {
+                dataViewBuilder.columns = columns;
+            }
             dataViewBuilder.categoriesValues = ["a", "b", "c", "d", "e"];
             dataViewBuilder.values = [[200, 100, 300, 250, 400]];
 
             return build(dataViewBuilder);
         }
 
-        export function buildDataViewInvalid(invalidValue) {
+        export function buildDataViewInvalid(invalidValue, useY2: boolean = false) {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
-            dataViewBuilder.columns = columns;
+            if (useY2) {
+                dataViewBuilder.columns = columnsY2;
+            }
+            else {
+                dataViewBuilder.columns = columns;
+            }
             dataViewBuilder.categoriesValues = [["John Domo"]];
             dataViewBuilder.values = [[invalidValue]];
 
             return build(dataViewBuilder);
         }
 
-        export function buildDataViewNumber(objects: any = null) {
+        export function buildDataViewNumber(objects: any = null, useY2: boolean = false) {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
             dataViewBuilder.objects = objects;
 
-            dataViewBuilder.columns = columnsNumber;
+            if (useY2) {
+                dataViewBuilder.columns = columnsNumberY2;
+            }
+            else {
+                dataViewBuilder.columns = columnsNumber;
+            }
             dataViewBuilder.categoriesValues = [0, 500, 1000];
             dataViewBuilder.values = [
                 [100, 200, 700],
@@ -2148,7 +2267,7 @@ module powerbitests {
             return dataViewBuilder.build();
         }
 
-        export function buildDataViewDynamicSeries() {
+        export function buildDataViewDynamicSeries(useY2: boolean = false) {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
             dataViewBuilder.columnIdentityRef = powerbi.data.SQExprBuilder.fieldDef({
@@ -2157,7 +2276,12 @@ module powerbitests {
                 column: "series"
             });
 
-            dataViewBuilder.columns = columns;
+            if (useY2) {
+                dataViewBuilder.columns = columnsY2;
+            }
+            else {
+                dataViewBuilder.columns = columns;
+            }
             dataViewBuilder.categoriesColumns = [columns[0], columns[2], columns[3]];
 
             dataViewBuilder.categoriesValues = categoriesValues;
@@ -2173,7 +2297,7 @@ module powerbitests {
             return build(dataViewBuilder);
         }
 
-        export function buildDataViewSingleMeasure() {
+        export function buildDataViewSingleMeasure(useY2: boolean = false) {
             let dataViewBuilder: DataViewBuilder = new DataViewBuilder();
 
             let measureColumn: powerbi.DataViewMetadataColumn = {
@@ -2184,6 +2308,9 @@ module powerbitests {
                 objects: { general: { formatString: '$0' } },
                 role: { Y: true },
             };
+            if (useY2) {
+                measureColumn.roles = { Y2: true };
+            }
 
             dataViewBuilder.update();
 

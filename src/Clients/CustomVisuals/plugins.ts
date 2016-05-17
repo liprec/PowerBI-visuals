@@ -107,12 +107,6 @@ module powerbi.visuals.plugins {
         create: () => new samples.Histogram()
     };
 
-	export var areaRangeChart: IVisualPlugin = {
-        name: 'areaRangeChart',
-        capabilities: samples.AreaRangeChart.capabilities,
-        create: () => new samples.AreaRangeChart()
-    };
-
 	export var timeline: IVisualPlugin = {
         name: 'timeline',
         capabilities: samples.Timeline.capabilities,
@@ -136,13 +130,6 @@ module powerbi.visuals.plugins {
         capabilities: samples.StreamGraph.capabilities,
         create: () => new samples.StreamGraph()
     };
-
-    export let pulseChart: IVisualPlugin = {
-        name: "pulseChart",
-        capabilities: samples.PulseChart.capabilities,
-        create: () => new samples.PulseChart()
-    };
-
     export var boxWhiskerChart: IVisualPlugin = {
         name: 'boxWhiskerChart',
         capabilities: samples.BoxWhiskerChart.capabilities,

@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  Power BI Visualizations
  *
  *  Copyright (c) Microsoft Corporation
@@ -11,10 +11,10 @@
  *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  *  copies of the Software, and to permit persons to whom the Software is
  *  furnished to do so, subject to the following conditions:
- *
+ *   
  *  The above copyright notice and this permission notice shall be included in 
  *  all copies or substantial portions of the Software.
- *
+ *   
  *  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
  *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
  *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
@@ -24,30 +24,32 @@
  *  THE SOFTWARE.
  */
 
-@import (reference) "../../../../styles/styles.less";
+module jasmine {
+    import SQExpr = powerbi.data.SQExpr;
 
-.areaRangeChart {
-    @areaRangeChartAxesColor: @neutralSecondaryAltColor;
-    @areaRangeChartLegendTextColor: @blackColor;
-
-    font-family: @regularFontFamily;
-
-    .axis {
-        path, line {
-            fill: none;
-            stroke: @areaRangeChartAxesColor;
-            shape-rendering: crispEdges;
-        }
-
-        text {
-            fill: @areaRangeChartAxesColor;
-            font-size: 11px;
-        }
+    export interface Matchers {
+        /** Performs a deep comparison of all enumerable properties, including those defined by object prototypes. */
+        toEqualSQExpr(expected: SQExpr): void;
     }
 
-    .chart {
-        path, line {
-            stroke-width: 1;
+    beforeEach(() => {
+        addMatchers({
+            toEqualSQExpr: (util: MatchersUtil, customEqualityTesters: CustomEqualityTester[]): CustomMatcher => {
+                return {
+                    compare: (actual, expected) => toEqualSQExpr(util, actual, expected),
+                };
+            }
+        });
+    });
+
+    function toEqualSQExpr(util: MatchersUtil, actual: any, expected: any): CustomMatcherResult {
+        if (SQExpr.equals(actual, expected)) {
+            return { pass: true };
         }
+
+        return {
+            pass: false,
+            message: util.buildFailureMessage('to equal expr', false, actual, expected),
+        };
     }
 }

@@ -1131,7 +1131,6 @@ module powerbi.visuals {
             }
             else if (item.isSubtotal) {
                 // Matrices with column groups support sorting only on the column grand total.
-
                 if (isMultiMeasure) {
                     // In the multi-measure case we need to check if the parent's level is 0 in order
                     // to determine whether this is the column grand total.  The cells are layed out such
@@ -1447,7 +1446,7 @@ module powerbi.visuals {
             // Visuals are initialized with an empty data view before queries are run, therefore we need to make sure that
             // we are resilient here when we do not have data view.
             if (this.dataView) {
-                TablixObjects.enumerateObjectInstances(options, enumeration, this.dataView, false, controls.TablixType.Matrix);
+                TablixObjects.enumerateObjectInstances(options, enumeration, this.dataView, controls.TablixType.Matrix);
             }
 
             return enumeration.complete();

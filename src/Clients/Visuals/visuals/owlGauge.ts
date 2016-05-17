@@ -45,10 +45,12 @@ module powerbi.visuals {
         public static capabilities: VisualCapabilities = {
             dataRoles: [
                 {
+                    displayName: 'Category',
                     name: 'Category',
                     kind: powerbi.VisualDataRoleKind.Grouping,
                 },
                 {
+                    displayName: 'Y Axis',
                     name: 'Y',
                     kind: powerbi.VisualDataRoleKind.Measure,
                 },
@@ -90,7 +92,7 @@ module powerbi.visuals {
                         if (col.roles[gaugeRoleNames.y]) {
                             settings.total = value;
                             if (value)
-                                settings.tooltipItems.push({ value: value, metadata: values[i] });
+                                settings.tooltipItems.push({ displayName: values[i].source.displayName, value: converterHelper.formatFromMetadataColumn(value, values[i].source, Gauge.formatStringProp)});
                         } else if (col.roles[gaugeRoleNames.minValue]) {
                             settings.min = value;
                         } else if (col.roles[gaugeRoleNames.maxValue]) {
@@ -98,7 +100,7 @@ module powerbi.visuals {
                         } else if (col.roles[gaugeRoleNames.targetValue]) {
                             settings.target = value;
                             if (value)
-                                settings.tooltipItems.push({ value: value, metadata: values[i] });
+                                settings.tooltipItems.push({ displayName: values[i].source.displayName, value: converterHelper.formatFromMetadataColumn(value, values[i].source, Gauge.formatStringProp)});
                         }
                     }
                 }

@@ -2,7 +2,7 @@
  *  Power BI Visualizations
  *
  *  Copyright (c) Microsoft Corporation
- *  All rights reserved. 
+ *  All rights reserved.
  *  MIT License
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -11,14 +11,14 @@
  *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  *  copies of the Software, and to permit persons to whom the Software is
  *  furnished to do so, subject to the following conditions:
- *   
- *  The above copyright notice and this permission notice shall be included in 
+ *
+ *  The above copyright notice and this permission notice shall be included in
  *  all copies or substantial portions of the Software.
- *   
- *  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
- *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
- *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
- *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ *
+ *  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
@@ -34,6 +34,7 @@ module powerbi.visuals {
         removeAnyCustomVisuals(): void;
         requireSandbox(plugin: IVisualPlugin): boolean;
         isCustomVisual(visual: string): boolean;
+        isScriptVisual(type: string): boolean;
         // VSTS 6217994 - [R Viz] Remove temporary DataViewAnalysis validation workaround of static R Script Visual mappings
         isScriptVisualQueryable(): boolean;
         shouldDisableVisual(type: string, mapDisabled: boolean): boolean;
@@ -50,18 +51,18 @@ module powerbi.visuals {
          * Visual should prefer to request a higher volume of data.
          */
         preferHigherDataVolume?: boolean;
-        
+
         sandboxVisualsEnabled?: boolean;
 
         /**
-        * R visual is enabled for consumption. 
+        * R visual is enabled for consumption.
         * When turned on, R script will be executed against local R (for PBID) or AML (for PBI.com).
         * When turned off, R script will not be executed and the visual is treated as a static image visual.
         */
         scriptVisualEnabled?: boolean;
 
         /**
-        * R visual is enabled for authoring. 
+        * R visual is enabled for authoring.
         * When turned on, R visual will appear in the visual gallery.
         */
         scriptVisualAuthoringEnabled?: boolean;
@@ -73,13 +74,15 @@ module powerbi.visuals {
         filledMapDataLabelsEnabled?: boolean;
 
         lineChartLabelDensityEnabled?: boolean;
-        
+
         /**
          * Enables button to center map to the current location
          */
         mapCurrentLocationEnabled?: boolean;
 
-        // TODO: VSTS 7167767: Remove temporary code for product demo.
+        /**
+         * Enables conditional formatting of the background color of cells for table visuals.
+         */
         conditionalFormattingEnabled?: boolean;
     }
 
@@ -149,7 +152,7 @@ module powerbi.visuals {
 
             public isCustomVisual(visual: string): boolean {
                 if (visual) {
-                    
+
                     if (this.plugins[visual]) {
                         return this.plugins[visual].custom === true;
                     }
@@ -160,6 +163,14 @@ module powerbi.visuals {
                     else {
                         return true;
                     }
+                }
+                return false;
+            }
+
+            public isScriptVisual(type: string): boolean{
+                let visualCapabilities = this.capabilities(type);
+                if (visualCapabilities && visualCapabilities.dataViewMappings && ScriptResultUtil.findScriptResult(visualCapabilities.dataViewMappings)) {
+                    return true;
                 }
                 return false;
             }
@@ -519,7 +530,7 @@ module powerbi.visuals {
             // Slicer
             createPlugin(plugins, powerbi.visuals.plugins.slicer, () => new Slicer({
                 behavior: new SlicerWebBehavior(),
-            }));           
+            }));
             // Matrix
             createPlugin(plugins, powerbi.visuals.plugins.matrix, () => new Matrix({
             }));
@@ -534,142 +545,6 @@ module powerbi.visuals {
                     plugins,
                     powerbi.visuals.plugins.scriptVisual,
                     () => new ScriptVisual({ canRefresh: true }));
-            }
-        }
-
-        export class MinervaVisualPluginService extends VisualPluginService {
-            private visualPlugins: jsCommon.IStringDictionary<IVisualPlugin>;
-
-            public constructor(featureSwitches: MinervaVisualFeatureSwitches) {
-                super(featureSwitches);
-
-                debug.assertValue(featureSwitches, 'featureSwitches');
-
-                this.visualPlugins = {};
-
-                this.addCustomVisualizations([]);
-
-                createMinervaPlugins(this.visualPlugins, this.featureSwitches);
-            }
-
-            public getVisuals(): IVisualPlugin[] {
-                // Current visual types that supports visual conversion. Please don't change the orders
-                // CAUTION: If you are adding new visual types, please check if you need to update the height of
-                // the visual convertion pane in visualization pane as well.
-                let convertibleVisualTypes = [
-                    powerbi.visuals.plugins.barChart,
-                    powerbi.visuals.plugins.columnChart,
-                    powerbi.visuals.plugins.clusteredBarChart,
-                    powerbi.visuals.plugins.clusteredColumnChart,
-                    powerbi.visuals.plugins.hundredPercentStackedBarChart,
-                    powerbi.visuals.plugins.hundredPercentStackedColumnChart,
-                    powerbi.visuals.plugins.lineChart,
-                    powerbi.visuals.plugins.areaChart,
-                    powerbi.visuals.plugins.stackedAreaChart,
-                    powerbi.visuals.plugins.lineStackedColumnComboChart,
-                    powerbi.visuals.plugins.lineClusteredColumnComboChart,
-                    powerbi.visuals.plugins.waterfallChart,
-                    powerbi.visuals.plugins.scatterChart,
-                    powerbi.visuals.plugins.pieChart,
-                    powerbi.visuals.plugins.treemap,
-                    powerbi.visuals.plugins.map,
-                    powerbi.visuals.plugins.table,
-                    powerbi.visuals.plugins.matrix,
-                    powerbi.visuals.plugins.filledMap,
-                    powerbi.visuals.plugins.funnel,
-                    powerbi.visuals.plugins.gauge,
-                    powerbi.visuals.plugins.multiRowCard,
-                    powerbi.visuals.plugins.card,
-                    powerbi.visuals.plugins.kpi,
-                    powerbi.visuals.plugins.slicer,
-                    powerbi.visuals.plugins.donutChart
-                ];
-
-                if (this.featureSwitches.scriptVisualEnabled && this.featureSwitches.scriptVisualAuthoringEnabled) {
-                    convertibleVisualTypes.push(powerbi.visuals.plugins.scriptVisual);
-                }
-
-                // Add any visuals compiled in the developer tools
-                // Additionally add custom visuals.
-                for (let p in plugins) {
-                    let plugin = plugins[p];
-                    if (plugin.custom) {
-                        this.pushPluginIntoConvertibleTypes(convertibleVisualTypes, plugin);
-                    }
-                }
-
-                this.addCustomVisualizations(convertibleVisualTypes);
-
-                if (this.featureSwitches.dataDotChartEnabled) {
-                    convertibleVisualTypes.push(powerbi.visuals.plugins.dataDotClusteredColumnComboChart);
-                    convertibleVisualTypes.push(powerbi.visuals.plugins.dataDotStackedColumnComboChart);
-                }
-
-                return convertibleVisualTypes;
-            }
-
-            private pushPluginIntoConvertibleTypes(convertibleVisualTypes: IVisualPlugin[], plugin: IVisualPlugin) {
-                if (!convertibleVisualTypes.some(pl => pl.name === plugin.name)) {
-                    convertibleVisualTypes.push(plugin);
-                }
-            }
-
-            private addCustomVisualizations(convertibleVisualTypes: IVisualPlugin[]): void {
-                // Read new visual from localstorage
-                let customVisualizationDict = localStorageService.getData('customVisualMetaData');
-                for (let visualName in customVisualizationDict) {
-                    let customVisualMetaData = customVisualizationDict[visualName];
-
-                    if (!customVisualMetaData) {
-                        continue;
-                    }
-
-                    let pluginName = customVisualMetaData.pluginName;
-                    // Uncompiled new visuals should not be loaded into the report
-                    if (!pluginName || !customVisualMetaData.sourceCode || !customVisualMetaData.sourceCode.javascriptCode) {
-                        continue;
-                    }
-
-                    let plugin = this.getPlugin(pluginName);
-                    // If the browser session got restarted or its a new window the plugin wont be available, so we need to add it
-                    if (!plugin) {
-                        let jsCode = customVisualMetaData.sourceCode.javascriptCode;
-
-                        let script = $("<script/>", {
-                            html: jsCode + '//# sourceURL=' + pluginName + '.js\n' + '//# sourceMappingURL=' + pluginName + '.js.map'
-                        });
-
-                        script.attr('pluginName', pluginName);
-
-                        $('body').append(script);
-
-                        let style = $("<style/>", {
-                            html: customVisualMetaData.sourceCode.cssCode
-                        });
-
-                        style.attr('pluginName', pluginName);
-
-                        $('head').append(style);
-
-                        plugin = this.getPlugin(pluginName);
-
-                        if (!plugin) {
-                            continue;
-                        }
-                    }
-                    this.pushPluginIntoConvertibleTypes(convertibleVisualTypes, plugin);
-                }
-            }
-
-            public getPlugin(type: string): IVisualPlugin {
-                if (this.visualPlugins[type])
-                    return this.visualPlugins[type];
-
-                return super.getPlugin(type);
-            }
-
-            public requireSandbox(plugin: IVisualPlugin): boolean {
-                return (this.featureSwitches.sandboxVisualsEnabled) && (!plugin || (plugin && plugin.custom));
             }
         }
 
@@ -786,7 +661,7 @@ module powerbi.visuals {
                     animator: new WebColumnChartAnimator(),
                     tooltipsEnabled: true
                 }));
-                
+
                 // Line Chart
                 createPlugin(this.visualPlugins, powerbi.visuals.plugins.lineChart, () => new CartesianChart({
                     chartType: CartesianChartType.Line,
@@ -866,7 +741,7 @@ module powerbi.visuals {
 
                 // Disable tooltips for mobile
                 TooltipManager.ShowTooltips = false;
-                
+
                 // Don't trim overflow data on mobile
                 let trimOrdinalDataOnOverflow = false;
 
@@ -1069,7 +944,7 @@ module powerbi.visuals {
                     default:
                         return false;
                 }
-            } 
+            }
         }
 
         // this function is called by tests
@@ -1079,10 +954,6 @@ module powerbi.visuals {
 
         export function createVisualPluginService(featureSwitch: MinervaVisualFeatureSwitches): IVisualPluginService {
             return new VisualPluginService(featureSwitch);
-        }
-
-        export function createMinerva(featureSwitches: MinervaVisualFeatureSwitches): IVisualPluginService {
-            return new MinervaVisualPluginService(featureSwitches);
         }
 
         export function createDashboard(featureSwitches: MinervaVisualFeatureSwitches, options: CreateDashboardOptions): IVisualPluginService {

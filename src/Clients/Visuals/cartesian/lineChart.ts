@@ -157,6 +157,7 @@ module powerbi.visuals {
         private dragHandle: D3.Selection;
         private hoverLine: D3.Selection;
         private lastInteractiveSelectedColumnIndex: number;
+        private scaleDetector: SVGScaleDetector;
 
         private interactivityService: IInteractivityService;
         private animator: IGenericAnimator;
@@ -236,6 +237,8 @@ module powerbi.visuals {
             shouldCalculateStacked?: boolean,
             isComboChart?: boolean,
             tooltipsEnabled: boolean = true): LineChartData {
+            let reader = powerbi.data.createIDataViewCategoricalReader(dataView);
+            let valueRoleName = isComboChart ? "Y2" : "Y";
             let categorical = dataView.categorical;
             let category = categorical.categories && categorical.categories.length > 0
                 ? categorical.categories[0]
@@ -297,7 +300,7 @@ module powerbi.visuals {
 
                 if (!hasDynamicSeries) {
                     let labelsSeriesGroup = grouped && grouped.length > 0 && grouped[0].values ? grouped[0].values[seriesIndex] : null;
-                    let labelObjects = (labelsSeriesGroup && labelsSeriesGroup.source && labelsSeriesGroup.source.objects) ? <DataLabelObject> labelsSeriesGroup.source.objects['labels'] : null;
+                    let labelObjects = (labelsSeriesGroup && labelsSeriesGroup.source && labelsSeriesGroup.source.objects) ? <DataLabelObject>labelsSeriesGroup.source.objects['labels'] : null;
                     if (labelObjects) {
                         seriesLabelSettings = Prototype.inherit(defaultLabelSettings);
                         dataLabelUtils.updateLineChartLabelSettingsFromLabelsObject(labelObjects, seriesLabelSettings);
@@ -307,11 +310,11 @@ module powerbi.visuals {
                 let dataPointLabelSettings = (seriesLabelSettings) ? seriesLabelSettings : defaultLabelSettings;
 
                 let useHighlightValues = column.highlights && column.highlights.length > 0;
+                let categoryCount = reader.hasCategories() ? reader.getCategoryCount() : 1;
                 // NOTE: line capabilities don't allow highlights, but comboChart does - so only use highlight values if we are in "combo" mode
-                let valuesArray = useHighlightValues ? column.highlights : column.values;
-                for (let categoryIndex = 0, len = valuesArray.length; categoryIndex < len; categoryIndex++) {
+                for (let categoryIndex = 0; categoryIndex < categoryCount; categoryIndex++) {
                     let categoryValue = categoryValues[categoryIndex];
-                    let value = AxisHelper.normalizeNonFiniteNumber(valuesArray[categoryIndex]);
+                    let value = AxisHelper.normalizeNonFiniteNumber(useHighlightValues ? reader.getHighlight(valueRoleName, categoryIndex, seriesIndex) : reader.getValue(valueRoleName, categoryIndex, seriesIndex));
 
                     // When Scalar, skip null categories and null values so we draw connected lines and never draw isolated dots.
                     if (isScalar && (categoryValue == null || value == null))
@@ -323,9 +326,36 @@ module powerbi.visuals {
 
                     let categorical: DataViewCategorical = dataView.categorical;
                     let tooltipInfo: TooltipDataItem[];
+
                     if (tooltipsEnabled) {
-                        tooltipInfo = TooltipBuilder.createTooltipInfo(formatStringProp, categorical, categoryValue, value, null, null, seriesIndex);
+                        // This tooltip is using in combo chart and mobile tooltip.
+                        tooltipInfo = [];
+
+                        if (category.source) {
+                            tooltipInfo.push({
+                                displayName: category.source.displayName,
+                                value: converterHelper.formatFromMetadataColumn(categoryValue, category.source, formatStringProp),
+                            });
+                        }
+
+                        // This dynamicSeries tooltip is only using in mobile tooltip.
+                        if (hasDynamicSeries) {
+                            if (!category.source || category.source !== categorical.values.source) {
+                                // Category/series on the same column -- don't repeat its value in the tooltip.
+                                tooltipInfo.push({
+                                    displayName: categorical.values.source.displayName,
+                                    value: converterHelper.formatFromMetadataColumn(grouped[seriesIndex].name, categorical.values.source, formatStringProp),
+                                });
+                            }
+                        }
+                        if (value != null) {
+                            tooltipInfo.push({
+                                displayName: valuesMetadata.displayName,
+                                value: converterHelper.formatFromMetadataColumn(value, valuesMetadata, formatStringProp),
+                            });
+                        }
                     }
+
                     let categoryKey = category && !_.isEmpty(category.identity) && category.identity[categoryIndex] ? category.identity[categoryIndex].key : categoryIndex;
 
                     let dataPoint: LineChartDataPoint = {
@@ -465,6 +495,7 @@ module powerbi.visuals {
             this.colors = options.style.colorPalette.dataColors;
             this.isInteractiveChart = options.interactivity && options.interactivity.isInteractiveLegend;
             this.cartesianVisualHost = options.cartesianHost;
+            this.scaleDetector = new SVGScaleDetector(this.cartesainSVG);
 
             let chartType = options.chartType;
             this.isComboChart = chartType === CartesianChartType.ComboChart || chartType === CartesianChartType.LineClusteredColumnCombo || chartType === CartesianChartType.LineStackedColumnCombo;
@@ -525,9 +556,9 @@ module powerbi.visuals {
                     .origin(Object)
                     .on("drag", dragMove);
                 d3.select(rootSvg)
-                 .style('touch-action', 'none')
-                 .call(drag)
-                 .on('click', dragMove);
+                    .style('touch-action', 'none')
+                    .call(drag)
+                    .on('click', dragMove);
             }
 
             // Internet Explorer and Edge use the stroke edge, not the path edge for the mouse coordinate's origin.
@@ -642,7 +673,7 @@ module powerbi.visuals {
             let metaDataColumn = this.data ? this.data.categoryMetadata : undefined;
             let categoryDataType: ValueTypeDescriptor = AxisHelper.getCategoryValueType(metaDataColumn);
             let xDomain = AxisHelper.createDomain(data.series, categoryDataType, this.data.isScalar, options.forcedXDomain, options.ensureXDomain);
-            let hasZeroValueInXDomain = options.valueAxisScaleType === axisScale.log && !AxisHelper.isLogScalePossible(xDomain);
+            let hasZeroValueInXDomain = options.categoryAxisScaleType === axisScale.log && !AxisHelper.isLogScalePossible(xDomain);
             this.xAxisProperties = AxisHelper.createAxis({
                 pixelSpan: preferredPlotArea.width,
                 dataDomain: xDomain,
@@ -943,7 +974,7 @@ module powerbi.visuals {
                     .duration(duration)
                     .attr({
                         cx: (d: LineChartDataPoint) => xScale(this.getXValue(d)),
-                    cy: (d: LineChartDataPoint) => yScale(isStackedArea ? d.stackedValue : d.value),
+                        cy: (d: LineChartDataPoint) => yScale(isStackedArea ? d.stackedValue : d.value),
                         r: LineChart.PointRadius
                     });
                 explicitDots.exit()
@@ -1500,21 +1531,21 @@ module powerbi.visuals {
          */
         private findIndex(pointX: number, offsetX?: number): number {
             // we are using mouse coordinates that do not know about any potential CSS transform scale
-            let svgNode = <SVGSVGElement>(this.mainGraphicsSVG.node());
-            let ratios = SVGUtil.getTransformScaleRatios(svgNode);
-            if (!Double.equalWithPrecision(ratios.x, 1.0, 0.00001)) {
-                pointX = pointX / ratios.x;
+            let xScale = this.scaleDetector.getScale().x;
+            if (!Double.equalWithPrecision(xScale, 1.0, 0.00001)) {
+                pointX = pointX / xScale;
             }
             if (offsetX) {
                 pointX += offsetX;
             }
 
-            let scaleX = powerbi.visuals.AxisHelper.invertScale(this.xAxisProperties.scale, pointX);
+            let index = powerbi.visuals.AxisHelper.invertScale(this.xAxisProperties.scale, pointX);
             if (this.data.isScalar) {
-                scaleX = AxisHelper.findClosestXAxisIndex(scaleX, this.data.categoryData);
+                // When we have scalar data the inverted scale produces a category value, so we need to search for the closest index.
+                index = AxisHelper.findClosestXAxisIndex(index, this.data.categoryData);
             }
 
-            return scaleX;
+            return index;
         }
 
         private getPosition(x: number, pathElement: D3.D3Element): SVGPoint {
@@ -1790,7 +1821,7 @@ module powerbi.visuals {
          *
          * Internet explorer places the origin for the coordinate system of
          * mouse events based on the stroke, so that the very edge of the stroke
-         * is zoro.  Chrome places the 0 on the edge of the path so that the
+         * is zero.  Chrome places the 0 on the edge of the path so that the
          * edge of the stroke is -(strokeWidth / 2).  We adjust coordinates
          * to match Chrome.
          *
@@ -1801,10 +1832,9 @@ module powerbi.visuals {
          */
         private adjustPathXCoordinate(x: number): number {
             if (this.shouldAdjustMouseCoordsOnPathsForStroke) {
-                let svgNode = <SVGSVGElement>(this.mainGraphicsSVG.node());
-                let ratios = SVGUtil.getTransformScaleRatios(svgNode);
-                if (!Double.equalWithPrecision(ratios.x, 1.0, 0.00001)) {
-                    x -= LineChart.pathXAdjustment * ratios.x;
+                let xScale = this.scaleDetector.getScale().x;
+                if (!Double.equalWithPrecision(xScale, 1.0, 0.00001)) {
+                    x -= LineChart.pathXAdjustment * xScale;
                 }
                 else {
                     x -= LineChart.pathXAdjustment;

@@ -31,6 +31,17 @@ module powerbitests {
     import PrimitiveType = powerbi.PrimitiveType;
     import valueFormatter = powerbi.visuals.valueFormatter;
     import AxisPropertiesBuilder = powerbitests.helpers.AxisPropertiesBuilder;
+    
+    it("powerOf10 test", ()=> {
+        let powersOf10: number[] = [-10000, 1000000000, 10, 100000000000];
+        let length: number = powersOf10.length;
+        let numbers: number[] = [2, 5, 2345, 12445067, 122334551, 90, 50, -50, 200, -1223333212, -122333442111];
+        let powers = _.filter(powersOf10, (value) => { return AxisHelper.powerOfTen(value); });
+        let notPowers = _.filter(numbers, (value) => { return AxisHelper.powerOfTen(value); });
+        
+        expect(powers.length).toBe(length);
+        expect(notPowers.length).toBe(0);
+    });
 
     describe("AxisHelper invertOrdinalScale tests", () => {
         var domain: number[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -1143,8 +1154,8 @@ module powerbitests {
             var margins = axisHelperTickLabelBuilder.buildTickLabelMargins(false, false, false, true, true, true);
 
             expect(margins.xMax).toBe(10);
-            expect(powerbitests.helpers.isInRange(margins.yLeft, 11, 12)).toBe(true);
-            expect(powerbitests.helpers.isInRange(margins.yRight, 22, 24)).toBe(true);
+            expect(powerbitests.helpers.isInRange(margins.yLeft, 15, 16)).toBe(true);
+            expect(powerbitests.helpers.isInRange(margins.yRight, 30, 32)).toBe(true);
         });
 
         it("Hide all axes", () => {
@@ -1159,26 +1170,26 @@ module powerbitests {
             var margins = axisHelperTickLabelBuilder.buildTickLabelMargins(false, false, false, true, true, false);
 
             expect(margins.xMax).toBe(10);
-            expect(powerbitests.helpers.isInRange(margins.yLeft, 11, 12)).toBe(true);
-            expect(margins.yRight).toBe(2);
+            expect(powerbitests.helpers.isInRange(margins.yLeft, 15, 16)).toBe(true);
+            expect(powerbitests.helpers.isInRange(margins.yRight, 11, 14)).toBe(true);
         });
 
         it("Switch the y-axes", () => {
             var margins = axisHelperTickLabelBuilder.buildTickLabelMargins(false, false, true, true, true, true);
 
             expect(margins.xMax).toBe(10);
-            expect(margins.yLeft).toBe(24);
-            expect(margins.yRight).toBe(12);
+            expect(margins.yLeft).toBe(32);
+            expect(margins.yRight).toBe(16);
         });
 
         it("Switch the y-axes, and disable the secondary axis", () => {
             var margins = axisHelperTickLabelBuilder.buildTickLabelMargins(true, false, true, true, true, false);
 
             expect(margins.xMax).toBe(25);
-            expect(margins.yLeft).toBe(7);
+            expect(margins.yLeft).toBe(17);
             
             // 11 for Mac OS and 12 for Windows
-            expect(powerbitests.helpers.isInRange(margins.yRight, 11, 12)).toBe(true);
+            expect(powerbitests.helpers.isInRange(margins.yRight, 15, 16)).toBe(true);
         });
 
         it("xOverflowLeft", () => {
@@ -1213,7 +1224,7 @@ module powerbitests {
             var margins = localTickLabelBuilder.buildTickLabelMargins(false, false, false, true, true, false);
 
             expect(margins.xMax).toBe(10);
-            expect(margins.yLeft).toBe(12);
+            expect(margins.yLeft).toBe(16);
             expect(powerbitests.helpers.isInRange(margins.yRight, 33, 37)).toBe(true);
         });
 
@@ -1222,8 +1233,8 @@ module powerbitests {
             var margins = localTickLabelBuilder.buildTickLabelMargins(false, false, false, true, true, false, null, 10, true);
 
             expect(margins.xMax).toBe(10);
-            expect(margins.yLeft).toBe(12);
-            expect(powerbitests.helpers.isInRange(margins.yRight, 12, 14)).toBe(true);
+            expect(margins.yLeft).toBe(16);
+            expect(powerbitests.helpers.isInRange(margins.yRight, 17, 19)).toBe(true);
         });
 
         it("xOverflowRight, disable both Y axes", () => {
@@ -1240,7 +1251,7 @@ module powerbitests {
             var margins = localTickLabelBuilder.buildTickLabelMargins(true, false, false, true, false, false);
 
             expect(margins.xMax).toBe(25);
-            expect(margins.yLeft).toBe(0);
+            expect(powerbitests.helpers.isInRange(margins.yLeft, 2, 3)).toBe(true);
             expect(margins.yRight).toBe(0);
         });
 

@@ -5,9 +5,11 @@ declare module powerbi.data {
         visitColumnRef(expr: SQColumnRefExpr, arg: TArg): T;
         visitMeasureRef(expr: SQMeasureRefExpr, arg: TArg): T;
         visitAggr(expr: SQAggregationExpr, arg: TArg): T;
+        visitPercentile(expr: SQPercentileExpr, arg: TArg): T;
         visitHierarchy(expr: SQHierarchyExpr, arg: TArg): T;
         visitHierarchyLevel(expr: SQHierarchyLevelExpr, arg: TArg): T;
         visitPropertyVariationSource(expr: SQPropertyVariationSourceExpr, arg: TArg): T;
+        visitSelectRef(expr: SQSelectRefExpr, arg: TArg): T;
         visitAnd(expr: SQAndExpr, arg: TArg): T;
         visitBetween(expr: SQBetweenExpr, arg: TArg): T;
         visitIn(expr: SQInExpr, arg: TArg): T;
@@ -36,9 +38,11 @@ declare module powerbi.data {
         visitColumnRef(expr: SQColumnRefExpr, arg: TArg): T;
         visitMeasureRef(expr: SQMeasureRefExpr, arg: TArg): T;
         visitAggr(expr: SQAggregationExpr, arg: TArg): T;
+        visitPercentile(expr: SQPercentileExpr, arg: TArg): T;
         visitHierarchy(expr: SQHierarchyExpr, arg: TArg): T;
         visitHierarchyLevel(expr: SQHierarchyLevelExpr, arg: TArg): T;
         visitPropertyVariationSource(expr: SQPropertyVariationSourceExpr, arg: TArg): T;
+        visitSelectRef(expr: SQSelectRefExpr, arg: TArg): T;
         visitBetween(expr: SQBetweenExpr, arg: TArg): T;
         visitIn(expr: SQInExpr, arg: TArg): T;
         visitAnd(expr: SQAndExpr, arg: TArg): T;
@@ -69,9 +73,11 @@ declare module powerbi.data {
         visitColumnRef(expr: SQColumnRefExpr): void;
         visitMeasureRef(expr: SQMeasureRefExpr): void;
         visitAggr(expr: SQAggregationExpr): void;
+        visitPercentile(expr: SQPercentileExpr): void;
         visitHierarchy(expr: SQHierarchyExpr): void;
         visitHierarchyLevel(expr: SQHierarchyLevelExpr): void;
         visitPropertyVariationSource(expr: SQPropertyVariationSourceExpr): void;
+        visitSelectRef(expr: SQSelectRefExpr): void;
         visitBetween(expr: SQBetweenExpr): void;
         visitIn(expr: SQInExpr): void;
         visitAnd(expr: SQAndExpr): void;
@@ -206,6 +212,12 @@ declare module powerbi {
         static isCompatibleTo(type: ValueTypeDescriptor, otherTypes: ValueTypeDescriptor[]): boolean;
         /** Determines if the instance ValueType is convertable from the 'other' ValueType. */
         isCompatibleFrom(other: ValueType): boolean;
+        /**
+         * Determines if the instance ValueType is equal to the 'other' ValueType
+         * @param {ValueType} other the other ValueType to check equality against
+         * @returns True if the instance ValueType is equal to the 'other' ValueType
+         */
+        equals(other: ValueType): boolean;
         /** Gets the exact primitive type of this ValueType. */
         primitiveType: PrimitiveType;
         /** Gets the exact extended type of this ValueType. */
@@ -272,6 +284,7 @@ declare module powerbi {
         image: boolean;
         imageUrl: boolean;
         webUrl: boolean;
+        barcode: boolean;
     }
     class FormattingType implements FormattingTypeDescriptor {
         private underlyingType;
@@ -350,6 +363,9 @@ declare module powerbi {
         Image = 13109259,
         ImageUrl = 13174785,
         WebUrl = 13240321,
+        Barcode = 13305856,
+        Barcode_Text = 13305857,
+        Barcode_Integer = 13306116,
         Color = 19664897,
         FormatString = 19730433,
         Alignment = 20058113,
@@ -523,6 +539,7 @@ declare module powerbi.data {
         Column?: QueryColumnExpression;
         Measure?: QueryMeasureExpression;
         Aggregation?: QueryAggregationExpression;
+        Percentile?: QueryPercentileExpression;
         Hierarchy?: QueryHierarchyExpression;
         HierarchyLevel?: QueryHierarchyLevelExpression;
         PropertyVariationSource?: QueryPropertyVariationSourceExpression;
@@ -551,9 +568,10 @@ declare module powerbi.data {
         DefaultValue?: QueryDefaultValueExpression;
         AnyValue?: QueryAnyValueExpression;
         Arithmetic?: QueryArithmeticExpression;
+        ScopedEval?: QueryScopedEvalExpression;
         FillRule?: QueryFillRuleExpression;
         ResourcePackageItem?: QueryResourcePackageItem;
-        ScopedEval?: QueryScopedEvalExpression;
+        SelectRef?: QuerySelectRefExpression;
     }
     interface QueryPropertyExpression {
         Expression: QueryExpressionContainer;
@@ -566,9 +584,17 @@ declare module powerbi.data {
     interface QuerySourceRefExpression {
         Source: string;
     }
+    interface QuerySelectRefExpression {
+        ExpressionName: string;
+    }
     interface QueryAggregationExpression {
         Function: QueryAggregateFunction;
         Expression: QueryExpressionContainer;
+    }
+    interface QueryPercentileExpression {
+        Expression: QueryExpressionContainer;
+        K: number;
+        Exclusive?: boolean;
     }
     interface QueryHierarchyExpression {
         Expression: QueryExpressionContainer;
@@ -766,6 +792,8 @@ declare module powerbi.data {
         showAll: boolean;
         addActiveQueryReference(queryRef: string): void;
         getLastActiveQueryReference(): string;
+        /** Replaces the given oldQueryRef with newQueryRef in this QueryProjectionCollection. */
+        replaceQueryRef(oldQueryRef: string, newQueryRef: string): void;
         clone(): QueryProjectionCollection;
     }
     module QueryProjectionsByRole {
@@ -856,8 +884,8 @@ declare module powerbi {
         static calculateMinutes(dataMin: Date, dataMax: Date, expectedCount: number): DateTimeSequence;
         static calculateSeconds(dataMin: Date, dataMax: Date, expectedCount: number): DateTimeSequence;
         static calculateMilliseconds(dataMin: Date, dataMax: Date, expectedCount: number): DateTimeSequence;
+        static addInterval(value: Date, interval: number, unit: DateTimeUnit): Date;
         private static fromNumericSequence(date, sequence, unit);
-        private static addInterval(value, interval, unit);
         private static getDelta(min, max, unit);
         static getIntervalUnit(min: Date, max: Date, maxCount: number): DateTimeUnit;
     }
@@ -1161,15 +1189,30 @@ declare module powerbi.data {
          * Obtains the value for the given role name, category index, and series index.
          *
          * Note: in cases where have multiple values in a role where the multiple values
-         * are not being used to create a static series, the first is obtained.
+         * are not being used to create a static series, the first is obtained. (this is
+         * a rare case)
          */
         getValue(roleName: string, categoryIndex: number, seriesIndex?: number): any;
+        /**
+         * Obtains the highlighted value for the given role name, category index, and series index.
+         *
+         * Note: in cases where have multiple values in a role where the multiple values
+         * are not being used to create a static series, the first is obtained. (this is
+         * a rare case)
+         */
+        getHighlight(roleName: string, categoryIndex: number, seriesIndex?: number): any;
         /**
          * Obtains all the values for the given role name, category index, and series index, drawing
          * from each of the value columns at that intersection.  Used when you have multiple
          * values in a role that are not conceptually a static series.
          */
         getAllValuesForRole(roleName: string, categoryIndex: number, seriesIndex?: number): any[];
+        /**
+         * Obtains all the highlight values for the given role name, category index, and series index, drawing
+         * from each of the value columns at that intersection.  Used when you have multiple
+         * values in a role that are not conceptually a static series.
+         */
+        getAllHighlightsForRole(roleName: string, categoryIndex: number, seriesIndex?: number): any[];
         /**
          * Obtains the first non-null value for the given role name and category index.
          * It should mainly be used for values that are expected to be the same across
@@ -1181,7 +1224,14 @@ declare module powerbi.data {
         getValueMetadataColumn(roleName: string, seriesIndex?: number): DataViewMetadataColumn;
         getValueDisplayName(roleName: string, seriesIndex?: number): string;
         hasDynamicSeries(): boolean;
-        getSeriesCount(): number;
+        /**
+         * Get the series count.  This requires a value role name for cases where you may
+         * have a static series, but is not required if the only series you expect are dynamic
+         * or single series.
+         *
+         * @param valueRoleName The role of the value for which a static series may exist
+         */
+        getSeriesCount(valueRoleName?: string): number;
         getSeriesObjects(seriesIndex: number): DataViewObjects;
         getSeriesValueColumns(): DataViewValueColumns;
         getSeriesValueColumnGroup(seriesIndex: number): DataViewValueColumnGroup;
@@ -1520,6 +1570,34 @@ declare module powerbi.data {
     interface QueryGeneratorResult {
         command: DataReaderQueryCommand;
         splits?: DataViewSplitTransform[];
+        /**
+         * If the query generator needs to rewrite the input query, this property will contain information about the important changes.
+         *
+         * Any rewrite done by query generator should be internal to the particular query generator, but in some rare cases this information
+         * is needed in order for other components to correctly consume the query result.
+         */
+        queryRewrites?: QueryRewriteRecordContainer[];
+    }
+    /**
+     * In each instance of QueryRewriteRecordContainer, exactly one of the optional properties will be populated with change record.
+     */
+    interface QueryRewriteRecordContainer {
+        selectExprAdded?: QueryRewriteSelectExprAddedRecord;
+        projectionQueryRefChanged?: QueryRewriteProjectionQueryRefChangedRecord;
+    }
+    /** Indicates a new SQExpr got added at a particular index. */
+    interface QueryRewriteSelectExprAddedRecord {
+        selectIndex: number;
+        namedSQExpr: NamedSQExpr;
+    }
+    /** Indicates a queryRef in the query projection for a particular role got changed. */
+    interface QueryRewriteProjectionQueryRefChangedRecord {
+        /** The role for which a queryRef in the query projection got changed. */
+        role: string;
+        /** The original queryRef. */
+        oldQueryRef: string;
+        /** The new, internal queryRef. */
+        newInternalQueryRef: string;
     }
     interface DataReaderTransformResult {
         dataView?: DataView;
@@ -1559,6 +1637,8 @@ declare module powerbi.data {
         id: number;
         /** Specifies the name used in Semantic Queries to reference this DataSource. */
         name: string;
+        /** Specifies the type of IDataReaderPlugin. */
+        type?: string;
     }
     interface FederatedConceptualSchemaResponse {
         data: FederatedConceptualSchemaData;
@@ -1624,6 +1704,9 @@ declare module powerbi.data {
         hierarchyLevel?: FieldExprHierarchyLevelPattern;
         hierarchyLevelAggr?: FieldExprHierarchyLevelAggrPattern;
         measure?: FieldExprMeasurePattern;
+        percentile?: FieldExprPercentilePattern;
+        percentOfGrandTotal?: FieldExprPercentOfGrandTotalPattern;
+        selectRef?: FieldExprSelectRefPattern;
     }
     /** By design there is no default, no-op visitor. Components concerned with patterns need to be aware of all patterns as they are added. */
     interface IFieldExprPatternVisitor<T> {
@@ -1636,6 +1719,9 @@ declare module powerbi.data {
         visitHierarchyLevel(hierarchyLevel: FieldExprHierarchyLevelPattern): T;
         visitHierarchyLevelAggr(hierarchyLevelAggr: FieldExprHierarchyLevelAggrPattern): T;
         visitMeasure(measure: FieldExprMeasurePattern): T;
+        visitPercentile(percentile: FieldExprPercentilePattern): T;
+        visitPercentOfGrandTotal(percentOfGrandTotal: FieldExprPercentOfGrandTotalPattern): T;
+        visitSelectRef(selectRef: FieldExprSelectRefPattern): T;
     }
     interface FieldExprEntityPattern {
         schema: string;
@@ -1669,6 +1755,17 @@ declare module powerbi.data {
         level: FieldExprHierarchyLevelPattern;
         variationName: string;
     }
+    interface FieldExprPercentilePattern {
+        arg: FieldExprPattern;
+        k: number;
+        exclusive: boolean;
+    }
+    interface FieldExprPercentOfGrandTotalPattern {
+        baseExpr: FieldExprPattern;
+    }
+    interface FieldExprSelectRefPattern {
+        expressionName: string;
+    }
     module SQExprBuilder {
         function fieldExpr(fieldExpr: FieldExprPattern): SQExpr;
         function fromColumnAggr(columnAggr: FieldExprColumnAggrPattern): SQAggregationExpr;
@@ -1686,11 +1783,13 @@ declare module powerbi.data {
         function visit<T>(expr: SQExpr | FieldExprPattern, visitor: IFieldExprPatternVisitor<T>): T;
         function toColumnRefSQExpr(columnPattern: FieldExprColumnPattern): SQColumnRefExpr;
         function getAggregate(fieldExpr: FieldExprPattern): QueryAggregateFunction;
+        function isAggregation(fieldExpr: FieldExprPattern): boolean;
         function hasFieldExprName(fieldExpr: FieldExprPattern): boolean;
         function getPropertyName(fieldExpr: FieldExprPattern): string;
         function getHierarchyName(fieldExpr: FieldExprPattern): string;
         function getColumnRef(fieldExpr: FieldExprPattern): FieldExprPropertyPattern;
         function getFieldExprName(fieldExpr: FieldExprPattern): string;
+        function getSchema(fieldExpr: FieldExprPattern): string;
         function toFieldExprEntityPattern(fieldExpr: FieldExprPattern): FieldExprEntityPattern;
         function toFieldExprEntityItemPattern(fieldExpr: FieldExprPattern): FieldExprEntityPattern;
     }
@@ -1962,6 +2061,7 @@ declare module powerbi.data {
         normalizedFiveStateKpiRange: boolean;
         supportsMedian: boolean;
         supportsPercentile: boolean;
+        supportsScopedEval: boolean;
     }
     interface ConceptualPropertyItemContainer {
         properties: ArrayNamedItems<ConceptualProperty>;
@@ -2148,6 +2248,8 @@ declare module powerbi.data {
         visitColumnRef(expr: SQColumnRefExpr): SQExpr;
         visitMeasureRef(expr: SQMeasureRefExpr): SQExpr;
         visitAggr(expr: SQAggregationExpr): SQExpr;
+        visitSelectRef(expr: SQSelectRefExpr): SQExpr;
+        visitPercentile(expr: SQPercentileExpr): SQExpr;
         visitHierarchy(expr: SQHierarchyExpr): SQExpr;
         visitHierarchyLevel(expr: SQHierarchyLevelExpr): SQExpr;
         visitPropertyVariationSource(expr: SQPropertyVariationSourceExpr): SQExpr;
@@ -2273,6 +2375,7 @@ declare module powerbi.data {
         static isHierarchyLevel(expr: SQExpr): expr is SQHierarchyLevelExpr;
         static isAggregation(expr: SQExpr): expr is SQAggregationExpr;
         static isMeasure(expr: SQExpr): expr is SQMeasureRefExpr;
+        static isSelectRef(expr: SQExpr): expr is SQSelectRefExpr;
         static isResourcePackageItem(expr: SQExpr): expr is SQResourcePackageItemExpr;
         getMetadata(federatedSchema: FederatedConceptualSchema): SQExprMetadata;
         getDefaultAggregate(federatedSchema: FederatedConceptualSchema, forceAggregation?: boolean): QueryAggregateFunction;
@@ -2287,6 +2390,7 @@ declare module powerbi.data {
         private getHierarchyLevelConceptualProperty(federatedSchema);
         private getMetadataForVariation(field, federatedSchema);
         private getMetadataForHierarchyLevel(field, federatedSchema);
+        private getMetadataForPercentOfGrandTotal();
         private getPropertyMetadata(field, property);
         private getMetadataForProperty(field, federatedSchema);
         private static getMetadataForEntity(field, federatedSchema);
@@ -2319,6 +2423,8 @@ declare module powerbi.data {
         ResourcePackageItem = 24,
         ScopedEval = 25,
         Scope = 26,
+        Percentile = 27,
+        SelectRef = 28,
     }
     interface SQExprMetadata {
         kind: FieldKind;
@@ -2357,6 +2463,7 @@ declare module powerbi.data {
         scope: SQExpr[];
         constructor(expression: SQExpr, scope: SQExpr[]);
         accept<T, TArg>(visitor: ISQExprVisitorWithArg<T, TArg>, arg?: TArg): T;
+        getMetadata(federatedSchema: FederatedConceptualSchema): SQExprMetadata;
     }
     abstract class SQPropRefExpr extends SQExpr {
         ref: string;
@@ -2377,6 +2484,14 @@ declare module powerbi.data {
         constructor(arg: SQExpr, func: QueryAggregateFunction);
         accept<T, TArg>(visitor: ISQExprVisitorWithArg<T, TArg>, arg?: TArg): T;
     }
+    class SQPercentileExpr extends SQExpr {
+        arg: SQExpr;
+        k: number;
+        exclusive: boolean;
+        constructor(arg: SQExpr, k: number, exclusive: boolean);
+        getMetadata(federatedSchema: FederatedConceptualSchema): SQExprMetadata;
+        accept<T, TArg>(visitor: ISQExprVisitorWithArg<T, TArg>, arg?: TArg): T;
+    }
     class SQPropertyVariationSourceExpr extends SQExpr {
         arg: SQExpr;
         name: string;
@@ -2394,6 +2509,11 @@ declare module powerbi.data {
         arg: SQExpr;
         level: string;
         constructor(arg: SQExpr, level: string);
+        accept<T, TArg>(visitor: ISQExprVisitorWithArg<T, TArg>, arg?: TArg): T;
+    }
+    class SQSelectRefExpr extends SQExpr {
+        expressionName: string;
+        constructor(expressionName: string);
         accept<T, TArg>(visitor: ISQExprVisitorWithArg<T, TArg>, arg?: TArg): T;
     }
     class SQAndExpr extends SQExpr {
@@ -2504,6 +2624,10 @@ declare module powerbi.data {
         function columnRef(source: SQExpr, prop: string): SQColumnRefExpr;
         function measureRef(source: SQExpr, prop: string): SQMeasureRefExpr;
         function aggregate(source: SQExpr, aggregate: QueryAggregateFunction): SQAggregationExpr;
+        function selectRef(expressionName: string): SQSelectRefExpr;
+        function percentile(source: SQExpr, k: number, exclusive: boolean): SQPercentileExpr;
+        function arithmetic(left: SQExpr, right: SQExpr, operator: ArithmeticOperatorKind): SQArithmeticExpr;
+        function scopedEval(expression: SQExpr, scope: SQExpr[]): SQScopedEvalExpr;
         function hierarchy(source: SQExpr, hierarchy: string): SQHierarchyExpr;
         function propertyVariationSource(source: SQExpr, name: string, property: string): SQPropertyVariationSourceExpr;
         function hierarchyLevel(source: SQExpr, level: string): SQHierarchyLevelExpr;
@@ -2531,10 +2655,10 @@ declare module powerbi.data {
         function text(value: string, valueEncoded?: string): SQConstantExpr;
         /** Returns an SQExpr that evaluates to the constant value. */
         function typedConstant(value: PrimitiveValue, type: ValueTypeDescriptor): SQConstantExpr;
-        function arithmetic(left: SQExpr, right: SQExpr, operator: ArithmeticOperatorKind): SQArithmeticExpr;
-        function scopedEval(expression: SQExpr, scope: SQExpr[]): SQScopedEvalExpr;
         function setAggregate(expr: SQExpr, aggregate: QueryAggregateFunction): SQExpr;
         function removeAggregate(expr: SQExpr): SQExpr;
+        function setPercentOfGrandTotal(expr: SQExpr): SQExpr;
+        function removePercentOfGrandTotal(expr: SQExpr): SQExpr;
         function removeEntityVariables(expr: SQExpr): SQExpr;
         function fillRule(expr: SQExpr, rule: FillRuleDefinition): SQFillRuleExpr;
         function resourcePackageItem(packageName: string, packageType: number, itemName: string): SQResourcePackageItemExpr;
@@ -2554,6 +2678,7 @@ declare module powerbi.data {
         invalidLeftOperandType = 7,
         invalidRightOperandType = 8,
         invalidValueType = 9,
+        invalidPercentileArgument = 10,
     }
     class SQExprValidationVisitor extends SQExprRewriter {
         errors: SQExprValidationError[];
@@ -2567,6 +2692,7 @@ declare module powerbi.data {
         visitAggr(expr: SQAggregationExpr): SQExpr;
         visitHierarchy(expr: SQHierarchyExpr): SQExpr;
         visitHierarchyLevel(expr: SQHierarchyLevelExpr): SQExpr;
+        visitPercentile(expr: SQPercentileExpr): SQExpr;
         visitEntity(expr: SQEntityExpr): SQExpr;
         visitContains(expr: SQContainsExpr): SQExpr;
         visitStartsWith(expr: SQContainsExpr): SQExpr;
@@ -2900,9 +3026,6 @@ declare module powerbi.visuals {
         includes(other: SelectionId, ignoreHighlight?: boolean): boolean;
         getKey(): string;
         getKeyWithoutHighlight(): string;
-        /**
-         * Temporary workaround since a few things currently rely on this, but won't need to.
-         */
         hasIdentity(): boolean;
         getSelector(): Selector;
         getSelectorsByColumn(): Selector;

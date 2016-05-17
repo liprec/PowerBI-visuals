@@ -101,8 +101,42 @@ module powerbi.data {
     export interface QueryGeneratorResult {
         command: DataReaderQueryCommand;
         splits?: DataViewSplitTransform[];
+
+        /**
+         * If the query generator needs to rewrite the input query, this property will contain information about the important changes.
+         *
+         * Any rewrite done by query generator should be internal to the particular query generator, but in some rare cases this information
+         * is needed in order for other components to correctly consume the query result.
+         */
+        queryRewrites?: QueryRewriteRecordContainer[];
     }
 
+    /**
+     * In each instance of QueryRewriteRecordContainer, exactly one of the optional properties will be populated with change record.
+     */
+    export interface QueryRewriteRecordContainer {
+        selectExprAdded?: QueryRewriteSelectExprAddedRecord;
+        projectionQueryRefChanged?: QueryRewriteProjectionQueryRefChangedRecord;
+    }
+
+    /** Indicates a new SQExpr got added at a particular index. */
+    export interface QueryRewriteSelectExprAddedRecord {
+        selectIndex: number;
+        namedSQExpr: NamedSQExpr;
+    }
+
+    /** Indicates a queryRef in the query projection for a particular role got changed. */
+    export interface QueryRewriteProjectionQueryRefChangedRecord {
+        /** The role for which a queryRef in the query projection got changed. */
+        role: string;
+
+        /** The original queryRef. */
+        oldQueryRef: string;
+
+        /** The new, internal queryRef. */
+        newInternalQueryRef: string;
+    }
+    
     export interface DataReaderTransformResult {
         dataView?: DataView;
         restartToken?: RestartToken;
@@ -159,6 +193,9 @@ module powerbi.data {
 
         /** Specifies the name used in Semantic Queries to reference this DataSource. */
         name: string;
+
+        /** Specifies the type of IDataReaderPlugin. */
+        type?: string;
     }
 
     export interface FederatedConceptualSchemaResponse {
