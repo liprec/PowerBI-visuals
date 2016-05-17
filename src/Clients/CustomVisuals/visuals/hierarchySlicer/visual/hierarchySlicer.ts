@@ -31,7 +31,6 @@
         private visibleGroupContainer: D3.Selection;
         private scrollContainer: D3.Selection;
         private scrollbarInner: D3.Selection;
-        private cancelMeasurePass: () => void;
         private renderTimeoutId: number;
 
         /**
@@ -216,46 +215,6 @@
                 return Math.min(Math.ceil(viewportHeight / rowHeight), this._totalRows) || minimumVisibleRows;
 
             return Math.min(Math.floor(viewportHeight / rowHeight), this._totalRows) || minimumVisibleRows;
-        }
-
-        private getRowHeight(): JQueryPromise<number> {
-            var deferred = $.Deferred<number>();
-            var listView = this;
-            var options = listView.options;
-            if (this.cancelMeasurePass)
-                this.cancelMeasurePass();
-
-            // if there is no data, resolve and return
-            if (!(this._data && this._data.length && options)) {
-                listView.rowHeight(TreeView.defaultRowHeight);
-                return deferred.resolve(options.rowHeight).promise();
-            }
-
-            //render the first item to calculate the row height
-            this.scrollToFrame(false /*loadMoreData*/);
-            var requestAnimationFrameId = window.requestAnimationFrame(() => {
-                //measure row height
-                var rows = listView.visibleGroupContainer.select(".row");
-                if (!rows.empty()) {
-                    var firstRow = rows.node();
-                    // If the container (child) has margins amd the row (parent) doesn't, the child's margins will collapse into the parent.
-                    // outerHeight doesn't report the correct height for the parent in this case, but it does measure the child properly.
-                    // Fix for #7497261 Measures both and take the max to work around this issue.
-                    var rowHeight: number = Math.max($(firstRow).outerHeight(true), $(firstRow).children().first().outerHeight(true));
-                    listView.rowHeight(rowHeight);
-                    deferred.resolve(rowHeight);
-                }
-
-                listView.cancelMeasurePass = undefined;
-                window.cancelAnimationFrame(requestAnimationFrameId);
-            });
-
-            this.cancelMeasurePass = () => {
-                window.cancelAnimationFrame(requestAnimationFrameId);
-                deferred.reject();
-            };
-
-            return deferred.promise();
         }
     }
 
@@ -658,9 +617,8 @@
                 table: {
                     rows: {
                         for: { in: 'Fields' },
-                        dataReductionAlgorithm: { top: {} }
-                    },
-                    rowCount: { preferred: { min: 1 } }
+                        dataReductionAlgorithm: { top: { count: 1000 } }
+                    }
                 }
             }],
             objects: {
@@ -850,7 +808,7 @@
                 var parentId: string = '';
 
                 for (var c = 0; c < rows[r].length; c++) {
-                    var columnCategoryIndex: number = identities.map((v, i) => { return v.source.queryName === columns[c].queryName ? i : null }).filter((v) => { return v !== null; })[0];
+                    var columnCategoryIndex: number = identities.map((v, i) => { return v.source.queryName === columns[c].queryName ? i : null; }).filter((v) => { return v !== null; })[0];
                     var format = dataView.categorical.categories[columnCategoryIndex].source.format ? dataView.categorical.categories[columnCategoryIndex].source.format : null;
                     var dataType: ValueTypeDescriptor = dataView.categorical.categories[columnCategoryIndex].source.type ? dataView.categorical.categories[columnCategoryIndex].source.type : "";
                     var labelValue = valueFormatter.format(rows[r][c], format) === null ? "(blank)" : valueFormatter.format(rows[r][c], format);
@@ -949,6 +907,7 @@
             this.element = options.element;
             this.viewport = options.viewport;
             this.hostServices = options.host;
+            this.hostServices.canSelect = () => true;
             this.settings = HierarchySlicer.DefaultSlicerSettings();
             
             this.selectionManager = new SelectionManager({ hostServices: options.host });
@@ -981,29 +940,6 @@
                     'height': PixelConverter.toString(this.viewport.height),
                     'width': PixelConverter.toString(this.viewport.width),
                 });
-
-            //var containerDiv = document.createElement('div');
-            //containerDiv.className = HierarchySlicer.Container.class;
-            //var container = this.slicerContainer = d3.select(containerDiv);
-
-            //this.slicerHeader = this.slicerContainer
-            //    .append('div')
-            //    .classed(HierarchySlicer.Header.class, true);
-
-            //this.slicerHeader
-            //    .append('span')
-            //    .classed(HierarchySlicer.Clear.class, true)
-            //    .attr('title', 'Clear');
-
-            //this.slicerHeader
-            //    .append('div')
-            //    .classed(HierarchySlicer.HeaderText.class, true);
-
-            //this.slicerBody = container.append('div').classed(HierarchySlicer.Body.class, true)
-            //    .style({
-            //        'height': PixelConverter.toString(this.viewport.height),
-            //        'width': PixelConverter.toString(this.viewport.width),
-            //    });
 
             var rowEnter = (rowSelection: D3.Selection) => {
                 this.onEnterSelection(rowSelection);
@@ -1276,39 +1212,6 @@
                 default:
                     return outlineElement.replace("1", outlineWeight.toString());
             }
-        }
-
-        private addScript(alias: string, uri: string) {
-            var existentScript = document.getElementById(alias);
-            if (existentScript != null) {
-                $('script').each(function () {
-                    if (this.src.indexOf('uri') >= 0) {
-                        // console.log('removed', this.src);
-                        $(this).remove();
-                    }
-                });
-            }
-            var body = document.getElementsByTagName('body')[0];
-            var script = document.createElement('script');
-            script.id = alias;
-            script.type = 'text/javascript';
-            body.appendChild(script);
-            script.src = uri;
-        }
-
-        private addScriptSnippet(alias: string, snippet: string) {
-            var existentScript = document.getElementById(alias);
-            if (existentScript != null) {
-                $('script').each(function () {
-                        $(this).remove();
-                });
-            }
-            var body = document.getElementsByTagName('body')[0];
-            var script = document.createElement('script');
-            script.id = alias;
-            script.type = 'text/javascript';
-            body.appendChild(script);
-            script.innerText = snippet;
         }
 
         public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] {
