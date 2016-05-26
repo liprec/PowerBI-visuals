@@ -97,12 +97,12 @@ module powerbi.visuals.samples {
             ],
             dataViewMappings: [{
                 conditions: [
-                    { 'Category': { min:0, max: 1 }, 'Sampling': { min: 1 }, 'Values': { min: 0, max: 1 } }
+                    { 'Category': { min: 0, max: 1 }, 'Values': { min: 0, max: 1 } },
                 ],
                 matrix: {
                     rows: {
                         for: { in: 'Category' },
-                        dataReductionAlgorithm: { top: { count: 50000 } }
+                        dataReductionAlgorithm: { top: { count: 100 } }
                     },
                     columns: {
                         for: { in: 'Sampling' },
@@ -244,7 +244,12 @@ module powerbi.visuals.samples {
 
         public converter(dataView: DataView, colors: IDataColorPalette): BoxWhiskerChartData {
             if (!dataView ||
-                !dataView.matrix) {
+                !dataView.matrix ||
+                !dataView.matrix.columns ||
+                !dataView.matrix.columns.root.children ||
+                !(dataView.matrix.columns.root.children.length > 1) ||
+                !dataView.matrix.valueSources ||
+                !dataView.matrix.valueSources[0]) {
                 return {
                     dataPoints: [],
                     legendData: {
@@ -261,8 +266,7 @@ module powerbi.visuals.samples {
             };
             
             for (var i = 0, iLen = categories.length; i < iLen; i++) {
-                var values = this.getValueArray(dataView.matrix.rows.root.children[i].values,
-                                    dataView.matrix.columns.root.children.length)
+                var values = this.getValueArray(dataView.matrix.rows.root.children[i].values)
                                     .filter((value) => { return value != null; });
 
                 if (values.length === 0) {
@@ -280,7 +284,7 @@ module powerbi.visuals.samples {
                 var colorHelper = new ColorHelper(this.colors, BoxWhiskerChart.properties.fill, this.colors.getColorByIndex(i).value);
 
                 legendData.dataPoints.push({
-                    label: categories[i].value === null ? '(blank)' : categories[i].value,
+                    label: categories[0].value === undefined ? dataView.matrix.valueSources[0].displayName : categories[i].value,
                     color: colorHelper.getColorForSeriesValue(categories[i].objects, dataView.matrix.rows.root.childIdentityFields, categories[i].name),
                     icon: LegendIcon.Box,
                     selected: false,
@@ -369,13 +373,13 @@ module powerbi.visuals.samples {
                             .map((dataPoint) => { return { value: dataPoint, x: 0, y: 0 }; })
                             .concat(outliers.map((outlier) => { return { value: outlier, x: 0, y: 0 }; }))
                         : [],
-                    label: categories[i].value === null ? '(blank)' : categories[i].value,
+                    label: categories[0].value === undefined ? dataView.matrix.valueSources[0].displayName : categories[i].value,
                     identity: id,
                     color: colorHelper.getColorForSeriesValue(categories[i].objects, dataView.matrix.rows.root.childIdentityFields, categories[i].name),
                     tooltipInfo: [
                         {
                             displayName: 'Group',
-                            value: categories[i].value === null ? '(blank)' : categories[i].value,
+                            value: categories[0].value === undefined ? dataView.matrix.valueSources[0].displayName : categories[i].value,
                         },
                         {
                             displayName: '# Samples',
@@ -620,7 +624,7 @@ module powerbi.visuals.samples {
         }
 
         private drawChart(dataPoints: BoxWhiskerChartDatapoint[][], xScale: D3.Scale.Scale, yScale: D3.Scale.Scale, duration: number): void {
-            var dotRadius: number = 5;
+            var dotRadius: number = 4;
 
             var stack = d3.layout.stack();
             var layers = stack(dataPoints);
@@ -866,10 +870,13 @@ module powerbi.visuals.samples {
             selection.exit().remove();
         }
 
-        public getValueArray(nodes: any, length: number): Array<number> {
+        public getValueArray(nodes: any): Array<number> {
             var rArray: Array<number> = [];
 
-            for (var i = 0; i < length; i++) {
+            for (var i = 0; i < 50000; i++) {
+                if (nodes[i] === undefined) {
+                    break;
+                }
                 rArray.push(nodes[i].value);
             }
 
