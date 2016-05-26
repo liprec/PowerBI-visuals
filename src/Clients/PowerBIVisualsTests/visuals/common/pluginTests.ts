@@ -40,7 +40,8 @@ module powerbitests {
                 {
                     displayName: "col1",
                     queryName: "col1",
-                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text)
+                    type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
+                    roles: { Category: true },
                 },
                 {
                     displayName: "col2",
@@ -220,6 +221,7 @@ module powerbitests {
 
                 if (visualPlugin.name !== "categoricalFilter" &&
                     visualPlugin.name !== "consoleWriter" &&
+                    visualPlugin.name !== "streamGraph" &&
                     visualPlugin.capabilities &&
                     visualPlugin.capabilities.dataViewMappings &&
                     visualPlugin.capabilities.dataViewMappings.length > 0 &&

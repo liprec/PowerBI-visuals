@@ -454,12 +454,19 @@ declare module powerbi {
         max?: PrimitiveValue;
         min?: PrimitiveValue;
         count?: number;
+        percentiles?: DataViewColumnPercentileAggregate[];
 
         /** Client-computed maximum value for a column. */
         maxLocal?: PrimitiveValue;
 
         /** Client-computed maximum value for a column. */
         minLocal?: PrimitiveValue;
+    }
+
+    export interface DataViewColumnPercentileAggregate {
+        exclusive?: boolean;
+        k: number;
+        value: PrimitiveValue;
     }
 
     export interface DataViewCategorical {
@@ -537,17 +544,9 @@ declare module powerbi {
         value?: any;
       
         /** 
-         * When used under the context of DataView.tree, this property contains all the values in this node. 
+         * This property contains all the values in this node. 
          * The key of each of the key-value-pair in this dictionary is the position of the column in the 
          * select statement to which the value belongs.
-         *
-         * When used under the context of DataView.matrix.rows (as DataViewMatrixNode), if this node represents the 
-         * inner-most dimension of row groups (i.e. a leaf node), then this property will contain the values at the 
-         * matrix intersection under the group.  The value type will be DataViewMatrixNodeValue, and their 
-         * valueSourceIndex property will contain the position of the column in the select statement to which the 
-         * value belongs.
-         *
-         * When used under the context of DataView.matrix.columns (as DataViewMatrixNode), this property is not used.
          */
         values?: { [id: number]: DataViewTreeNodeValue };
 
@@ -600,6 +599,16 @@ declare module powerbi {
     export interface DataViewMatrixNode extends DataViewTreeNode {
         /** Indicates the level this node is on. Zero indicates the outermost children (root node level is undefined). */
         level?: number;
+
+        children?: DataViewMatrixNode[];
+
+         /* If this DataViewMatrixNode represents the  inner-most dimension of row groups (i.e. a leaf node), then this property will contain the values at the 
+         * matrix intersection under the group. The valueSourceIndex property will contain the position of the column in the select statement to which the 
+         * value belongs.
+         *
+         * When this DataViewMatrixNode is used under the context of DataView.matrix.columns, this property is not used.
+         */
+        values?: { [id: number]: DataViewMatrixNodeValue };         
 
         /**
          * Indicates the source metadata index on the node's level. Its value is 0 if omitted.
@@ -1517,6 +1526,7 @@ declare module powerbi {
 
 declare module powerbi {
     export interface FilterTypeDescriptor {
+        selfFilter?: boolean;
     }
 }
 ﻿
@@ -1608,6 +1618,7 @@ declare module powerbi {
         formatting?: FormattingTypeDescriptor;
         enumeration?: IEnumType;
         scripting?: ScriptTypeDescriptor;
+        operations?: OperationalTypeDescriptor;
     }
 
     export interface ScriptTypeDescriptor {
@@ -1647,6 +1658,10 @@ declare module powerbi {
         labelDisplayUnits?: boolean;
         fontSize?: boolean;
         labelDensity?: boolean;
+    }
+
+    export interface OperationalTypeDescriptor {
+        searchEnabled?: boolean;
     }
 
     /** Describes instances of value type objects. */
@@ -1806,6 +1821,11 @@ declare module powerbi {
          * Visual should prefer to request a higher volume of data.
          */
         preferHigherDataVolume?: boolean;
+        
+        /**
+         * Whether the load more data feature (paging of data) for Cartesian charts should be enabled.
+         */
+        cartesianLoadMoreEnabled?: boolean;
     }
 
     /** Parameters available to a sortable visual candidate */
@@ -1999,10 +2019,15 @@ declare module powerbi {
     }
 
     /** Defines geocoding services. */
+    export interface GeocodeOptions {
+        /** promise that should abort the request when resolved */
+        timeout?: IPromise<any>;
+    }
+
     export interface IGeocoder {
-        geocode(query: string, category?: string): IPromise<IGeocodeCoordinate>;
-        geocodeBoundary(latitude: number, longitude: number, category: string, levelOfDetail?: number, maxGeoData?: number): IPromise<IGeocodeBoundaryCoordinate>;
-        geocodePoint(latitude: number, longitude: number): IPromise<IGeocodeResource>;
+        geocode(query: string, category?: string, options?: GeocodeOptions): IPromise<IGeocodeCoordinate>;
+        geocodeBoundary(latitude: number, longitude: number, category: string, levelOfDetail?: number, maxGeoData?: number, options?: GeocodeOptions): IPromise<IGeocodeBoundaryCoordinate>;
+        geocodePoint(latitude: number, longitude: number, options?: GeocodeOptions): IPromise<IGeocodeResource>;
 
         /** returns data immediately if it is locally available (e.g. in cache), null if not in cache */
         tryGeocodeImmediate(query: string, category?: string): IGeocodeCoordinate;
@@ -2189,7 +2214,8 @@ declare module powerbi {
 
         /** Set the display names for their corresponding DataViewScopeIdentity */
         setIdentityDisplayNames(displayNamesIdentityPairs: DisplayNameIdentityPair[]): void;
-
+        
+        visualCapabilitiesChanged?(): void;
     }
 
     export interface DisplayNameIdentityPair {
@@ -2238,6 +2264,9 @@ declare module powerbi {
         
         /** The version of the api that this plugin should be run against */
         apiVersion?: string;
+        
+        /** Human readable plugin name displayed to users */
+        displayName?: string;
     }
 
     /** Method for gathering addition information from the visual for telemetry. */

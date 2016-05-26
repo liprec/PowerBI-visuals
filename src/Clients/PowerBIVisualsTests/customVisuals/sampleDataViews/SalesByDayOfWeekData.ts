@@ -25,78 +25,52 @@
  */
 
 module powerbitests.customVisuals.sampleDataViews {
-    import SQExprBuilder = powerbi.data.SQExprBuilder;
-    import DataView = powerbi.DataView;
-    import DataViewMetadata = powerbi.DataViewMetadata;
     import ValueType = powerbi.ValueType;
-    import DataViewTransform = powerbi.data.DataViewTransform;
-    import DataViewValueColumns = powerbi.DataViewValueColumns;
-    import DataViewValueColumn = powerbi.DataViewValueColumn;
 
-    export class SalesByDayOfWeekData {
+    export class SalesByDayOfWeekData extends DataViewBuilder {
+        public static ColumnCategory: string = "category";
+        public static ColumnSales1: string = "sales1";
+        public static ColumnSales2: string = "sales2";
 
-        public getDataView(): DataView {
-            let dataViewMetadata: DataViewMetadata = {
-                columns: [
-                    {
-                        displayName: 'Day',
-                        queryName: 'Day',
+        public valuesCategory: string[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];;
+        public valuesY1: number[] = [742731.43, 162066.43, 283085.78, 300263.49, 376074.57, 814724.34, 570921.34];
+        public valuesY2: number[] = [123455.43, 40566.43, 200457.78, 5000.49, 320000.57, 450000.34, 140832.67];
+
+        public getDataView(columnNames?: string[]): powerbi.DataView {
+            return this.createCategoricalDataViewBuilder([
+                {
+                    source: {
+                        displayName: "Day",
+                        queryName: SalesByDayOfWeekData.ColumnCategory,
                         type: ValueType.fromDescriptor({ text: true })
                     },
-                    {
+                    values: this.valuesCategory
+                }
+                ],[
+                {
+                    source: {
                         displayName: 'Previous week sales',
                         isMeasure: true,
                         format: "$0,000.00",
-                        queryName: 'sales1',
+                        queryName: SalesByDayOfWeekData.ColumnSales1,
                         type: ValueType.fromDescriptor({ numeric: true }),
                         objects: { dataPoint: { fill: { solid: { color: 'purple' } } } },
                     },
-                    {
+                    values: this.valuesY1
+                },
+                {
+                    source: {
                         displayName: 'This week sales',
                         isMeasure: true,
                         format: "$0,000.00",
-                        queryName: 'sales2',
+                        queryName: SalesByDayOfWeekData.ColumnSales2,
                         type: ValueType.fromDescriptor({ numeric: true })
-                    }
-                ]
-            };
-
-            let columns: DataViewValueColumn[] = [
-                {
-                    source: dataViewMetadata.columns[1],
-                    // Sales Amount for 2014
-                    values: [742731.43, 162066.43, 283085.78, 300263.49, 376074.57, 814724.34, 570921.34],
-                },
-                {
-                    source: dataViewMetadata.columns[2],
-                    // Sales Amount for 2015
-                    values: [123455.43, 40566.43, 200457.78, 5000.49, 320000.57, 450000.34, 140832.67],
+                    },
+                    values: this.valuesY2
                 }
-            ];
-
-            let fieldExpr = SQExprBuilder.fieldExpr({ column: { schema: 's', entity: "table1", name: "day of week" } });
-            let categoryValues = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-            let categoryIdentities = categoryValues.map((value) =>
-                powerbi.data.createDataViewScopeIdentity(SQExprBuilder.equal(fieldExpr, SQExprBuilder.text(value))));
-
-            let dataValues: DataViewValueColumns = DataViewTransform.createValueColumns(columns);
-            let tableDataValues = helpers.getTableDataValues(categoryValues, columns);
-
-            return {
-                metadata: dataViewMetadata,
-                categorical: {
-                    categories: [{
-                        source: dataViewMetadata.columns[0],
-                        values: categoryValues,
-                        identity: categoryIdentities,
-                    }],
-                    values: dataValues
-                },
-                table: {
-                    rows: tableDataValues,
-                    columns: dataViewMetadata.columns,
-                }
-            };
+                ],
+                null,
+                columnNames).build();
         }
     }
 }

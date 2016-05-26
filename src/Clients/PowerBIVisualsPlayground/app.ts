@@ -38,7 +38,6 @@ enum PlaygroundViewType {
 module powerbi.visuals {
 
     import defaultVisualHostServices = powerbi.visuals.defaultVisualHostServices;
-    import visualPluginFactory = powerbi.visuals.visualPluginFactory;
     import HostControls = powerbi.visuals.HostControls;
     import IHost = powerbi.visuals.IHost;
 
@@ -58,7 +57,9 @@ module powerbi.visuals {
             "gantt",
             "sunburstCustom",
             "timeline",
-            "owlGauge"
+            "owlGauge",
+            "debugVisual",
+            "lineDotChart"
         ];
 
         private static mobileInteractiveVisuals: string[] = [
@@ -83,8 +84,8 @@ module powerbi.visuals {
         private static mobileInFocusTileRenderScale: number = 1;
 
         /** Represents sample data view used by visualization elements. */
-        private static webPluginService: IVisualPluginService = new visualPluginFactory.PlaygroundVisualPluginService();
-        private static mobilePluginService: IVisualPluginService = new visualPluginFactory.MobileVisualPluginService();
+        private static webPluginService: PlaygroundVisualPluginService = new PlaygroundVisualPluginService();
+        private static mobilePluginService: MobileVisualPluginService = new MobileVisualPluginService();
         private static currentVisualPlugin: IVisualPlugin;
         private static viewType: PlaygroundViewType;
 
@@ -255,7 +256,7 @@ module powerbi.visuals {
             this.updateVisuals();
         }
 
-        private static getPluginService(): IVisualPluginService {
+        private static getPluginService(): any {
             return this.isMobileView(this.viewType) ? this.mobilePluginService : this.webPluginService;
         }
 

@@ -29,6 +29,7 @@
         "visuals/timeline/visual/timeline.ts",
         "visuals/streamGraph/visual/streamGraph.ts",
         "visuals/sunburst/visual/sunburst.ts",
+        "visuals/lineDotChart/visual/lineDotChart.ts",
         "visuals/boxWhiskerChart/visual/boxWhiskerChart.ts",
         "visuals/forecastChart/forecastChart.ts",
         "visuals/hierarchySlicer/visual/hierarchySlicer.ts",

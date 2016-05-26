@@ -29,6 +29,7 @@ declare module powerbi.data {
         visitFillRule(expr: SQFillRuleExpr, arg: TArg): T;
         visitResourcePackageItem(expr: SQResourcePackageItemExpr, arg: TArg): T;
         visitScopedEval(expr: SQScopedEvalExpr, arg: TArg): T;
+        visitWithRef(expr: SQWithRefExpr, arg: TArg): T;
     }
     interface ISQExprVisitor<T> extends ISQExprVisitorWithArg<T, void> {
     }
@@ -62,6 +63,7 @@ declare module powerbi.data {
         visitFillRule(expr: SQFillRuleExpr, arg: TArg): T;
         visitResourcePackageItem(expr: SQResourcePackageItemExpr, arg: TArg): T;
         visitScopedEval(expr: SQScopedEvalExpr, arg: TArg): T;
+        visitWithRef(expr: SQWithRefExpr, arg: TArg): T;
         visitDefault(expr: SQExpr, arg: TArg): T;
     }
     /** Default ISQExprVisitor implementation that others may derive from. */
@@ -99,6 +101,7 @@ declare module powerbi.data {
         visitLinearGradient3(gradient3: LinearGradient3Definition): void;
         visitResourcePackageItem(expr: SQResourcePackageItemExpr): void;
         visitScopedEval(expr: SQScopedEvalExpr): void;
+        visitWithRef(expr: SQWithRefExpr): void;
         visitDefault(expr: SQExpr): void;
         private visitFillRuleStop(stop);
     }
@@ -374,6 +377,7 @@ declare module powerbi {
         LabelDensity = 20254979,
         Enumeration = 26214401,
         ScriptSource = 32776193,
+        SearchEnabled = 65541,
     }
 }
 declare module powerbi.data {
@@ -456,12 +460,20 @@ declare module powerbi.data {
     }
     interface DataShapeBindingAggregate {
         Select: number;
-        Kind: DataShapeBindingAggregateKind;
+        Kind?: DataShapeBindingAggregateKind;
+        Aggregations?: DataShapeBindingSelectAggregateContainer[];
     }
     const enum DataShapeBindingAggregateKind {
         None = 0,
         Min = 1,
         Max = 2,
+    }
+    interface DataShapeBindingSelectAggregateContainer {
+        Percentile: DataShapeBindingSelectPercentileAggregate;
+    }
+    interface DataShapeBindingSelectPercentileAggregate {
+        Exclusive?: boolean;
+        K: number;
     }
 }
 declare module powerbi.data {
@@ -569,6 +581,7 @@ declare module powerbi.data {
         AnyValue?: QueryAnyValueExpression;
         Arithmetic?: QueryArithmeticExpression;
         ScopedEval?: QueryScopedEvalExpression;
+        WithRef?: QueryWithRefExpression;
         FillRule?: QueryFillRuleExpression;
         ResourcePackageItem?: QueryResourcePackageItem;
         SelectRef?: QuerySelectRefExpression;
@@ -696,6 +709,9 @@ declare module powerbi.data {
     interface QueryScopedEvalExpression {
         Expression: QueryExpressionContainer;
         Scope: QueryExpressionContainer[];
+    }
+    interface QueryWithRefExpression {
+        ExpressionName: string;
     }
     enum TimeUnit {
         Day = 0,
@@ -1078,7 +1094,7 @@ declare module powerbi.visuals {
         (value: any, format?: string): string;
     }
     interface ICustomValueColumnFormatter {
-        (value: any, column: DataViewMetadataColumn, formatStringProp: DataViewObjectPropertyIdentifier): string;
+        (value: any, column: DataViewMetadataColumn, formatStringProp: DataViewObjectPropertyIdentifier, nullsAreBlank?: boolean): string;
     }
     interface ValueFormatterOptions {
         /** The format string to use. */
@@ -1134,7 +1150,16 @@ declare module powerbi.visuals {
         /** Creates an IValueFormatter to be used for a range of values. */
         function create(options: ValueFormatterOptions): IValueFormatter;
         function format(value: any, format?: string, allowFormatBeautification?: boolean): string;
-        function formatValueColumn(value: any, column: DataViewMetadataColumn, formatStringProp: DataViewObjectPropertyIdentifier): string;
+        /**
+         * Value formatting function to handle variant measures.
+         * For a Date/Time value within a non-date/time field, it's formatted with the default date/time formatString instead of as a number
+         * @param {any} value Value to be formatted
+         * @param {DataViewMetadataColumn} column Field which the value belongs to
+         * @param {DataViewObjectPropertyIdentifier} formatStringProp formatString Property ID
+         * @param {boolean} nullsAreBlank? Whether to show "(Blank)" instead of empty string for null values
+         * @returns Formatted value
+         */
+        function formatVariantMeasureValue(value: any, column: DataViewMetadataColumn, formatStringProp: DataViewObjectPropertyIdentifier, nullsAreBlank?: boolean): string;
         function getFormatString(column: DataViewMetadataColumn, formatStringProperty: DataViewObjectPropertyIdentifier, suppressTypeFallback?: boolean): string;
         /** The returned string will look like 'A, B, ..., and C'  */
         function formatListAnd(strings: string[]): string;
@@ -1185,6 +1210,7 @@ declare module powerbi.data {
         hasCategoryWithRole(roleName: string): boolean;
         getCategoryObjects(roleName: string, categoryIndex: number): DataViewObjects;
         hasValues(roleName: string): boolean;
+        hasHighlights(roleName: string): boolean;
         /**
          * Obtains the value for the given role name, category index, and series index.
          *
@@ -1208,6 +1234,12 @@ declare module powerbi.data {
          */
         getAllValuesForRole(roleName: string, categoryIndex: number, seriesIndex?: number): any[];
         /**
+        * Obtains all meta data for the given role name, category index, and series index, drawing
+        * from each of the value columns at that intersection.  Used when you have multiple
+        * values in a role that are not conceptually a static series.
+        */
+        getAllValueMetadataColumnsForRole(roleName: string, seriesIndex: number): DataViewMetadataColumn[];
+        /**
          * Obtains all the highlight values for the given role name, category index, and series index, drawing
          * from each of the value columns at that intersection.  Used when you have multiple
          * values in a role that are not conceptually a static series.
@@ -1222,6 +1254,7 @@ declare module powerbi.data {
         getMeasureQueryName(roleName: string): string;
         getValueColumn(roleName: string, seriesIndex?: number): DataViewValueColumn;
         getValueMetadataColumn(roleName: string, seriesIndex?: number): DataViewMetadataColumn;
+        getAllValueMetadataColumnsForRole(roleName: string, seriesIndex: number): DataViewMetadataColumn[];
         getValueDisplayName(roleName: string, seriesIndex?: number): string;
         hasDynamicSeries(): boolean;
         /**
@@ -1369,6 +1402,10 @@ declare module powerbi.data {
         function findFormatString(descriptors: DataViewObjectDescriptors): DataViewObjectPropertyIdentifier;
         /** Attempts to find the filter property.  This can be useful for propagating filters from one visual to others. */
         function findFilterOutput(descriptors: DataViewObjectDescriptors): DataViewObjectPropertyIdentifier;
+        /** Attempts to find the self filter property. */
+        function findSelfFilter(descriptors: DataViewObjectDescriptors): DataViewObjectPropertyIdentifier;
+        /** Attempts to find the self filter enabled property. */
+        function findSelfFilterEnabled(descriptors: DataViewObjectDescriptors): DataViewObjectPropertyIdentifier;
         /** Attempts to find the default value property.  This can be useful for propagating schema default value. */
         function findDefaultValue(descriptors: DataViewObjectDescriptors): DataViewObjectPropertyIdentifier;
     }
@@ -1566,6 +1603,11 @@ declare module powerbi.data {
     interface ProjectionAggregates {
         min?: boolean;
         max?: boolean;
+        percentiles?: ProjectionPercentileAggregate[];
+    }
+    interface ProjectionPercentileAggregate {
+        exclusive?: boolean;
+        k: number;
     }
     interface QueryGeneratorResult {
         command: DataReaderQueryCommand;
@@ -1627,6 +1669,7 @@ declare module powerbi.data {
         dataSource?: DataReaderDataSource;
         command: DataReaderCommand;
         allowCache?: boolean;
+        allowClientSideFilters?: boolean;
         cacheResponseOnServer?: boolean;
         ignoreViewportForCache?: boolean;
     }
@@ -2272,6 +2315,7 @@ declare module powerbi.data {
         visitAnyValue(orig: SQAnyValueExpr): SQExpr;
         visitArithmetic(orig: SQArithmeticExpr): SQExpr;
         visitScopedEval(orig: SQScopedEvalExpr): SQExpr;
+        visitWithRef(orig: SQWithRefExpr): SQExpr;
         visitFillRule(orig: SQFillRuleExpr): SQExpr;
         visitLinearGradient2(origGradient2: LinearGradient2Definition): LinearGradient2Definition;
         visitLinearGradient3(origGradient3: LinearGradient3Definition): LinearGradient3Definition;
@@ -2368,6 +2412,7 @@ declare module powerbi.data {
         validate(schema: FederatedConceptualSchema, aggrUtils: ISQAggregationOperations, errors?: SQExprValidationError[]): SQExprValidationError[];
         accept<T, TArg>(visitor: ISQExprVisitorWithArg<T, TArg>, arg?: TArg): T;
         kind: SQExprKind;
+        static isArithmetic(expr: SQExpr): expr is SQArithmeticExpr;
         static isColumn(expr: SQExpr): expr is SQColumnRefExpr;
         static isConstant(expr: SQExpr): expr is SQConstantExpr;
         static isEntity(expr: SQExpr): expr is SQEntityExpr;
@@ -2376,6 +2421,8 @@ declare module powerbi.data {
         static isAggregation(expr: SQExpr): expr is SQAggregationExpr;
         static isMeasure(expr: SQExpr): expr is SQMeasureRefExpr;
         static isSelectRef(expr: SQExpr): expr is SQSelectRefExpr;
+        static isScopedEval(expr: SQExpr): expr is SQScopedEvalExpr;
+        static isWithRef(expr: SQExpr): expr is SQWithRefExpr;
         static isResourcePackageItem(expr: SQExpr): expr is SQResourcePackageItemExpr;
         getMetadata(federatedSchema: FederatedConceptualSchema): SQExprMetadata;
         getDefaultAggregate(federatedSchema: FederatedConceptualSchema, forceAggregation?: boolean): QueryAggregateFunction;
@@ -2422,7 +2469,7 @@ declare module powerbi.data {
         FillRule = 23,
         ResourcePackageItem = 24,
         ScopedEval = 25,
-        Scope = 26,
+        WithRef = 26,
         Percentile = 27,
         SelectRef = 28,
     }
@@ -2464,6 +2511,11 @@ declare module powerbi.data {
         constructor(expression: SQExpr, scope: SQExpr[]);
         accept<T, TArg>(visitor: ISQExprVisitorWithArg<T, TArg>, arg?: TArg): T;
         getMetadata(federatedSchema: FederatedConceptualSchema): SQExprMetadata;
+    }
+    class SQWithRefExpr extends SQExpr {
+        expressionName: string;
+        constructor(expressionName: string);
+        accept<T, TArg>(visitor: ISQExprVisitorWithArg<T, TArg>, arg?: TArg): T;
     }
     abstract class SQPropRefExpr extends SQExpr {
         ref: string;
@@ -2628,6 +2680,7 @@ declare module powerbi.data {
         function percentile(source: SQExpr, k: number, exclusive: boolean): SQPercentileExpr;
         function arithmetic(left: SQExpr, right: SQExpr, operator: ArithmeticOperatorKind): SQArithmeticExpr;
         function scopedEval(expression: SQExpr, scope: SQExpr[]): SQScopedEvalExpr;
+        function withRef(expressionName: string): SQWithRefExpr;
         function hierarchy(source: SQExpr, hierarchy: string): SQHierarchyExpr;
         function propertyVariationSource(source: SQExpr, name: string, property: string): SQPropertyVariationSourceExpr;
         function hierarchyLevel(source: SQExpr, level: string): SQHierarchyLevelExpr;
@@ -2679,6 +2732,7 @@ declare module powerbi.data {
         invalidRightOperandType = 8,
         invalidValueType = 9,
         invalidPercentileArgument = 10,
+        invalidScopeArgument = 11,
     }
     class SQExprValidationVisitor extends SQExprRewriter {
         errors: SQExprValidationError[];
@@ -2698,6 +2752,7 @@ declare module powerbi.data {
         visitStartsWith(expr: SQContainsExpr): SQExpr;
         visitArithmetic(expr: SQArithmeticExpr): SQExpr;
         visitScopedEval(expr: SQScopedEvalExpr): SQExpr;
+        visitWithRef(expr: SQWithRefExpr): SQExpr;
         private validateOperandsAndTypeForStartOrContains(left, right);
         private validateArithmeticTypes(left, right);
         private validateCompatibleType(left, right);

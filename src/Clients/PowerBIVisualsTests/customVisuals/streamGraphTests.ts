@@ -27,15 +27,23 @@
 module powerbitests.customVisuals {
     import DataView = powerbi.DataView;
     import InteractivityService = powerbi.visuals.InteractivityService;
-    import SVGUtil = powerbi.visuals.SVGUtil;
     import VisualClass = powerbi.visuals.samples.StreamGraph;
     import StreamData = powerbi.visuals.samples.StreamData;
-    import StreamGraphSeries = powerbi.visuals.samples.StreamGraphSeries;
     import colorAssert = powerbitests.helpers.assertColorsMatch;
 
     powerbitests.mocks.setLocale();
 
     describe("StreamGraph", () => {
+        let visualBuilder: StreamGraphBuilder;
+        let defaultDataViewBuilder: powerbitests.customVisuals.sampleDataViews.ProductSalesByDateData;
+        let dataView: powerbi.DataView;
+
+        beforeEach(() => {
+            visualBuilder = new StreamGraphBuilder(500, 1000);
+            defaultDataViewBuilder = new powerbitests.customVisuals.sampleDataViews.ProductSalesByDateData();
+            dataView = defaultDataViewBuilder.getDataView();
+        });
+
         describe('capabilities', () => {
             let streamGraphCapabilities = VisualClass.capabilities;
 
@@ -49,22 +57,13 @@ module powerbitests.customVisuals {
         });
 
         describe("DOM tests", () => {
-            let visualBuilder: StreamGraphBuilder;
-            let dataViews: DataView[];
+            xit("path is not throwing exceptions (NaN values)", () => {
+                dataView.categorical.values[0].values = [NaN];
+                dataView.categorical.values[1].values = [NaN];
+                dataView.categorical.values[2].values = [NaN];
+                dataView.categorical.values[3].values = [NaN];
 
-            beforeEach(() => {
-                visualBuilder = new StreamGraphBuilder();
-                dataViews = [new powerbitests.customVisuals.sampleDataViews.ProductSalesByDateData().getDataView()];
-            });
-
-            it("path is not throwing exceptions (NaN values)", () => {
-                dataViews[0].categorical.values[0].values = [NaN];
-                dataViews[0].categorical.values[1].values = [NaN];
-                dataViews[0].categorical.values[2].values = [NaN];
-                dataViews[0].categorical.values[3].values = [NaN];
-
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 let containsNaN: boolean = false;
                 $(".streamGraph .dataPointsContainer").children("path").each(function (index, value) {
@@ -74,11 +73,10 @@ module powerbitests.customVisuals {
                 });
             });
 
-            it("should display text in x-axis and not values", () => {
-                dataViews[0].categorical.categories[0].values = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            xit("should display text in x-axis and not values", () => {
+                dataView.categorical.categories[0].values = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 let isNumber: boolean = false;
                 let regExp = /\d/;
@@ -88,36 +86,31 @@ module powerbitests.customVisuals {
                 });
             });
 
-            it("should ellipsis text if its too long", () => {
-                dataViews = [new powerbitests.customVisuals.sampleDataViews.CarLogosData().getDataView()];
+            xit("should ellipsis text if its too long", () => {
+                dataView = new powerbitests.customVisuals.sampleDataViews.CarLogosData().getDataView();
 
                 let dataPointsArray: number[] = [];
-                for (let i = 0; i < dataViews[0].categorical.values.length; i++) {
-                    dataPointsArray = dataPointsArray.concat(dataViews[0].categorical.values[i].values);
+                for (let i = 0; i < dataView.categorical.values.length; i++) {
+                    dataPointsArray = dataPointsArray.concat(dataView.categorical.values[i].values);
                 }
 
-                let max: number = _.max(dataPointsArray);
-                dataViews[0].categorical.values[0].values[0] = max * 1000.00;
+                dataView.categorical.values[0].values[0] = 1e+14;
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 let tick = $(".streamGraph .axisGraphicsContext .y.axis g").children("text").last().text();/*.each(function (index, value) { ticks.push($(value).text()); });*/
-                let isNumber: number = 0;
-                isNumber = tick.indexOf("…");
-                expect(isNumber).toBeGreaterThan(-1);
+                expect(tick.indexOf("…")).toBeGreaterThan(-1);
             });
 
             it("x axis on", () => {
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     categoryAxis: {
                         show: true
                     }
                 };
                 let xAxis = $(".streamGraph .axisGraphicsContext .x.axis");
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 expect(xAxis).toBeInDOM();
                 expect(xAxis.children("g.tick")).toBeInDOM();
@@ -125,29 +118,27 @@ module powerbitests.customVisuals {
             });
 
             it("x axis off", () => {
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     categoryAxis: {
                         show: false
                     }
                 };
                 let xAxis = $(".streamGraph .axisGraphicsContext .x.axis").children('g');
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 expect(xAxis.length).toBe(0);
             });
 
             it("y axis on", () => {
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     valueAxis: {
                         show: true
                     }
                 };
                 let yAxis = $(".streamGraph .axisGraphicsContext .y.axis");
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 expect(yAxis).toBeInDOM();
                 expect(yAxis.children("g.tick")).toBeInDOM();
@@ -155,21 +146,20 @@ module powerbitests.customVisuals {
             });
 
             it("y axis off", () => {
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     valueAxis: {
                         show: false
                     }
                 };
                 let yAxis = $(".streamGraph .axisGraphicsContext .y.axis").children('g');
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 expect(yAxis.length).toBe(0);
             });
 
-            it("x axis title on", () => {
-                dataViews[0].metadata.objects = {
+            xit("x axis title on", () => {
+                dataView.metadata.objects = {
                     categoryAxis: {
                         show: true,
                         showAxisTitle: true
@@ -177,14 +167,13 @@ module powerbitests.customVisuals {
                 };
                 let xAxis = $(".streamGraph .axisGraphicsContext");
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 expect(xAxis.children("text")).toBeInDOM();
             });
 
             it("x axis title off", () => {
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     categoryAxis: {
                         show: true,
                         showAxisTitle: false
@@ -192,14 +181,13 @@ module powerbitests.customVisuals {
                 };
                 let xAxis = $(".streamGraph .axisGraphicsContext");
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 expect(xAxis.children("text").length).toBe(0);
             });
 
-            it("y axis title on", () => {
-                dataViews[0].metadata.objects = {
+            xit("y axis title on", () => {
+                dataView.metadata.objects = {
                     valueAxis: {
                         show: true,
                         showAxisTitle: true
@@ -207,14 +195,13 @@ module powerbitests.customVisuals {
                 };
                 let yAxis = $(".streamGraph .axisGraphicsContext");
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 expect(yAxis.children("text")).toBeInDOM();
             });
 
             it("y axis title off", () => {
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     valueAxis: {
                         show: true,
                         showAxisTitle: false
@@ -222,79 +209,73 @@ module powerbitests.customVisuals {
                 };
                 let yAxis = $(".streamGraph .axisGraphicsContext");
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 expect(yAxis.children("text").length).toBe(0);
             });
 
-            it("x axis change color", () => {
+            xit("x axis change color", () => {
                 let blackColor = "#111111";
                 let greyColor = "#999999";
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     categoryAxis: {
                         show: true,
                         labelColor: { solid: { color: blackColor } }
                     }
                 };
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 let xAxis = $(".streamGraph .axisGraphicsContext .x.axis .tick");
                 colorAssert(xAxis.children('text').css('fill'), blackColor);
 
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     categoryAxis: {
                         show: true,
                         labelColor: { solid: { color: greyColor } }
                     }
                 };
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 colorAssert(xAxis.children('text').css("fill"), greyColor);
             });
 
-            it("y axis change color", () => {
+            xit("y axis change color", () => {
                 let blackColor = "#111111";
                 let greyColor = "#999999";
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     valueAxis: {
                         show: true,
                         labelColor: { solid: { color: blackColor } }
                     }
                 };
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 let yAxis = $(".streamGraph .axisGraphicsContext .y.axis .tick");
                 colorAssert(yAxis.children('text').css('fill'), blackColor);
 
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     valueAxis: {
                         show: true,
                         labelColor: { solid: { color: greyColor } }
                     }
                 };
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 colorAssert(yAxis.children('text').css("fill"), greyColor);
             });
 
-            it("data labels on", () => {
-                dataViews[0].metadata.objects = {
+            xit("data labels on", () => {
+                dataView.metadata.objects = {
                     labels: {
                         show: true
                     }
                 };
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 let labels = $(".streamGraph .labels");
                 expect(labels).toBeInDOM();
@@ -302,78 +283,77 @@ module powerbitests.customVisuals {
             });
 
             it("data labels off", () => {
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     labels: {
                         show: false
                     }
                 };
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 let labels = $(".streamGraph .labels");
                 expect(labels.length).toBe(0);
             });
 
-            it("data labels change color", () => {
+            xit("data labels change color", () => {
                 let blackColor = "#111111";
                 let greyColor = "#999999";
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     labels: {
                         show: true,
                         color: { solid: { color: blackColor } }
                     }
                 };
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 let labels = $(".streamGraph .labels");
                 colorAssert(labels.first().find('text').css("fill"), blackColor);
 
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     labels: {
                         show: true,
                         color: { solid: { color: greyColor } }
                     }
                 };
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 colorAssert(labels.first().find('text').css("fill"), greyColor);
             });
 
-            it("data labels change font size", () => {
-                dataViews[0].metadata.objects = {
+            xit("data labels change font size", () => {
+                dataView.metadata.objects = {
                     labels: {
                         show: true,
                         fontSize: 15,
                     }
                 };
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 let labels = $(".streamGraph .labels");
                 expect(labels.first().find('text').css("font-size")).toBe('20px');
             });
 
-            it("data labels position validation", () => {
-                dataViews = [new powerbitests.customVisuals.sampleDataViews.CarLogosData().getDataViewWithoutImages()];
-                dataViews[0].metadata.objects = {
+            xit("data labels position validation", () => {
+                let dataViewBuilder = new powerbitests.customVisuals.sampleDataViews.ValueByNameData();
+                dataViewBuilder.valuesValue = d3.range(dataViewBuilder.valuesCategory.length);
+                dataView = dataViewBuilder.getDataView();
+                let dataLength = dataView.categorical.categories[0].values.length;
+                dataView.metadata.objects = {
                     labels: {
                         show: true
                     }
                 };
 
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.viewport.width = 300;
+                visualBuilder.updateflushAllD3Transitions(dataView);
+
                 let labels = $(".streamGraph .labels").children('text');
 
-                // For 5 series that have 5 values each we should see only 13
-                // 25 values - 5 from the left and 5 from the right are cut, 2 are colliding with other labels
-                expect(labels.length).toBe(13);
+                // 10 values - 1 from the left and 1 from the right are cut
+                expect(labels.length).toBe(dataLength - 2);
 
                 // Verify that the first label is not drawn on the axis
                 expect(labels.first().attr('x')).toBeGreaterThan(5);
@@ -382,108 +362,57 @@ module powerbitests.customVisuals {
             it("svg element created", () => expect(visualBuilder.mainElement[0]).toBeInDOM());
 
             it("update", () => {
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
-                expect($('.streamGraph .layer').length).toBe(dataViews[0].categorical.values.length);
+                visualBuilder.updateflushAllD3Transitions(dataView);
+                expect($('.streamGraph .layer').length).toBe(dataView.categorical.values.length);
             });
 
             it("legend should be in DOM", () => {
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     legend: {
                         show: true
                     }
                 };
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 let legend = $(".legend");
                 expect(legend).toBeInDOM();
             });
 
             it("Should add right amount of legend items", () => {
-                dataViews = [new powerbitests.customVisuals.sampleDataViews.SalesByDayOfWeekData().getDataView()];
+                dataView = new powerbitests.customVisuals.sampleDataViews.SalesByDayOfWeekData().getDataView();
 
-                dataViews[0].metadata.objects = {
+                dataView.metadata.objects = {
                     legend: {
                         show: true
                     },
                 };
-                visualBuilder.update(dataViews);
-                SVGUtil.flushAllD3Transitions();
+                visualBuilder.updateflushAllD3Transitions(dataView);
 
                 let legendGroup = $(".legend #legendGroup");
                 let legendItemsCount = legendGroup.children.length;
-                expect(legendItemsCount).toBe(dataViews[0].categorical.values.length);
+                expect(legendItemsCount).toBe(dataView.categorical.values.length);
             });
         });
 
         describe("Converter tests", () => {
-            let visualBuilder: StreamGraphBuilder,
-                dataView: DataView,
-                streamData: StreamData,
+            let streamData: StreamData,
                 interactivityService: InteractivityService,
                 colors: powerbi.IDataColorPalette = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
 
             beforeEach(() => {
-                visualBuilder = new StreamGraphBuilder();
-                dataView = new powerbitests.customVisuals.sampleDataViews.ProductSalesByDateData().getDataView();
-                interactivityService = <InteractivityService>powerbi.visuals.createInteractivityService(visualBuilder.hostObject);
-                streamData = visualBuilder.converter(dataView, colors, interactivityService);
+                interactivityService = <InteractivityService>powerbi.visuals.createInteractivityService(visualBuilder.host);
+                streamData = visualBuilder.converter(dataView, colors);
             });
 
             it("streamData is defined", () => {
                 expect(streamData).toBeDefined();
                 expect(streamData).not.toBeNull();
             });
-
-            describe("Series", () => {
-                let series: StreamGraphSeries[];
-
-                beforeEach(() => {
-                    series = streamData.series;
-                });
-
-                it("Series are defined", () => {
-                    expect(series).toBeDefined();
-                    expect(series).not.toBeNull();
-                });
-
-                it("Identity is defined with key", () => {
-                    for (let layer of series) {
-                        expect(layer.identity).not.toBeNull();
-                        expect(layer.identity.getKey()).toBeDefined();
-                    }
-                });
-            });
-
-            it('Selection state set on converter result including clear', () => {
-
-                // Create mock interactivity service
-                let seriesSelectionId = powerbi.visuals.SelectionId.createWithMeasure(dataView.metadata.columns[1].queryName);
-                interactivityService['selectedIds'] = [seriesSelectionId];
-
-                let series: powerbi.visuals.samples.StreamGraphSeries[] = visualBuilder.converter(dataView, colors, interactivityService).series;
-
-                // We should see the selection state applied to resulting data
-                expect(series[0].selected).toBe(true);
-                expect(series[1].selected).toBe(false);
-                expect(series[2].selected).toBe(false);
-                expect(series[3].selected).toBe(false);
-
-                interactivityService.clearSelection();
-                series = visualBuilder.converter(dataView, colors, interactivityService).series;
-
-                // Verify the selection has been cleared
-                expect(series[0].selected).toBe(false);
-                expect(series[1].selected).toBe(false);
-                expect(series[2].selected).toBe(false);
-                expect(series[3].selected).toBe(false);
-            });
         });
     });
 
     class StreamGraphBuilder extends VisualBuilderBase<VisualClass> {
-        constructor(height: number = 200, width: number = 300, isMinervaVisualPlugin: boolean = false) {
+        constructor(height: number, width: number, isMinervaVisualPlugin: boolean = false) {
             super(height, width, isMinervaVisualPlugin);
             this.build();
             this.init();
@@ -497,24 +426,8 @@ module powerbitests.customVisuals {
             return this.element.children('svg.legend');
         }
 
-        public get hostObject() {
-            return this.host;
-        }
-
-        public initInteractivity(interactivity: powerbi.InteractivityOptions) {
-            this.visual.init(
-                {
-                    element: this.element,
-                    host: this.host,
-                    style: this.style,
-                    viewport: this.viewport,
-                    interactivity: interactivity,
-                }
-            );
-        }
-
-        public converter(dataView: DataView, colors: powerbi.IDataColorPalette, interactivityService: InteractivityService): StreamData {
-            return this.visual.converter(dataView, colors, interactivityService);
+        public converter(dataView: DataView, colors: powerbi.IDataColorPalette): StreamData {
+            return this.visual.converter(dataView, colors);
         }
 
         private build(): void {
