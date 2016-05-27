@@ -377,9 +377,9 @@
 
                     if (d.mouseOut) {
                         if (d.selected)
-                            return this.settings.slicerText.fontColor;
+                            return null;
                         else
-                            return this.settings.slicerText.fontColor;
+                            return null;
                     }
                 }
             });
@@ -799,7 +799,7 @@
             var objects = dataView.metadata.objects;
             
             defaultSettings.general.singleselect = DataViewObjects.getValue<boolean>(objects, hierarchySlicerProperties.selection.singleselect, defaultSettings.general.singleselect);
-            defaultSettings.header.title = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.header.title, dataView.categorical.categories[0].source.displayName);
+            defaultSettings.header.title = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.header.title, dataView.metadata.columns[0].displayName);
             selectionFilter = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.filterPropertyIdentifier, "");
             selectedIds = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.filterValuePropertyIdentifier, "").split(',');
 
@@ -808,9 +808,11 @@
                 var parentId: string = '';
 
                 for (var c = 0; c < rows[r].length; c++) {
-                    var columnCategoryIndex: number = identities.map((v, i) => { return v.source.queryName === columns[c].queryName ? i : null; }).filter((v) => { return v !== null; })[0];
-                    var format = dataView.categorical.categories[columnCategoryIndex].source.format ? dataView.categorical.categories[columnCategoryIndex].source.format : null;
-                    var dataType: ValueTypeDescriptor = dataView.categorical.categories[columnCategoryIndex].source.type ? dataView.categorical.categories[columnCategoryIndex].source.type : "";
+                    //var columnCategoryIndex: number = identities.map((v, i) => { return v.source.queryName === columns[c].queryName ? i : null; }).filter((v) => { return v !== null; })[0];
+                    //var format = dataView.categorical.categories[columnCategoryIndex].source.format ? dataView.categorical.categories[columnCategoryIndex].source.format : null;
+                    //var dataType: ValueTypeDescriptor = dataView.categorical.categories[columnCategoryIndex].source.type ? dataView.categorical.categories[columnCategoryIndex].source.type : "";
+                    var format = dataView.metadata.columns[c].format;
+                    var dataType: ValueTypeDescriptor = dataView.metadata.columns[c].type
                     var labelValue = valueFormatter.format(rows[r][c], format) === null ? "(blank)" : valueFormatter.format(rows[r][c], format);
                     var value: data.SQConstantExpr;
 
@@ -831,7 +833,7 @@
                     }
                     var filterExpr = powerbi.data.SQExprBuilder.compare(
                         data.QueryComparisonKind.Equal,
-                        <powerbi.data.SQExpr>dataView.categorical.categories[0].identityFields[columnCategoryIndex],
+                        <powerbi.data.SQExpr>dataView.categorical.categories[0].identityFields[c],
                         value);
 
                     if (c > 0) {
