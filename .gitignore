@@ -90,4 +90,6 @@ src/Clients/PowerBIVisualsPlayground/styles/**/*.png
 
 # Styles
 src/Clients/**/styles/*.css
-/src/Clients/CustomVisuals/visuals/forecastChart
+
+# Images
+lib/images/ui-icons_222222_256x240.png
