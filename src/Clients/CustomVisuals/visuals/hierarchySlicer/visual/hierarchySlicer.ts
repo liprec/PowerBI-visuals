@@ -220,6 +220,8 @@
 
     export class HierarchySlicerWebBehavior implements IInteractiveBehavior {
         private hostServices: IVisualHostServices;
+        private expanders: D3.Selection;
+        private options: HierarchySlicerBehaviorOptions;
         private slicers: D3.Selection;
         private slicerItemLabels: D3.Selection;
         private slicerItemInputs: D3.Selection;
@@ -230,6 +232,7 @@
         private hierarchyType: HierarchySlicerEnums.HierarchySlicerType;
 
         public bindEvents(options: HierarchySlicerBehaviorOptions, selectionHandler: ISelectionHandler): void {
+            var expanders = this.expanders = options.expanders;
             var slicers = this.slicers = options.slicerItemContainers;
             this.slicerItemLabels = options.slicerItemLabels;
             this.slicerItemInputs = options.slicerItemInputs;
@@ -239,9 +242,31 @@
             this.hostServices = options.hostServices;
             this.levels = options.levels;
             this.hierarchyType = options.hierarchyType;
+            this.options = options;
 
             var slicerClear = options.slicerClear;
             //var filterPropertyId = hierarchySlicerProperties.filterPropertyIdentifier;
+
+            expanders.on("click", (d: HierarchySlicerDataPoint) => {
+                d.isExpand = !d.isExpand;
+
+                var properties: { [propertyName: string]: DataViewPropertyValue } = {};
+                properties[hierarchySlicerProperties.expandedValuePropertyIdentifier.propertyName] = this.dataPoints.filter((d) => d.isExpand).map((d) => d.ownId).join(',');
+
+                var objects: VisualObjectInstancesToPersist = {
+                    merge: [
+                        <VisualObjectInstance>{
+                            objectName: hierarchySlicerProperties.expandedValuePropertyIdentifier.objectName,
+                            selector: undefined,
+                            properties: properties,
+                        }]
+                };
+
+                this.hostServices.persistProperties(objects);
+                this.hostServices.onSelect({ data: [] });
+
+                this.options.renderCallBack();
+            });
 
             options.slicerContainer.classed('hasSelection', true);
 
@@ -419,7 +444,7 @@
             });
         }
 
-        private getChildDataPoints(dataPoints: HierarchySlicerDataPoint[], ownId: string): HierarchySlicerDataPoint[] {
+        private getChildDataPoints(dataPoints: HierarchySlicerDataPoint[], ownId: string, recursive: boolean = true): HierarchySlicerDataPoint[] {
             var children = dataPoints.filter((d) => d.parentId === ownId);
             if (children.length === 0) {
                 return [];
@@ -427,8 +452,10 @@
                 return children;
             } else {
                 var returnChildren = children;
-                for (var i = 0; i < children.length; i++) {
-                    returnChildren = returnChildren.concat(returnChildren, this.getChildDataPoints(dataPoints, children[i].ownId));
+                if (recursive) {
+                    for (var i = 0; i < children.length; i++) {
+                        returnChildren = returnChildren.concat(returnChildren, this.getChildDataPoints(dataPoints, children[i].ownId));
+                    }
                 }
                 return returnChildren;
             }
@@ -509,6 +536,7 @@
             title: <DataViewObjectPropertyIdentifier>{ objectName: 'header', propertyName: 'title' },
         },
         selectedPropertyIdentifier: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'selected' },
+        expandedValuePropertyIdentifier: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'expanded' },
         filterPropertyIdentifier: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'filter' },
         filterValuePropertyIdentifier: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'filterValues' },
         defaultValue: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'defaultValue' },
@@ -587,6 +615,8 @@
 
     export interface HierarchySlicerBehaviorOptions {
         hostServices: IVisualHostServices;
+        expanders: D3.Selection;
+        renderCallBack(): void;
         slicerContainer: D3.Selection;
         slicerItemContainers: D3.Selection;
         slicerItemLabels: D3.Selection;
@@ -631,6 +661,12 @@
                         filterValues: {
                             type: { text: true }
                         },
+                        expanded: {
+                            type: { text: true }
+                        },
+                        hidden: {
+                            type: { text: true }
+                        },
                         defaultValue: {
                             type: { expression: { defaultValue: true } },
                         },
@@ -667,9 +703,7 @@
             },
             drilldown: {
                 roles: ['Category']
-            },
-            disableSeeData: true,
-            
+            },            
         };
 
         public static formatStringProp: DataViewObjectPropertyIdentifier = {
@@ -701,6 +735,8 @@
         private static Container: ClassAndSelector = createClassAndSelector('slicerContainer');
         private static Body: ClassAndSelector = createClassAndSelector('slicerBody');
         private static ItemContainer: ClassAndSelector = createClassAndSelector('slicerItemContainer');
+        private static ItemContainerExpander: ClassAndSelector = createClassAndSelector('slicerItemContainerExpander');
+        private static ItemContainerChild: ClassAndSelector = createClassAndSelector('slicerItemContainerChild');
         private static LabelText: ClassAndSelector = createClassAndSelector('slicerText');
         //private static LabelImage: ClassAndSelector = createClassAndSelector('slicerImage');
         private static CountText: ClassAndSelector = createClassAndSelector('slicerCountText');
@@ -788,6 +824,7 @@
             var defaultSettings: HierarchySlicerSettings = HierarchySlicer.DefaultSlicerSettings();
             var identityValues = [];
             var selectedIds = [];
+            var expandedIds = [];
             var selectionFilter;
             var hierarchyType = HierarchySlicerEnums.HierarchySlicerType.UnNatural;
 
@@ -802,15 +839,13 @@
             defaultSettings.header.title = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.header.title, dataView.metadata.columns[0].displayName);
             selectionFilter = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.filterPropertyIdentifier, "");
             selectedIds = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.filterValuePropertyIdentifier, "").split(',');
+            expandedIds = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.expandedValuePropertyIdentifier, "").split(',');
 
             for (var r = 0; r < rows.length; r++) {
                 var parentExpr = null;
                 var parentId: string = '';
 
                 for (var c = 0; c < rows[r].length; c++) {
-                    //var columnCategoryIndex: number = identities.map((v, i) => { return v.source.queryName === columns[c].queryName ? i : null; }).filter((v) => { return v !== null; })[0];
-                    //var format = dataView.categorical.categories[columnCategoryIndex].source.format ? dataView.categorical.categories[columnCategoryIndex].source.format : null;
-                    //var dataType: ValueTypeDescriptor = dataView.categorical.categories[columnCategoryIndex].source.type ? dataView.categorical.categories[columnCategoryIndex].source.type : "";
                     var format = dataView.metadata.columns[c].format;
                     var dataType: ValueTypeDescriptor = dataView.metadata.columns[c].type
                     var labelValue = valueFormatter.format(rows[r][c], format) === null ? "(blank)" : valueFormatter.format(rows[r][c], format);
@@ -863,8 +898,8 @@
                         selectable: true,
                         partialSelected: false,
                         isLeaf: isLeaf,
-                        isExpand: false,
-                        isHidden: c !== 0,
+                        isExpand: expandedIds === [] ? false : expandedIds.filter((d) => d === ownId).length > 0 || false,
+                        isHidden: false, // Default false. Real status based on the expanded properties of parent(s)
                         id: filterExpr,
                         ownId: ownId,
                         parentId: parentId
@@ -879,6 +914,10 @@
                 }
             }
 
+            // Set isHidden property
+            var expanded = dataPoints.filter((d) => !d.isExpand);
+            expanded.forEach((d) => this.getChildDataPoints(dataPoints, d.ownId).forEach((d) => d.isHidden = true ));
+
             return {
                 dataPoints: dataPoints,
                 settings: defaultSettings,
@@ -886,6 +925,21 @@
                 hasSelectionOverride: true,
                 hierarchyType: hierarchyType,
             };
+        }
+
+        private getChildDataPoints(dataPoints: HierarchySlicerDataPoint[], ownId: string): HierarchySlicerDataPoint[] {
+            var children = dataPoints.filter((d) => d.parentId === ownId);
+            if (children.length === 0) {
+                return [];
+            } else if (children[0].isLeaf) {
+                return children;
+            } else {
+                var returnChildren = children;
+                for (var i = 0; i < children.length; i++) {
+                    returnChildren = returnChildren.concat(returnChildren, this.getChildDataPoints(dataPoints, children[i].ownId));
+                }
+                return returnChildren;
+            }
         }
 
         public constructor(options?: any) {
@@ -905,7 +959,6 @@
 
         public init(options: VisualInitOptions): void {
             var hostServices = this.hostServices = options.host;
-            //this.addScript("jqueryscrollbar", "https://gromo.github.io/jquery.scrollbar/jquery.scrollbar.min.js");
             this.element = options.element;
             this.viewport = options.viewport;
             this.hostServices = options.host;
@@ -1023,8 +1076,8 @@
                 .viewport(this.getBodyViewport(this.viewport))
                 .rowHeight(this.settings.slicerText.height)
                 .data(
-                //data.dataPoints.filter((d) => !d.isHidden), // Expand/Collapse
-                data.dataPoints,
+                data.dataPoints.filter((d) => !d.isHidden), // Expand/Collapse
+                //data.dataPoints,
                 (d: HierarchySlicerDataPoint) => $.inArray(d, data.dataPoints),
                 resetScrollbar
                 )
@@ -1049,20 +1102,28 @@
 
         private onEnterSelection(rowSelection: D3.Selection): void {
             var settings = this.settings;
-            var treeItemElement = rowSelection.append('li')
+
+            var treeItemElementParent = rowSelection.append('li')
                 .classed(HierarchySlicer.ItemContainer.class, true);
 
             // Expand/collapse
-            //treeItemElement.each(function (d: HierarchySlicerDataPoint, i: number) {
-            //    var item = d3.select(this);
-            //    if (!d.isLeaf) {
-            //        item.append('i')
-            //            .classed("caret", true)
-            //            .classed("glyphicon", true)
-            //            .classed("pbi-glyph-caretright", true)
-            //            .classed("glyph-mini", true);
-            //    }
-            //});
+            treeItemElementParent.each(function (d: HierarchySlicerDataPoint, i: number) {
+                var item = d3.select(this);
+                item.append('div')
+                    .classed(HierarchySlicer.ItemContainerExpander.class, true)
+                    .append('i')
+                    .classed("caret", true)
+                    .classed("glyphicon", true)
+                    .classed("pbi-glyph-caretright", true)
+                    .classed("glyph-mini", true)
+                    //.style("transform", "rotate(0)")
+                    //.style("-webkit-transform" , "rotate(0)")
+                    .classed("expanded", d.isExpand)
+                    .style("visibility", d.isLeaf ? "hidden" : "visible");
+            });
+
+            var treeItemElement = treeItemElementParent.append('div')
+                .classed(HierarchySlicer.ItemContainerChild.class, true);
 
             var labelElement = treeItemElement.append('div')
                 .classed(HierarchySlicer.Input.class, true);
@@ -1077,6 +1138,10 @@
                 var item = d3.select(this);
                 item.append('span')
                     .classed(HierarchySlicer.LabelText.class, true);
+            });
+
+            treeItemElementParent.each(function (d: HierarchySlicerDataPoint, i: number) {
+                var item = d3.select(this);
                 item.style('padding-left', d.level * 15 + 'px');
             });
 
@@ -1115,7 +1180,8 @@
 
                 if (interactivityService && this.slicerBody) {
                     var body = this.slicerBody.attr('width', this.viewport.width);
-                    var slicerItemContainers = body.selectAll(HierarchySlicer.ItemContainer.selector);
+                    var expanders = body.selectAll(HierarchySlicer.ItemContainerExpander.selector);
+                    var slicerItemContainers = body.selectAll(HierarchySlicer.ItemContainerChild.selector);
                     var slicerItemLabels = body.selectAll(HierarchySlicer.LabelText.selector);
                     var slicerItemInputs = body.selectAll(HierarchySlicer.Input.selector);
                     var slicerClear = this.slicerHeader.select(HierarchySlicer.Clear.selector);
@@ -1123,6 +1189,8 @@
                     var behaviorOptions: HierarchySlicerBehaviorOptions = {
                         hostServices: this.hostServices,
                         dataPoints: data.dataPoints,
+                        expanders: expanders,
+                        renderCallBack: () => this.updateInternal(true),
                         slicerContainer: this.slicerContainer,
                         slicerItemContainers: slicerItemContainers,
                         slicerItemLabels: slicerItemLabels,
@@ -1144,12 +1212,12 @@
                         });
 
                     this.behavior.styleSlicerInputs(
-                        rowSelection.select(HierarchySlicer.ItemContainer.selector),
+                        rowSelection.select(HierarchySlicer.ItemContainerChild.selector),
                         interactivityService.hasSelection());
                 }
                 else {
                     this.behavior.styleSlicerInputs(
-                        rowSelection.select(HierarchySlicer.ItemContainer.selector),
+                        rowSelection.select(HierarchySlicer.ItemContainerChild.selector),
                         false);
                 }
 
