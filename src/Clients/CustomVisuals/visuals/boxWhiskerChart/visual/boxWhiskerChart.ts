@@ -228,12 +228,12 @@ module powerbi.visuals.samples {
         private margin: IMargin;
         private format: string;
 
-        private LegendPadding: number = 5;
+        private LegendPadding: number = 5; // Top 
         private DefaultLegendSize: number = 20;
         private LegendSize: number = this.DefaultLegendSize;
         private AxisSizeY: number = 40;
         private AxisSizeX: number = 0;
-        private ChartPadding: number = 25;
+        private ChartPadding: number = 25; // Left
 
         private static DefaultMargin: IMargin = {
             top: 50,
@@ -370,6 +370,7 @@ module powerbi.visuals.samples {
                     dataLabels: (this.getDataLabelShow(this.dataView)) ?
                         [maxValue, minValue, avgvalue, median, quartile1, quartile3]
                             .filter((value, index, self) => self.indexOf(value) === index) // Make unique
+                            .filter((value) => { return value != null; }) // Remove empties
                             .map((dataPoint) => { return { value: dataPoint, x: 0, y: 0 }; })
                             .concat(outliers.map((outlier) => { return { value: outlier, x: 0, y: 0 }; }))
                         : [],
@@ -481,7 +482,8 @@ module powerbi.visuals.samples {
             var dataView = this.dataView = options.dataViews[0],
                 data = this.data = this.converter(dataView, this.colors),
                 dataPoints = data.dataPoints,
-                duration = options.suppressAnimations ? 0 : 250;
+                duration = options.suppressAnimations ? 0 : 250,
+                axisSizeY = this.AxisSizeY;
 
             this.viewport = {
                 height: options.viewport.height > 0 ? options.viewport.height : 0,
@@ -513,13 +515,25 @@ module powerbi.visuals.samples {
                     });
                 }));
 
+            //axisSizeY = d3.max(layers, (layer) => {
+            //    return d3.max(layer, (point) => {
+            //        return d3.max(point.dataLabels, (dataLabel) => {
+            //            return TextMeasurementService.measureSvgTextWidth({
+            //                text: valueFormatter.format(dataLabel.value.toString(), this.format, true),
+            //                fontFamily: "Arial",
+            //                fontSize: "11pt",
+            //            });
+            //        });
+            //    });
+            //});
+
             var yScale = d3.scale.linear()
                 .domain([this.axisOptions.min, this.axisOptions.max])
-                .range([this.ChartPadding, this.viewport.height - this.AxisSizeX - this.LegendSize]);
+                .range([this.LegendPadding, this.viewport.height - this.AxisSizeX - this.LegendSize]);
 
             var xScale = d3.scale.linear()
                 .domain([1, dataPoints.length + 1])
-                .range([this.AxisSizeY, this.viewport.width - this.LegendPadding]);
+                .range([axisSizeY, this.viewport.width - this.ChartPadding]);
 
             if (dataPoints.length === 0) {
                 this.chart.selectAll(BoxWhiskerChart.ChartNode.selector).remove();
@@ -566,6 +580,11 @@ module powerbi.visuals.samples {
                     .classed(BoxWhiskerChart.AxisY.class, true);
             }
 
+            var yFormat = d3.format("s");
+            if (this.format.indexOf('%') > 0) {
+                yFormat = d3.format("%");
+            }
+
             var xs = d3.scale.ordinal();
             xs.domain(dataPoints.map((values) => { return values[0].label; }))
                 .rangeBands([this.AxisSizeY, this.viewport.width - this.LegendPadding]);
@@ -588,7 +607,7 @@ module powerbi.visuals.samples {
             var yAxis = d3.svg.axis()
                 .scale(ys)
                 .orient("left")
-                .tickFormat(d3.format("s"))
+                .tickFormat(yFormat)
                 .ticks(this.axisOptions.ticks);
 
             this.axisX
@@ -609,7 +628,7 @@ module powerbi.visuals.samples {
                     .orient("left")
                     .ticks(this.axisOptions.ticks * (this.getShowMinorGridLines(this.dataView) ? 5 : 1))
                     .outerTickSize(0)
-                    .innerTickSize(-(this.viewport.width - (2 * this.AxisSizeY)));
+                    .innerTickSize(-(this.viewport.width - this.AxisSizeY));
 
                 this.axisGrid
                     .attr("transform", "translate(" + this.AxisSizeY + ", 0)")
