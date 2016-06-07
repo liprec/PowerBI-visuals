@@ -229,7 +229,6 @@
         private interactivityService: IInteractivityService;
         private settings: HierarchySlicerSettings;
         private levels: number;
-        private hierarchyType: HierarchySlicerEnums.HierarchySlicerType;
 
         public bindEvents(options: HierarchySlicerBehaviorOptions, selectionHandler: ISelectionHandler): void {
             var expanders = this.expanders = options.expanders;
@@ -241,31 +240,26 @@
             this.settings = options.slicerSettings;
             this.hostServices = options.hostServices;
             this.levels = options.levels;
-            this.hierarchyType = options.hierarchyType;
             this.options = options;
 
             var slicerClear = options.slicerClear;
-            //var filterPropertyId = hierarchySlicerProperties.filterPropertyIdentifier;
+            var slicerExpand = options.slicerExpand;
+            var slicerCollapse = options.slicerCollapse;
 
             expanders.on("click", (d: HierarchySlicerDataPoint) => {
                 d.isExpand = !d.isExpand;
 
-                var properties: { [propertyName: string]: DataViewPropertyValue } = {};
-                properties[hierarchySlicerProperties.expandedValuePropertyIdentifier.propertyName] = this.dataPoints.filter((d) => d.isExpand).map((d) => d.ownId).join(',');
+                this.persistExpand();
+            });
 
-                var objects: VisualObjectInstancesToPersist = {
-                    merge: [
-                        <VisualObjectInstance>{
-                            objectName: hierarchySlicerProperties.expandedValuePropertyIdentifier.objectName,
-                            selector: undefined,
-                            properties: properties,
-                        }]
-                };
+            slicerCollapse.on("click", (d: HierarchySlicerDataPoint) => {
+                this.dataPoints.filter((d) => !d.isLeaf).forEach((d) => d.isExpand = false);
+                this.persistExpand();
+            });
 
-                this.hostServices.persistProperties(objects);
-                this.hostServices.onSelect({ data: [] });
-
-                this.options.renderCallBack();
+            slicerExpand.on("click", (d: HierarchySlicerDataPoint) => {
+                this.dataPoints.filter((d) => !d.isLeaf).forEach((d) => d.isExpand = true);
+                this.persistExpand();
             });
 
             options.slicerContainer.classed('hasSelection', true);
@@ -297,9 +291,16 @@
                     selectionHandler.handleSelection(d, true);
                     if (!selected || !d.isLeaf) {
                         var selectDataPoints = this.getChildDataPoints(this.dataPoints, d.ownId);
-                        selectDataPoints = selectDataPoints.concat(selectDataPoints, this.getParentDataPoints(this.dataPoints, d.parentId));
                         for (var i = 0; i < selectDataPoints.length; i++) {
                             if (selected === selectDataPoints[i].selected) {
+                                selectionHandler.handleSelection(selectDataPoints[i], true);
+                            }
+                        }
+                        selectDataPoints = this.getParentDataPoints(this.dataPoints, d.parentId);
+                        for (var i = 0; i < selectDataPoints.length; i++) {
+                            if (!selected && !selectDataPoints[i].selected) {
+                                selectionHandler.handleSelection(selectDataPoints[i], true);
+                            } else if (selected && (this.dataPoints.filter((dp) => dp.selected && dp.level === d.level).length === 0)) {
                                 selectionHandler.handleSelection(selectDataPoints[i], true);
                             }
                         }
@@ -351,46 +352,24 @@
                         }
                     }
 
-                    var warnings: IVisualWarning[] = [];
-
-                    var rootFilter: powerbi.data.SQExpr = rootFilters[0]; 
-                    if ((rootFilters.length === 1) || (this.hierarchyType === HierarchySlicerEnums.HierarchySlicerType.Natural)) {
-                        this.hostServices.setWarnings(warnings);
-                        
-                        for (var i = 1; i < rootFilters.length; i++) {
-                            rootFilter = powerbi.data.SQExprBuilder.or(rootFilter, rootFilters[i]);
-                        }
-                    } else {
-                        rootFilter = rootFilters[0];
-
-                        warnings.push({
-                            code: 'MultiSelectUnNatural',
-                            getMessages: () => {
-                                var visualMessage: IVisualErrorMessage = {
-                                    message: "Multiselect with an unnatural hierarchy detected.",
-                                    title: '',
-                                    detail: 'Multi select with an unnatrural hierarchy is not supported. Only selecting the first root node.',
-                                };
-                                return visualMessage;
-                            }
-                        });
-
-                        this.hostServices.setWarnings(warnings);
+                    var rootFilter: powerbi.data.SQExpr = rootFilters[0];     
+                    for (var i = 1; i < rootFilters.length; i++) {
+                        rootFilter = powerbi.data.SQExprBuilder.or(rootFilter, rootFilters[i]);
                     }
-
+                    
                     filter = powerbi.data.SemanticFilter.fromSQExpr(rootFilter);
-                    this.persist(filter);
+                    this.persistFilter(filter);
                 }
                 else {
                     selectionHandler.handleClearSelection();
-                    this.persist(null);
+                    this.persistFilter(null);
                 }
 
             });
 
             slicerClear.on("click", (d: HierarchySlicerDataPoint) => {
                 selectionHandler.handleClearSelection();
-                this.persist(null);
+                this.persistFilter(null);
             });
         }
 
@@ -399,7 +378,6 @@
                 'color': (d: HierarchySlicerDataPoint) => {
                     if (d.mouseOver)
                         return this.settings.slicerText.hoverColor;
-
                     if (d.mouseOut) {
                         if (d.selected)
                             return null;
@@ -425,8 +403,6 @@
         }
 
         public styleSlicerInputs(slicers: D3.Selection, hasSelection: boolean) {
-            //var settings = this.settings;
-            //var dataPoints = this.dataPoints;
             slicers.each(function (d: HierarchySlicerDataPoint) {
                 var slicerItem: HTMLElement = this.getElementsByTagName('div')[0];
                 var shouldCheck: boolean = d.selected;
@@ -503,7 +479,7 @@
             }
         }
 
-        private persist(filter: powerbi.data.SemanticFilter) {
+        private persistFilter(filter: powerbi.data.SemanticFilter) {
             var properties: { [propertyName: string]: DataViewPropertyValue } = {};
             if (filter) {
                 properties[hierarchySlicerProperties.filterPropertyIdentifier.propertyName] = filter;
@@ -524,6 +500,25 @@
             this.hostServices.persistProperties(objects);
             this.hostServices.onSelect({ data: [] });
 
+        }
+
+        private persistExpand() {
+            var properties: { [propertyName: string]: DataViewPropertyValue } = {};
+            properties[hierarchySlicerProperties.expandedValuePropertyIdentifier.propertyName] = this.dataPoints.filter((d) => d.isExpand).map((d) => d.ownId).join(',');
+
+            var objects: VisualObjectInstancesToPersist = {
+                merge: [
+                    <VisualObjectInstance>{
+                        objectName: hierarchySlicerProperties.expandedValuePropertyIdentifier.objectName,
+                        selector: undefined,
+                        properties: properties,
+                    }]
+            };
+
+            this.hostServices.persistProperties(objects);
+            this.hostServices.onSelect({ data: [] });
+
+            this.options.renderCallBack();
         }
     }
 
@@ -610,7 +605,6 @@
         hasSelectionOverride?: boolean;
         settings: HierarchySlicerSettings;
         levels: number;
-        hierarchyType: HierarchySlicerEnums.HierarchySlicerType;
     }
 
     export interface HierarchySlicerBehaviorOptions {
@@ -622,18 +616,12 @@
         slicerItemLabels: D3.Selection;
         slicerItemInputs: D3.Selection;
         slicerClear: D3.Selection;
+        slicerExpand: D3.Selection;
+        slicerCollapse: D3.Selection;
         dataPoints: HierarchySlicerDataPoint[];
         interactivityService: IInteractivityService;
         slicerSettings: HierarchySlicerSettings;
         levels: number;
-        hierarchyType: HierarchySlicerEnums.HierarchySlicerType;
-    }
-
-    export module HierarchySlicerEnums {
-        export enum HierarchySlicerType {
-            Natural,
-            UnNatural
-        }
     }
 
     export class HierarchySlicer implements IVisual {
@@ -647,7 +635,7 @@
                 table: {
                     rows: {
                         for: { in: 'Fields' },
-                        dataReductionAlgorithm: { top: { count: 1000 } }
+                        dataReductionAlgorithm: { top: { count: 10000 } }
                     }
                 }
             }],
@@ -713,7 +701,6 @@
 
         private element: JQuery;
         private behavior: HierarchySlicerWebBehavior;
-        //private mainGroupElement: D3.Selection;
         private selectionManager: SelectionManager;
         private viewport: IViewport;
         private hostServices: IVisualHostServices;
@@ -723,7 +710,6 @@
         private data: HierarchySlicerData;
         private treeView: ITreeView;
         private margin: IMargin;
-        //private labelFormat: string;
         private waitingForData: boolean;
         private slicerContainer: D3.Selection;
         private slicerHeader: D3.Selection;
@@ -738,11 +724,12 @@
         private static ItemContainerExpander: ClassAndSelector = createClassAndSelector('slicerItemContainerExpander');
         private static ItemContainerChild: ClassAndSelector = createClassAndSelector('slicerItemContainerChild');
         private static LabelText: ClassAndSelector = createClassAndSelector('slicerText');
-        //private static LabelImage: ClassAndSelector = createClassAndSelector('slicerImage');
         private static CountText: ClassAndSelector = createClassAndSelector('slicerCountText');
         private static Checkbox: ClassAndSelector = createClassAndSelector('checkbox');
         private static Header: ClassAndSelector = createClassAndSelector('slicerHeader');
         private static HeaderText: ClassAndSelector = createClassAndSelector('headerText');
+        private static Collapse: ClassAndSelector = createClassAndSelector('collapse');
+        private static Expand: ClassAndSelector = createClassAndSelector('expand');
         private static Clear: ClassAndSelector = createClassAndSelector('clear');
         private static Input: ClassAndSelector = createClassAndSelector('slicerCheckbox');
 
@@ -812,7 +799,6 @@
                     dataPoints: [],
                     settings: null,
                     levels: null,
-                    hierarchyType: HierarchySlicerEnums.HierarchySlicerType.UnNatural,
                 };
             }
 
@@ -826,13 +812,7 @@
             var selectedIds = [];
             var expandedIds = [];
             var selectionFilter;
-            var hierarchyType = HierarchySlicerEnums.HierarchySlicerType.UnNatural;
-
-            var leafs = dataView.categorical.categories[dataView.categorical.categories.length - 1].values;
-            if (leafs.length === leafs.filter((v, i, s) => s.indexOf(v) === i).length) {
-                hierarchyType = HierarchySlicerEnums.HierarchySlicerType.Natural;
-            }
-
+            
             var objects = dataView.metadata.objects;
             
             defaultSettings.general.singleselect = DataViewObjects.getValue<boolean>(objects, hierarchySlicerProperties.selection.singleselect, defaultSettings.general.singleselect);
@@ -923,7 +903,6 @@
                 settings: defaultSettings,
                 levels: levels,
                 hasSelectionOverride: true,
-                hierarchyType: hierarchyType,
             };
         }
 
@@ -982,7 +961,19 @@
             this.slicerHeader
                 .append('span')
                 .classed(HierarchySlicer.Clear.class, true)
-                .attr('title', 'Clear');
+                .attr('title', 'Clear')
+
+            this.slicerHeader
+                .append('span')
+                .classed(HierarchySlicer.Expand.class, true)
+                .classed(HierarchySlicer.Clear.class, true)
+                .attr('title', 'Expand')
+
+            this.slicerHeader
+                .append('span')
+                .classed(HierarchySlicer.Collapse.class, true)
+                .classed(HierarchySlicer.Clear.class, true)
+                .attr('title', 'Collapse')
 
             this.slicerHeader
                 .append('div')
@@ -1077,7 +1068,6 @@
                 .rowHeight(this.settings.slicerText.height)
                 .data(
                 data.dataPoints.filter((d) => !d.isHidden), // Expand/Collapse
-                //data.dataPoints,
                 (d: HierarchySlicerDataPoint) => $.inArray(d, data.dataPoints),
                 resetScrollbar
                 )
@@ -1112,13 +1102,12 @@
                 item.append('div')
                     .classed(HierarchySlicer.ItemContainerExpander.class, true)
                     .append('i')
-                    .classed("caret", true)
-                    .classed("glyphicon", true)
-                    .classed("pbi-glyph-caretright", true)
-                    .classed("glyph-mini", true)
-                    //.style("transform", "rotate(0)")
-                    //.style("-webkit-transform" , "rotate(0)")
-                    .classed("expanded", d.isExpand)
+                    //.classed("caret", true)
+                    //.classed("glyphicon", true)
+                    //.classed("pbi-glyph-caretright", true)
+                    //.classed("glyph-mini", true)
+                    .classed("collapse-icon", true)
+                    .classed("expanded-icon", d.isExpand)
                     .style("visibility", d.isLeaf ? "hidden" : "visible");
             });
 
@@ -1160,8 +1149,9 @@
                     this.slicerHeader.style('display', 'none');
                 }
                 this.slicerHeader.select(HierarchySlicer.HeaderText.selector)
-                    .text(settings.header.title.trim())
-                    .style({
+                    .text(settings.header.title.trim());
+
+                this.slicerHeader.style({
                         'color': settings.slicerText.fontColor,
                         'border-style': 'solid',
                         'border-color': settings.general.outlineColor,
@@ -1185,6 +1175,8 @@
                     var slicerItemLabels = body.selectAll(HierarchySlicer.LabelText.selector);
                     var slicerItemInputs = body.selectAll(HierarchySlicer.Input.selector);
                     var slicerClear = this.slicerHeader.select(HierarchySlicer.Clear.selector);
+                    var slicerExpand = this.slicerHeader.select(HierarchySlicer.Expand.selector);
+                    var slicerCollapse = this.slicerHeader.select(HierarchySlicer.Collapse.selector);
 
                     var behaviorOptions: HierarchySlicerBehaviorOptions = {
                         hostServices: this.hostServices,
@@ -1196,10 +1188,11 @@
                         slicerItemLabels: slicerItemLabels,
                         slicerItemInputs: slicerItemInputs,
                         slicerClear: slicerClear,
+                        slicerExpand: slicerExpand,
+                        slicerCollapse: slicerCollapse,
                         interactivityService: interactivityService,
                         slicerSettings: data.settings,
                         levels: data.levels,
-                        hierarchyType: data.hierarchyType,
                     };
 
                     interactivityService.bind(
@@ -1290,9 +1283,6 @@
 
             switch (options.objectName) {
                 case "selection":
-                    if (this.data.hierarchyType === HierarchySlicerEnums.HierarchySlicerType.UnNatural) {
-                        break;
-                    }
                     var selectionOptions: VisualObjectInstance = {
                         objectName: "selection",
                         displayName: "Selection",
