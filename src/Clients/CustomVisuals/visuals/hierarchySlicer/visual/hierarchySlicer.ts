@@ -51,9 +51,7 @@
 
             this.scrollContainer = this.scrollbarInner
                 .append('div')
-                .classed('scrollRegion', true)
-                .on('touchstart', () => this.stopTouchPropagation())
-                .on('touchmove', () => this.stopTouchPropagation());
+                .classed('scrollRegion', true);
 
             this.visibleGroupContainer = this.scrollContainer
                 .append('div')
@@ -76,7 +74,7 @@
         }
 
         public rowHeight(rowHeight: number): TreeView {
-            this.options.rowHeight = Math.ceil(rowHeight);
+            this.options.rowHeight = Math.ceil(rowHeight) + 2; // Margin top/bottom
             return this;
         }
 
@@ -119,29 +117,6 @@
                 .attr('height', totalHeight);
 
             this.scrollToFrame(true /*loadMoreData*/);
-        }
-
-        /*
-         *  This method is called in order to prevent a bug found in the Interact.js.
-         *  The bug is caused when finishing a scroll outside the scroll area.
-         *  In that case the Interact doesn't process a touchcancel event and thinks a touch point still exists.
-         *  since the Interact listens on the visualContainer, by stoping the propagation we prevent the bug from taking place.
-         */
-        private stopTouchPropagation(): void {
-            //Stop the propagation only in read mode so the drag won't be affected.
-            if (this.options.isReadMode()) {
-                if (d3.event.type === "touchstart") {
-                    var event: TouchEvent = <any>d3.event;
-                    //If there is another touch point outside this visual than the event should be propagated.
-                    //This way the pinch to zoom will not be affected.
-                    if (event.touches && event.touches.length === 1) {
-                        d3.event.stopPropagation();
-                    }
-                }
-                if (d3.event.type === "touchmove") {
-                    d3.event.stopPropagation();
-                }
-            }
         }
 
         private scrollToFrame(loadMoreData: boolean): void {
@@ -249,17 +224,17 @@
             expanders.on("click", (d: HierarchySlicerDataPoint) => {
                 d.isExpand = !d.isExpand;
 
-                this.persistExpand();
+                this.persistExpand(false);
             });
 
             slicerCollapse.on("click", (d: HierarchySlicerDataPoint) => {
                 this.dataPoints.filter((d) => !d.isLeaf).forEach((d) => d.isExpand = false);
-                this.persistExpand();
+                this.persistExpand(true);
             });
 
             slicerExpand.on("click", (d: HierarchySlicerDataPoint) => {
                 this.dataPoints.filter((d) => !d.isLeaf).forEach((d) => d.isExpand = true);
-                this.persistExpand();
+                this.persistExpand(true);
             });
 
             options.slicerContainer.classed('hasSelection', true);
@@ -502,7 +477,7 @@
 
         }
 
-        private persistExpand() {
+        private persistExpand(updateScrollbar: boolean) {
             var properties: { [propertyName: string]: DataViewPropertyValue } = {};
             properties[hierarchySlicerProperties.expandedValuePropertyIdentifier.propertyName] = this.dataPoints.filter((d) => d.isExpand).map((d) => d.ownId).join(',');
 
@@ -518,7 +493,7 @@
             this.hostServices.persistProperties(objects);
             this.hostServices.onSelect({ data: [] });
 
-            this.options.renderCallBack();
+            this.options.renderCallBack(updateScrollbar);
         }
     }
 
@@ -610,7 +585,7 @@
     export interface HierarchySlicerBehaviorOptions {
         hostServices: IVisualHostServices;
         expanders: D3.Selection;
-        renderCallBack(): void;
+        renderCallBack(updateScrollbar: boolean): void;
         slicerContainer: D3.Selection;
         slicerItemContainers: D3.Selection;
         slicerItemLabels: D3.Selection;
@@ -967,13 +942,13 @@
                 .append('span')
                 .classed(HierarchySlicer.Expand.class, true)
                 .classed(HierarchySlicer.Clear.class, true)
-                .attr('title', 'Expand')
+                .attr('title', 'Expand all')
 
             this.slicerHeader
                 .append('span')
                 .classed(HierarchySlicer.Collapse.class, true)
                 .classed(HierarchySlicer.Clear.class, true)
-                .attr('title', 'Collapse')
+                .attr('title', 'Collapse all')
 
             this.slicerHeader
                 .append('div')
@@ -1067,9 +1042,9 @@
                 .viewport(this.getBodyViewport(this.viewport))
                 .rowHeight(this.settings.slicerText.height)
                 .data(
-                data.dataPoints.filter((d) => !d.isHidden), // Expand/Collapse
-                (d: HierarchySlicerDataPoint) => $.inArray(d, data.dataPoints),
-                resetScrollbar
+                    data.dataPoints.filter((d) => !d.isHidden), // Expand/Collapse
+                    (d: HierarchySlicerDataPoint) => $.inArray(d, data.dataPoints),
+                    resetScrollbar
                 )
                 .render();
         }
@@ -1102,10 +1077,6 @@
                 item.append('div')
                     .classed(HierarchySlicer.ItemContainerExpander.class, true)
                     .append('i')
-                    //.classed("caret", true)
-                    //.classed("glyphicon", true)
-                    //.classed("pbi-glyph-caretright", true)
-                    //.classed("glyph-mini", true)
                     .classed("collapse-icon", true)
                     .classed("expanded-icon", d.isExpand)
                     .style("visibility", d.isLeaf ? "hidden" : "visible");
@@ -1182,7 +1153,7 @@
                         hostServices: this.hostServices,
                         dataPoints: data.dataPoints,
                         expanders: expanders,
-                        renderCallBack: () => this.updateInternal(true),
+                        renderCallBack: (updateScrollbar: boolean) => this.updateInternal(updateScrollbar),
                         slicerContainer: this.slicerContainer,
                         slicerItemContainers: slicerItemContainers,
                         slicerItemLabels: slicerItemLabels,
