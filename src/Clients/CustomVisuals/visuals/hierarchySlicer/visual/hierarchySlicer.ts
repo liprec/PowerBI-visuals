@@ -661,6 +661,9 @@
             },
             supportsHighlight: true,
             suppressDefaultTitle: true,
+            filterMappings: {
+                measureFilter: { targetRoles: ['Fields'] }
+            },
             sorting: {
                 default: {},
             },
