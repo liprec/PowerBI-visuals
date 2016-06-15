@@ -31,6 +31,9 @@ require("./visuals/timeline/visual/timeline.ts");
 require("./visuals/streamGraph/visual/streamGraph.ts");
 require("./visuals/lineDotChart/visual/lineDotChart.ts");
 require("./visuals/sunburst/visual/sunburst.ts");
+require("./visuals/boxWhiskerChart/visual/boxWhiskerChart.ts");
+require("./visuals/forecastChart/visual/forecastChart.ts");
+require("./visuals/hierarchySlicer/visual/hierarchySlicer.ts");
 require("./plugins.ts");
 require("./services/customVisualPluginService.ts");
 

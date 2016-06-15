@@ -3132,6 +3132,414 @@ declare module powerbi.visuals.samples {
         converter(dataView: DataView, colors: IDataColorPalette): SunburstSlice;
     }
 }
+declare module powerbi.visuals.samples {
+    interface BoxWhiskerChartConstructorOptions {
+        svg?: D3.Selection;
+        margin?: IMargin;
+    }
+    interface BoxWhiskerChartDatapoint {
+        min: number;
+        max: number;
+        median: number;
+        quartile1: number;
+        quartile3: number;
+        average: number;
+        samples: number;
+        category: number;
+        color?: string;
+        label?: string;
+        outliers: number[];
+        dataLabels: BoxWhiskerDataLabel[];
+        identity: SelectionId;
+        tooltipInfo?: TooltipDataItem[];
+    }
+    interface BoxWhiskerChartData {
+        dataPoints: BoxWhiskerChartDatapoint[][];
+        legendData: LegendData;
+    }
+    interface BoxWhiskerDataLabel {
+        value: number;
+        y: number;
+        x: number;
+    }
+    interface BoxWhiskerAxisOptions {
+        max: number;
+        min: number;
+        ticks: number;
+        tickSize: number;
+    }
+    module BoxWhiskerTypeOptions {
+        enum ChartType {
+            MinMax = 0,
+            Standard = 1,
+            IQR = 2,
+        }
+    }
+    class BoxWhiskerChart implements IVisual {
+        static capabilities: VisualCapabilities;
+        private static properties;
+        static formatStringProp: DataViewObjectPropertyIdentifier;
+        private static VisualClassName;
+        private static Axis;
+        private static AxisX;
+        private static AxisGrid;
+        private static AxisY;
+        private static Chart;
+        private static ChartNode;
+        private static ChartQuartileBox;
+        private static ChartMedianLine;
+        private static ChartAverageDot;
+        private static ChartOutlierDot;
+        private static ChartDataLabel;
+        private svg;
+        private axis;
+        private chart;
+        private axisX;
+        private axisY;
+        private axisGrid;
+        private axisOptions;
+        private mainGroupElement;
+        private colors;
+        private selectionManager;
+        private viewport;
+        private hostServices;
+        private dataView;
+        private data;
+        private margin;
+        private format;
+        private LegendPadding;
+        private DefaultLegendSize;
+        private LegendSize;
+        private AxisSizeY;
+        private AxisSizeX;
+        private ChartPadding;
+        private static DefaultMargin;
+        converter(dataView: DataView, colors: IDataColorPalette): BoxWhiskerChartData;
+        constructor(options?: BoxWhiskerChartConstructorOptions);
+        init(options: VisualInitOptions): void;
+        update(options: VisualUpdateOptions): void;
+        private drawAxis(dataPoints, yScale, duration);
+        private drawChart(dataPoints, xScale, yScale, duration);
+        getValueArray(nodes: any): Array<number>;
+        private getAxisOptions(min, max);
+        private getWhiskerType(dataView);
+        private getShowOutliers(dataView);
+        private getShowMajorGridLines(dataView);
+        private getShowMinorGridLines(dataView);
+        private getDataLabelShow(dataView);
+        enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[];
+    }
+}
+declare module powerbi.visuals.samples {
+    interface ForecastChartConstructorOptions {
+        svg?: D3.Selection;
+        margin?: IMargin;
+    }
+    interface ForecastChartDatapoint {
+        x: number;
+        y: number;
+        pi: number;
+        forecast: number;
+        label: string;
+        color: string;
+        dataLabel?: ForecastDataLabel;
+        identity: SelectionId;
+        tooltipInfo?: TooltipDataItem[];
+    }
+    interface ForecastChartSeries {
+        color: string;
+        name: string;
+        identity: SelectionId;
+    }
+    interface ForecastChartInfo {
+        alpha: number;
+        beta: number;
+        gamma: number;
+        RMSA: number;
+    }
+    interface ForecastChartData {
+        dataPoints: ForecastChartDatapoint[][];
+        forecastInfo: ForecastChartInfo;
+        legendData: LegendData;
+        series: ForecastChartSeries[];
+        axisLabels: string[];
+    }
+    interface ForecastDataLabel {
+        value: number;
+        y: number;
+        x: number;
+    }
+    interface ForecastAxisOptions {
+        max: number;
+        min: number;
+        ticks: number;
+        tickSize: number;
+    }
+    interface ForecastInitValues {
+        lt: number;
+        bt: number;
+        st: number[];
+    }
+    interface ForecastValues {
+        ft: number[];
+        MSE: number;
+        Coefficent: ForecastCoefficients;
+    }
+    interface ForecastCoefficients {
+        lt: number;
+        bt: number;
+        st: number[];
+    }
+    class ForecastChart implements IVisual {
+        static capabilities: VisualCapabilities;
+        private static properties;
+        static formatStringProp: DataViewObjectPropertyIdentifier;
+        private static VisualClassName;
+        private static Axis;
+        private static AxisX;
+        private static AxisGrid;
+        private static AxisY;
+        private static Chart;
+        private static ChartNode;
+        private static ChartLine;
+        private static ChartDot;
+        private static ChartPIArea;
+        private svg;
+        private axis;
+        private chart;
+        private axisX;
+        private axisY;
+        private axisGrid;
+        private axisOptions;
+        private mainGroupElement;
+        private colors;
+        private selectionManager;
+        private viewport;
+        private hostServices;
+        private dataView;
+        private data;
+        private alpha;
+        private beta;
+        private gamma;
+        private RMSE;
+        private margin;
+        private legend;
+        private format;
+        private labelFormat;
+        private LegendPadding;
+        private DefaultLegendSize;
+        private LegendSize;
+        private AxisSizeY;
+        private AxisSizeX;
+        private ChartPadding;
+        private static DefaultMargin;
+        converter(dataView: DataView, colors: IDataColorPalette): ForecastChartData;
+        constructor(options?: ForecastChartConstructorOptions);
+        init(options: VisualInitOptions): void;
+        update(options: VisualUpdateOptions): void;
+        private drawAxis(dataPoints, xScale, yScale, duration);
+        private drawChart(dataPoints, xScale, yScale, duration);
+        private drawInfo(info);
+        private getAxisOptions(min, max);
+        private initValues(x, p);
+        private calcHoltWinters(y, initValues, a, b, g, p);
+        private predict(c, h);
+        private getSeasonality(dataView);
+        private getPrediction(dataView);
+        private getShowMajorGridLines(dataView);
+        private getShowMinorGridLines(dataView);
+        private getDataLabelShow(dataView);
+        private getLegendShow(dataView);
+        private getLegendShowTitle(dataView);
+        private getLegendTitleText(dataView);
+        enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[];
+    }
+}
+declare module powerbi.visuals.samples {
+    interface ITreeView {
+        data(data: any[], dataIdFunction: (d) => {}, dataAppended: boolean): ITreeView;
+        rowHeight(rowHeight: number): ITreeView;
+        viewport(viewport: IViewport): ITreeView;
+        render(): void;
+        empty(): void;
+    }
+    module TreeViewFactory {
+        function createListView(options: any): ITreeView;
+    }
+    class HierarchySlicerWebBehavior implements IInteractiveBehavior {
+        private hostServices;
+        private expanders;
+        private options;
+        private slicers;
+        private slicerItemLabels;
+        private slicerItemInputs;
+        private dataPoints;
+        private interactivityService;
+        private settings;
+        private levels;
+        bindEvents(options: HierarchySlicerBehaviorOptions, selectionHandler: ISelectionHandler): void;
+        private renderMouseover();
+        renderSelection(hasSelection: boolean): void;
+        styleSlicerInputs(slicers: D3.Selection, hasSelection: boolean): void;
+        private getChildDataPoints(dataPoints, ownId, recursive?);
+        private getParentDataPoints(dataPoints, parentId);
+        private getChildFilters(dataPoints, parentId, level);
+        private persistFilter(filter);
+        private persistExpand(updateScrollbar);
+    }
+    var hierarchySlicerProperties: {
+        selection: {
+            singleselect: DataViewObjectPropertyIdentifier;
+        };
+        header: {
+            show: DataViewObjectPropertyIdentifier;
+            title: DataViewObjectPropertyIdentifier;
+        };
+        selectedPropertyIdentifier: DataViewObjectPropertyIdentifier;
+        expandedValuePropertyIdentifier: DataViewObjectPropertyIdentifier;
+        filterPropertyIdentifier: DataViewObjectPropertyIdentifier;
+        filterValuePropertyIdentifier: DataViewObjectPropertyIdentifier;
+        defaultValue: DataViewObjectPropertyIdentifier;
+    };
+    interface HierarchySlicerSettings {
+        general: {
+            rows: number;
+            singleselect: boolean;
+            showDisabled: string;
+            outlineColor: string;
+            outlineWeight: number;
+        };
+        margin: IMargin;
+        header: {
+            borderBottomWidth: number;
+            show: boolean;
+            outline: string;
+            fontColor: string;
+            background: string;
+            textSize: number;
+            outlineColor: string;
+            outlineWeight: number;
+            title: string;
+        };
+        headerText: {
+            marginLeft: number;
+            marginTop: number;
+        };
+        slicerText: {
+            textSize: number;
+            height: number;
+            width: number;
+            fontColor: string;
+            hoverColor: string;
+            selectedColor: string;
+            unselectedColor: string;
+            disabledColor: string;
+            marginLeft: number;
+            outline: string;
+            background: string;
+            transparency: number;
+            outlineColor: string;
+            outlineWeight: number;
+            borderStyle: string;
+        };
+        slicerItemContainer: {
+            marginTop: number;
+            marginLeft: number;
+        };
+    }
+    interface HierarchySlicerDataPoint extends SelectableDataPoint {
+        value: string;
+        tooltip: string;
+        level: number;
+        mouseOver?: boolean;
+        mouseOut?: boolean;
+        isSelectAllDataPoint?: boolean;
+        selectable?: boolean;
+        id: data.SQExpr;
+        isLeaf: boolean;
+        isExpand: boolean;
+        isHidden: boolean;
+        ownId: string;
+        parentId: string;
+    }
+    interface HierarchySlicerData {
+        dataPoints: HierarchySlicerDataPoint[];
+        hasSelectionOverride?: boolean;
+        settings: HierarchySlicerSettings;
+        levels: number;
+    }
+    interface HierarchySlicerBehaviorOptions {
+        hostServices: IVisualHostServices;
+        expanders: D3.Selection;
+        renderCallBack(updateScrollbar: boolean): void;
+        slicerContainer: D3.Selection;
+        slicerItemContainers: D3.Selection;
+        slicerItemLabels: D3.Selection;
+        slicerItemInputs: D3.Selection;
+        slicerClear: D3.Selection;
+        slicerExpand: D3.Selection;
+        slicerCollapse: D3.Selection;
+        dataPoints: HierarchySlicerDataPoint[];
+        interactivityService: IInteractivityService;
+        slicerSettings: HierarchySlicerSettings;
+        levels: number;
+    }
+    class HierarchySlicer implements IVisual {
+        static capabilities: VisualCapabilities;
+        static formatStringProp: DataViewObjectPropertyIdentifier;
+        private element;
+        private behavior;
+        private selectionManager;
+        private viewport;
+        private hostServices;
+        private interactivityService;
+        private settings;
+        private dataView;
+        private data;
+        private treeView;
+        private margin;
+        private waitingForData;
+        private slicerContainer;
+        private slicerHeader;
+        private slicerBody;
+        static DefaultFontFamily: string;
+        static DefaultFontSizeInPt: number;
+        private static Container;
+        private static Body;
+        private static ItemContainer;
+        private static ItemContainerExpander;
+        private static ItemContainerChild;
+        private static LabelText;
+        private static CountText;
+        private static Checkbox;
+        private static Header;
+        private static HeaderText;
+        private static Collapse;
+        private static Expand;
+        private static Clear;
+        private static Input;
+        static DefaultSlicerSettings(): HierarchySlicerSettings;
+        converter(dataView: DataView): HierarchySlicerData;
+        private getChildDataPoints(dataPoints, ownId);
+        constructor(options?: any);
+        init(options: VisualInitOptions): void;
+        update(options: VisualUpdateOptions): void;
+        onDataChanged(options: VisualDataChangedOptions): void;
+        onResizing(viewPort: IViewport): void;
+        private updateInternal(resetScrollbar);
+        private updateSelectionStyle();
+        private updateSlicerBodyDimensions();
+        private onEnterSelection(rowSelection);
+        private onUpdateSelection(rowSelection, interactivityService);
+        private onLoadMoreData();
+        static getTextProperties(textSize?: number): TextProperties;
+        private getHeaderHeight();
+        private getRowHeight();
+        private getBodyViewport(currentViewport);
+        private getBorderWidth(outlineElement, outlineWeight);
+        enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[];
+    }
+}
 
 declare module powerbi.visuals.plugins {
     let sunburstCustom: IVisualPlugin;
@@ -3152,6 +3560,9 @@ declare module powerbi.visuals.plugins {
     let gantt: IVisualPlugin;
     let streamGraph: IVisualPlugin;
     var lineDotChart: IVisualPlugin;
+    var boxWhiskerChart: IVisualPlugin;
+    var forecastChart: IVisualPlugin;
+    var hierarchySlicer: IVisualPlugin;
 }
 
 declare module powerbi.visuals.visualPluginFactory {
