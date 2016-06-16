@@ -27,6 +27,7 @@
 module powerbi.visuals.samples {
     import SelectionManager = utility.SelectionManager;
     import ClassAndSelector = jsCommon.CssConstants.ClassAndSelector;
+    import PixelConverter = jsCommon.PixelConverter;
 
     export interface BoxWhiskerChartConstructorOptions {
         svg?: D3.Selection;
@@ -152,6 +153,24 @@ module powerbi.visuals.samples {
                         }
                     }
                 },
+                xAxis: {
+                    displayName: "X-Axis",
+                    properties: {
+                        fontSize: {
+                            displayName: "Text Size",
+                            type: { formatting: { fontSize: true } }
+                        },
+                    }
+                },
+                yAxis: {
+                    displayName: "Y-Axis",
+                    properties: {
+                        fontSize: {
+                            displayName: "Text Size",
+                            type: { formatting: { fontSize: true } }
+                        },
+                    }
+                },
                 gridLines: {
                     displayName: "Gridlines",
                     properties: {
@@ -160,11 +179,31 @@ module powerbi.visuals.samples {
                             description: "Display major gridlines",
                             type: { bool: true }
                         },
+                        majorGridSize: {
+                            displayName: "Thickness",
+                            description: "Thickness of the major gridlines",
+                            type: { numeric: true }
+                        },
+                        majorGridColor: {
+                            displayName: "Color",
+                            description: "Color of the major gridlines",
+                            type: { fill: { solid: { color: true } } }
+                        },
                         minorGrid: {
                             displayName: "Minor grid",
                             description: "Display minor gridlines",
                             type: { bool: true }
-                        }
+                        },
+                        minorGridSize: {
+                            displayName: "Thickness",
+                            description: "Thickness of the minor gridlines",
+                            type: { numeric: true }
+                        },
+                        minorGridColor: {
+                            displayName: "Color",
+                            description: "Color of the minor gridlines",
+                            type: { fill: { solid: { color: true } } }
+                        },
                     }
                 },
                 labels: {
@@ -173,8 +212,22 @@ module powerbi.visuals.samples {
                         show: {
                             displayName: "Show",
                             type: { bool: true }
-                        }
+                        },
+                        fontSize: {
+                            displayName: "Text Size",
+                            type: { formatting: { fontSize: true } }
+                        },
                     }
+                },
+                privacy: {
+                    displayName: "Privacy",
+                    properties: {
+                        version: {
+                            displayName: "Version",
+                            type: { text: true },
+                            placeHolderText: "Placeholder",
+                        },
+                    },
                 }
             }
         };
@@ -182,11 +235,18 @@ module powerbi.visuals.samples {
         private static properties = {
             formatString: { objectName: "general", propertyName: "formatString" },
             whiskerType: { objectName: "chartOptions", propertyName: "whisker" },
+            fontSizeXAxis: { objectName: "xAxis", propertyName: "fontSize" },
+            fontSizeYAxis: { objectName: "yAxis", propertyName: "fontSize" },
             showOutliers: { objectName: "chartOptions", propertyName: "outliers" },
             showMajorGridLines: { objectName: "gridLines", propertyName: "majorGrid" },
+            sizeMajorGridLines: { objectName: "gridLines", propertyName: "majorGridSize" },
+            colorMajorGridLines: { objectName: "gridLines", propertyName: "majorGridColor" },
             showMinorGridLines: { objectName: "gridLines", propertyName: "minorGrid" },
+            sizeMinorGridLines: { objectName: "gridLines", propertyName: "minorGridSize" },
+            colorMinorGridLines: { objectName: "gridLines", propertyName: "minorGridColor" },
             fill: { objectName: "dataPoint", propertyName: "fill" },
             dataLabelShow: { objectName: "labels", propertyName: "show" },
+            dataLabelFontSize: { objectName: "labels", propertyName: "fontSize" },
         };
 
         public static formatStringProp: DataViewObjectPropertyIdentifier = {
@@ -198,7 +258,8 @@ module powerbi.visuals.samples {
 
         private static Axis: ClassAndSelector = { class: "axis", selector: ".axis" };
         private static AxisX: ClassAndSelector = { class: "axisX", selector: ".axisX" };
-        private static AxisGrid: ClassAndSelector = { class: "axisGrid", selector: ".axisGrid" };
+        private static AxisMajorGrid: ClassAndSelector = { class: "axisMajorGrid", selector: ".axisMajorGrid" };
+        private static AxisMinorGrid: ClassAndSelector = { class: "axisMinorGrid", selector: ".axisMinorGrid" };
         private static AxisY: ClassAndSelector = { class: "axisY", selector: ".axisY" };
         private static Chart: ClassAndSelector = { class: "chart", selector: ".chart" };
         private static ChartNode: ClassAndSelector = { class: 'chartNode', selector: '.chartNode' };
@@ -214,7 +275,8 @@ module powerbi.visuals.samples {
 
         private axisX: D3.Selection;
         private axisY: D3.Selection;
-        private axisGrid: D3.Selection;
+        private axisMajorGrid: D3.Selection;
+        private axisMinorGrid: D3.Selection;
         private axisOptions: BoxWhiskerAxisOptions;
 
         private mainGroupElement: D3.Selection;
@@ -225,23 +287,19 @@ module powerbi.visuals.samples {
         private dataView: DataView;
         private data: BoxWhiskerChartData;
 
+        private static DefaultMargin: IMargin = {
+            top: 5,
+            bottom: 5,
+            right: 5,
+            left: 5
+        };
+
         private margin: IMargin;
         private format: string;
 
-        private LegendPadding: number = 5; // Top 
-        private DefaultLegendSize: number = 20;
-        private LegendSize: number = this.DefaultLegendSize;
         private AxisSizeY: number = 40;
-        private AxisSizeX: number = 0;
-        private ChartPadding: number = 25; // Left
-
-        private static DefaultMargin: IMargin = {
-            top: 50,
-            bottom: 50,
-            right: 100,
-            left: 100
-        };
-
+        private AxisSizeX: number = 20;
+        
         public converter(dataView: DataView, colors: IDataColorPalette): BoxWhiskerChartData {
             if (!dataView ||
                 !dataView.matrix ||
@@ -457,9 +515,13 @@ module powerbi.visuals.samples {
                 .append("g")
                 .classed(BoxWhiskerChart.AxisX.class, true);
 
-            this.axisGrid = this.axis
+            this.axisMajorGrid = this.axis
                 .append("g")
-                .classed(BoxWhiskerChart.AxisGrid.class, true);
+                .classed(BoxWhiskerChart.AxisMajorGrid.class, true);
+
+            this.axisMinorGrid = this.axis
+                .append("g")
+                .classed(BoxWhiskerChart.AxisMinorGrid.class, true);
 
             this.axisY = this.axis
                 .append("g")
@@ -475,7 +537,8 @@ module powerbi.visuals.samples {
                 this.chart.selectAll(BoxWhiskerChart.ChartNode.selector).remove();
                 this.axis.selectAll(BoxWhiskerChart.AxisX.selector).remove();
                 this.axis.selectAll(BoxWhiskerChart.AxisY.selector).remove();
-                this.axis.selectAll(BoxWhiskerChart.AxisGrid.selector).remove();
+                this.axis.selectAll(BoxWhiskerChart.AxisMajorGrid.selector).remove();
+                this.axis.selectAll(BoxWhiskerChart.AxisMinorGrid.selector).remove();
                 return;
             };
 
@@ -496,8 +559,27 @@ module powerbi.visuals.samples {
                     'width': this.viewport.width
                 });
 
+            // calculate AxisSizeX, AxisSizeY
+            this.AxisSizeX = TextMeasurementService.measureSvgTextHeight({
+                text: "XXXX",
+                fontFamily: "sens-serif",
+                fontSize: PixelConverter.fromPoint(this.getXAxisFontSize(this.dataView)) + "px",
+            });
+
+            this.AxisSizeY = TextMeasurementService.measureSvgTextWidth({
+                text: "XXXX",
+                fontFamily: "sens-serif",
+                fontSize: PixelConverter.fromPoint(this.getYAxisFontSize(this.dataView)) + "px",
+            });
+
+            this.margin.top = TextMeasurementService.measureSvgTextHeight({
+                    text: "XXXX",
+                    fontFamily: "sens-serif",
+                    fontSize: PixelConverter.fromPoint(this.getYAxisFontSize(this.dataView)) + "px",
+                }) / 2.;
+
             var mainGroup = this.chart;
-            mainGroup.attr('transform', 'scale(1, -1)' + SVGUtil.translate(0, -this.viewport.height + this.AxisSizeX));
+            mainGroup.attr('transform', 'scale(1, -1)' + SVGUtil.translate(0, -(this.viewport.height - this.AxisSizeX)));
 
             // calculate scalefactor
             var stack = d3.layout.stack();
@@ -515,31 +597,20 @@ module powerbi.visuals.samples {
                     });
                 }));
 
-            //axisSizeY = d3.max(layers, (layer) => {
-            //    return d3.max(layer, (point) => {
-            //        return d3.max(point.dataLabels, (dataLabel) => {
-            //            return TextMeasurementService.measureSvgTextWidth({
-            //                text: valueFormatter.format(dataLabel.value.toString(), this.format, true),
-            //                fontFamily: "Arial",
-            //                fontSize: "11pt",
-            //            });
-            //        });
-            //    });
-            //});
-
             var yScale = d3.scale.linear()
                 .domain([this.axisOptions.min, this.axisOptions.max])
-                .range([this.LegendPadding, this.viewport.height - this.AxisSizeX - this.LegendSize]);
+                .range([this.margin.bottom, this.viewport.height - this.AxisSizeX - this.margin.top]);
 
             var xScale = d3.scale.linear()
                 .domain([1, dataPoints.length + 1])
-                .range([axisSizeY, this.viewport.width - this.ChartPadding]);
+                .range([this.margin.left + axisSizeY, this.viewport.width - this.margin.right]);
 
             if (dataPoints.length === 0) {
                 this.chart.selectAll(BoxWhiskerChart.ChartNode.selector).remove();
                 this.axis.selectAll(BoxWhiskerChart.AxisX.selector).remove();
                 this.axis.selectAll(BoxWhiskerChart.AxisY.selector).remove();
-                this.axis.selectAll(BoxWhiskerChart.AxisGrid.selector).remove();
+                this.axis.selectAll(BoxWhiskerChart.AxisMajorGrid.selector).remove();
+                this.axis.selectAll(BoxWhiskerChart.AxisMinorGrid.selector).remove();
 
                 var warnings: IVisualWarning[] = [];
                 warnings.push({
@@ -566,10 +637,15 @@ module powerbi.visuals.samples {
         private drawAxis(dataPoints: BoxWhiskerChartDatapoint[][], yScale: D3.Scale.Scale, duration: number) {
             if ((this.axis.selectAll(BoxWhiskerChart.AxisX.selector)[0].length === 0) ||
                 (this.axis.selectAll(BoxWhiskerChart.AxisY.selector)[0].length === 0) ||
-                (this.axis.selectAll(BoxWhiskerChart.AxisGrid.selector)[0].length === 0)) {
-                this.axisGrid = this.axis
+                (this.axis.selectAll(BoxWhiskerChart.AxisMajorGrid.selector)[0].length === 0) ||
+                (this.axis.selectAll(BoxWhiskerChart.AxisMinorGrid.selector)[0].length === 0)) {
+                this.axisMajorGrid = this.axis
                     .append("g")
-                    .classed(BoxWhiskerChart.AxisGrid.class, true);
+                    .classed(BoxWhiskerChart.AxisMajorGrid.class, true);
+
+                this.axisMinorGrid = this.axis
+                    .append("g")
+                    .classed(BoxWhiskerChart.AxisMinorGrid.class, true);
 
                 this.axisX = this.axis
                     .append("g")
@@ -585,11 +661,25 @@ module powerbi.visuals.samples {
                 yFormat = d3.format("%");
             }
 
-            var xs = d3.scale.ordinal();
-            xs.domain(dataPoints.map((values) => { return values[0].label; }))
-                .rangeBands([this.AxisSizeY, this.viewport.width - this.LegendPadding]);
+            var totalXAxisWidth = dataPoints.map((d) =>
+                TextMeasurementService.measureSvgTextWidth({
+                    text: d[0].label,
+                    fontFamily: "sens-serif",
+                    fontSize: PixelConverter.fromPoint(this.getXAxisFontSize(this.dataView)) + "px",
+                })).reduce((d1, d2) => d1 + d2);
 
-            var ys = yScale.range([this.viewport.height - this.AxisSizeX - this.ChartPadding, this.LegendSize]);
+            var overSampling = totalXAxisWidth /
+                (this.viewport.width - this.margin.right - this.margin.left - this.AxisSizeY);
+
+            overSampling = overSampling < 1 ? 1 : Math.ceil(overSampling);
+
+            var xs = d3.scale.ordinal();
+            xs.domain(dataPoints.map((values, index) => { return (index % overSampling === 0) ? values[0].label : null; })
+                .filter((d) => d !== null )
+                )
+                .rangeBands([this.margin.left + this.AxisSizeY, this.viewport.width - this.margin.right]);
+
+            var ys = yScale.range([this.viewport.height - this.AxisSizeX - this.margin.bottom, this.margin.top]);
 
             var xAxisTransform =
                 this.axisOptions.min > 0 ?
@@ -602,7 +692,7 @@ module powerbi.visuals.samples {
                 .scale(xs)
                 .orient("bottom")
                 .tickSize(0)
-                .innerTickSize(8 + ((this.viewport.height - this.ChartPadding - this.AxisSizeX) - xAxisTransform));
+                .innerTickSize(8 + ((this.viewport.height - this.margin.top - this.AxisSizeX) - xAxisTransform));
 
             var yAxis = d3.svg.axis()
                 .scale(ys)
@@ -622,23 +712,62 @@ module powerbi.visuals.samples {
                 .duration(duration)
                 .call(yAxis);
 
+            this.axisX
+                .selectAll("text")
+                .style("font-size", this.getXAxisFontSize(this.dataView) + "px");
+
+            this.axisY
+                .selectAll("text")
+                .style("font-size", this.getYAxisFontSize(this.dataView) + "px");
+
             if (this.getShowMajorGridLines(this.dataView)) {
-                var yGrid = d3.svg.axis()
+                var yMajorGrid = d3.svg.axis()
                     .scale(ys)
                     .orient("left")
-                    .ticks(this.axisOptions.ticks * (this.getShowMinorGridLines(this.dataView) ? 5 : 1))
+                    .ticks(this.axisOptions.ticks)
                     .outerTickSize(0)
-                    .innerTickSize(-(this.viewport.width - this.AxisSizeY));
-
-                this.axisGrid
+                    .innerTickSize(-(this.viewport.width - this.AxisSizeY - this.margin.right));
+ 
+                this.axisMajorGrid
                     .attr("transform", "translate(" + this.AxisSizeY + ", 0)")
                     .attr("opacity", 1)
                     .transition()
                     .duration(duration)
-                    .call(yGrid);
+                    .call(yMajorGrid);
+
+                this.axisMajorGrid
+                    .selectAll("line")
+                    .style("stroke", this.getColorMajorGridLines(this.dataView))
+                    .style("stroke-width", this.getSizeMajorGridLines(this.dataView));
+
+                if (this.getShowMinorGridLines(this.dataView)) {
+                    var yMinorGrid = d3.svg.axis()
+                        .scale(ys)
+                        .orient("left")
+                        .ticks(this.axisOptions.ticks * 5)
+                        .outerTickSize(0)
+                        .innerTickSize(-(this.viewport.width - this.AxisSizeY - this.margin.left));
+
+                    this.axisMinorGrid
+                        .attr("transform", "translate(" + this.AxisSizeY + ", 0)")
+                        .attr("opacity", 1)
+                        .transition()
+                        .duration(duration)
+                        .call(yMinorGrid);
+
+                    this.axisMinorGrid
+                        .selectAll("line")
+                        .style("stroke", this.getColorMinorGridLines(this.dataView))
+                        .style("stroke-width", this.getSizeMinorGridLines(this.dataView));
+                }
+                else {
+                 
+                    this.axisMinorGrid.attr("opacity", 0);
+                }
             }
             else {
-                this.axisGrid.attr("opacity", 0);
+                this.axisMajorGrid.attr("opacity", 0);
+                this.axisMinorGrid.attr("opacity", 0);
             }
         }
 
@@ -666,9 +795,9 @@ module powerbi.visuals.samples {
 
             var quartileData = (points) => {
                 return points.map((value) => {
-                    var x1 = xScale(value.category + 0.25);
+                    var x1 = xScale(value.category + (this.getDataLabelShow(this.dataView) ? 0.25 : 0.1));
                     var x2 = xScale(value.category + 0.5);
-                    var x3 = xScale(value.category + 0.75);
+                    var x3 = xScale(value.category + (this.getDataLabelShow(this.dataView) ? 0.75 : 0.9));
                     var y1 = yScale(value.min);
                     var y2 = value.samples <= 3 ? yScale(value.min) : yScale(value.quartile1);
                     var y3 = value.samples <= 3 ? yScale(value.max) : yScale(value.quartile3);
@@ -679,9 +808,9 @@ module powerbi.visuals.samples {
 
             var medianData = (points) => {
                 return points.map((value) => {
-                    var x1 = xScale(value.category + 0.25);
+                    var x1 = xScale(value.category + (this.getDataLabelShow(this.dataView) ? 0.25 : 0.1));
                     var y1 = yScale(value.median);
-                    var x2 = xScale(value.category + 0.75);
+                    var x2 = xScale(value.category + (this.getDataLabelShow(this.dataView) ? 0.75 : 0.9));
                     var y2 = yScale(value.median);
                     return `M ${x1},${y1} L${x2},${y2}`;
                 }).join(' ');
@@ -816,29 +945,36 @@ module powerbi.visuals.samples {
                     lowerLabels[0].x = xScale(d[0].category + 0.77);
 
                     var adjustment = 0;
+                    var textHeight = (TextMeasurementService.measureSvgTextHeight({
+                        text: "XXXX",
+                        fontFamily: "sens-serif",
+                        fontSize: PixelConverter.fromPoint(this.getDataLabelFontSize(this.dataView)) + "px",
+                    }) / 2) + 1;
 
                     for (var i = 1; i < topLabels.length; i++) {
                         topLabels[i].y = yScale(topLabels[i].value) - 4;
                         topLabels[i].x = x;
                         var diff = Math.abs((topLabels[i].y + adjustment) - (topLabels[i - 1].y));
-                        if (diff < 10) {
-                            adjustment += (10 - diff);
-                        } else {
-                            adjustment = 0;
+                        if (diff < textHeight) {
+                            adjustment += (textHeight - diff);
                         }
                         topLabels[i].y += adjustment;
+                        if (diff >= textHeight) {
+                            adjustment = 0;
+                        }
                     }
                     adjustment = 0;
                     for (var i = 1; i < lowerLabels.length; i++) {
                         lowerLabels[i].y = yScale(lowerLabels[i].value) - 4;
                         lowerLabels[i].x = x;
                         var diff = Math.abs((lowerLabels[i].y + adjustment) - lowerLabels[i - 1].y);
-                        if (diff < 10) {
-                            adjustment -= (10 - diff);
-                        } else {
-                            adjustment = 0;
+                        if (diff < textHeight) {
+                            adjustment -= (textHeight - diff);
                         }
                         lowerLabels[i].y += adjustment;
+                        if (diff >= textHeight) {
+                            adjustment = 0;
+                        }
                     }
                     var dataLabels = lowerLabels.concat(topLabels.filter((dataLabel) => dataLabel.value > d[0].median)).filter((dataLabel) => dataLabel.x > 0);
                     return dataLabels.map((dataPoint) => {
@@ -864,6 +1000,10 @@ module powerbi.visuals.samples {
                 .attr("x", dataLabel => dataLabel.x)
                 .attr("y", dataLabel => y0 - dataLabel.y)
                 .attr("fill", "black");
+
+            this.chart
+                .selectAll("text")
+                .style("font-size", this.getDataLabelFontSize(this.dataView) + "px");
 
             dataLabels.exit().remove();
 
@@ -938,16 +1078,44 @@ module powerbi.visuals.samples {
             return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, BoxWhiskerChart.properties.showOutliers, false);
         }
 
+        private getXAxisFontSize(dataView: DataView): number {
+            return DataViewObjects.getValue(dataView.metadata.objects, BoxWhiskerChart.properties.fontSizeXAxis, 11);
+        }
+
+        private getYAxisFontSize(dataView: DataView): number {
+            return DataViewObjects.getValue(dataView.metadata.objects, BoxWhiskerChart.properties.fontSizeYAxis, 11);
+        }
+
         private getShowMajorGridLines(dataView: DataView): boolean {
             return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, BoxWhiskerChart.properties.showMajorGridLines, true);
+        }
+
+        private getSizeMajorGridLines(dataView: DataView): number {
+            return DataViewObjects.getValue(dataView.metadata.objects, BoxWhiskerChart.properties.sizeMajorGridLines, 1);
+        }
+
+        private getColorMajorGridLines(dataView: DataView): string {
+            return DataViewObjects.getFillColor(dataView.metadata.objects, BoxWhiskerChart.properties.colorMajorGridLines, "#666666");
         }
 
         private getShowMinorGridLines(dataView: DataView): boolean {
             return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, BoxWhiskerChart.properties.showMinorGridLines, false);
         }
 
+        private getSizeMinorGridLines(dataView: DataView): number {
+            return DataViewObjects.getValue(dataView.metadata.objects, BoxWhiskerChart.properties.sizeMinorGridLines, 1);
+        }
+
+        private getColorMinorGridLines(dataView: DataView): string {
+            return DataViewObjects.getFillColor(dataView.metadata.objects, BoxWhiskerChart.properties.colorMinorGridLines, "#9c9c9c");
+        }
+
         private getDataLabelShow(dataView: DataView): boolean {
             return DataViewObjects.getValue(this.dataView.metadata.objects, BoxWhiskerChart.properties.dataLabelShow, false);
+        }
+
+        private getDataLabelFontSize(dataView: DataView): number {
+            return DataViewObjects.getValue(dataView.metadata.objects, BoxWhiskerChart.properties.dataLabelFontSize, 11);
         }
 
         public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] {
@@ -980,6 +1148,28 @@ module powerbi.visuals.samples {
                         instances.push(dataPoint);
                     }
                     break;
+                case "xAxis":
+                    var xAxis: VisualObjectInstance = {
+                        objectName: "xAxis",
+                        displayName: "X-Axis",
+                        selector: null,
+                        properties: {
+                            fontSize: this.getXAxisFontSize(this.dataView),
+                        }
+                    };
+                    instances.push(xAxis);
+                    break;
+                case "yAxis":
+                    var yAxis: VisualObjectInstance = {
+                        objectName: "yAxis",
+                        displayName: "Y-Axis",
+                        selector: null,
+                        properties: {
+                            fontSize: this.getYAxisFontSize(this.dataView),
+                        }
+                    };
+                    instances.push(yAxis);
+                    break;
                 case "gridLines":
                     var gridLines: VisualObjectInstance = {
                         objectName: "gridLines",
@@ -987,7 +1177,11 @@ module powerbi.visuals.samples {
                         selector: null,
                         properties: {
                             majorGrid: this.getShowMajorGridLines(this.dataView),
+                            majorGridSize: this.getSizeMajorGridLines(this.dataView),
+                            majorGridColor: { solid: { color: this.getColorMajorGridLines(this.dataView) } },
                             minorGrid: this.getShowMinorGridLines(this.dataView),
+                            minorGridSize: this.getSizeMinorGridLines(this.dataView),
+                            minorGridColor: { solid: { color: this.getColorMinorGridLines(this.dataView) } },
                         }
                     };
                     instances.push(gridLines);
@@ -999,9 +1193,22 @@ module powerbi.visuals.samples {
                         selector: null,
                         properties: {
                             show: this.getDataLabelShow(this.dataView),
+                            fontSize: this.getDataLabelFontSize(this.dataView),
                         }
                     };
                     instances.push(labels);
+                    break;
+                case "privacy":
+                    var privacy: VisualObjectInstance = {
+                        objectName: "privacy",
+                        displayName: "Privacy",
+                        selector: null,
+                        properties: {
+                            updates: false,
+                            version: "0.12.20160616",
+                        }
+                    };
+                    instances.push(privacy);
                     break;
             }
 

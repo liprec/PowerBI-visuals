@@ -26,24 +26,13 @@
 
 @import (reference) "../../../../styles/styles.less";
 
-.boxWhiskerChart .axis path,
-.boxWhiskerChart .axis line {
-  fill: none;
-  stroke: #777;
-  shape-rendering: crispEdges;
-}
-.boxWhiskerChart .axis .axisX line {
-  stroke-width: 0px;
-}
-.boxWhiskerChart .chart text,
-.boxWhiskerChart .axis text {
-  font-family: @regularFontFamily;
-  font-size: 11px;
-  color: #777;
-}
-.boxWhiskerChart .axis .axisGrid text {
+.visual-icon.BoxWhiskerChart1455240051538{ background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAIAAAAC64paAAAABnRSTlMA/wD/AP83WBt9AAAACXBIWXMAABYlAAAWJQFJUiTwAAAAyElEQVR4nGP8//8/A7mAiWydlGpmgdINGlgkG24Q0P0fDdSro4vgBhQ5mxEa2j02DF/eoMiwcTNUncWvGeZnTJ1/f0ONX/wSU9v/WHEkzQinMDNwCzJ8ecPAwYusDmIKnA0BMD9z8DEwMjMwMDD8/8vw9T0DAwPDz2/43Yxk849PUCN+fGJg50ZxCpKz4WxszoYYASGJAPBEAksPDRqE0wYMUBTPGCms3wlXemJY9AJNBFvahrMJuR+WwvCowJ1ICGvGAwauMAAAWGyuavRrzREAAAAASUVORK5CYII=);}
+
+.boxWhiskerChart .axis .axisMajorGrid text,
+.boxWhiskerChart .axis .axisMinorGrid text {
   visibility: hidden;
 }
-.boxWhiskerChart .axis .axisGrid line {
-  stroke: #e9e9e9;
+.boxWhiskerChart .axis .axisMajorGrid .domain,
+.boxWhiskerChart .axis .axisMinorGrid .domain {
+  visibility: hidden;
 } 
