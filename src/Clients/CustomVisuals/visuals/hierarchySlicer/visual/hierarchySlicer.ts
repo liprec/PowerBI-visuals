@@ -265,18 +265,22 @@
                     var selected = d.selected;
                     selectionHandler.handleSelection(d, true);
                     if (!selected || !d.isLeaf) {
-                        var selectDataPoints = this.getChildDataPoints(this.dataPoints, d.ownId);
+                        //var selectDataPoints = this.getChildDataPoints(this.dataPoints, d.ownId);
+                        var selectDataPoints = this.dataPoints.filter((dp) => dp.parentId.indexOf(d.ownId) >= 0);
                         for (var i = 0; i < selectDataPoints.length; i++) {
                             if (selected === selectDataPoints[i].selected) {
-                                selectionHandler.handleSelection(selectDataPoints[i], true);
+                                //selectionHandler.handleSelection(selectDataPoints[i], true);
+                                selectDataPoints[i].selected = true;
                             }
                         }
                         selectDataPoints = this.getParentDataPoints(this.dataPoints, d.parentId);
                         for (var i = 0; i < selectDataPoints.length; i++) {
                             if (!selected && !selectDataPoints[i].selected) {
-                                selectionHandler.handleSelection(selectDataPoints[i], true);
+                                //selectionHandler.handleSelection(selectDataPoints[i], true);
+                                selectDataPoints[i].selected = true;
                             } else if (selected && (this.dataPoints.filter((dp) => dp.selected && dp.level === d.level).length === 0)) {
-                                selectionHandler.handleSelection(selectDataPoints[i], true);
+                                //selectionHandler.handleSelection(selectDataPoints[i], true);
+                                selectDataPoints[i].selected = true;
                             }
                         }
                     }
@@ -295,11 +299,13 @@
                         selectionHandler.handleSelection(d, true);
                     }
 
-                    var selectDataPoints = this.getChildDataPoints(this.dataPoints, d.ownId);
-                    selectDataPoints = selectDataPoints.concat(selectDataPoints, this.getParentDataPoints(this.dataPoints, d.parentId));
+                    //var selectDataPoints = this.getChildDataPoints(this.dataPoints, d.ownId);
+                    var selectDataPoints = this.dataPoints.filter((dp) => dp.parentId.indexOf(d.ownId) >= 0);
+                    selectDataPoints = selectDataPoints.concat(this.getParentDataPoints(this.dataPoints, d.parentId));
                     for (var i = 0; i < selectDataPoints.length; i++) {
                         if (selected === selectDataPoints[i].selected) {
-                            selectionHandler.handleSelection(selectDataPoints[i], true);
+                            //selectionHandler.handleSelection(selectDataPoints[i], true);
+                            selectDataPoints[i].selected = true;
                         }
                     } 
                 }
@@ -405,7 +411,7 @@
                 var returnChildren = children;
                 if (recursive) {
                     for (var i = 0; i < children.length; i++) {
-                        returnChildren = returnChildren.concat(returnChildren, this.getChildDataPoints(dataPoints, children[i].ownId));
+                        returnChildren = returnChildren.concat(this.getChildDataPoints(dataPoints, children[i].ownId));
                     }
                 }
                 return returnChildren;
@@ -610,7 +616,7 @@
                 table: {
                     rows: {
                         for: { in: 'Fields' },
-                        dataReductionAlgorithm: { top: { count: 10000 } }
+                        dataReductionAlgorithm: { bottom: { count: 2000 } }
                     }
                 }
             }],
@@ -662,7 +668,7 @@
             supportsHighlight: true,
             suppressDefaultTitle: true,
             filterMappings: {
-                measureFilter: { targetRoles: ['Fields'] }
+                measureFilter: { targetRoles: ['Fields'] },
             },
             sorting: {
                 default: {},
@@ -857,7 +863,7 @@
                         partialSelected: false,
                         isLeaf: isLeaf,
                         isExpand: expandedIds === [] ? false : expandedIds.filter((d) => d === ownId).length > 0 || false,
-                        isHidden: false, // Default false. Real status based on the expanded properties of parent(s)
+                        isHidden: true, // Default true. Real status based on the expanded properties of parent(s)
                         id: filterExpr,
                         ownId: ownId,
                         parentId: parentId
@@ -873,8 +879,12 @@
             }
 
             // Set isHidden property
-            var expanded = dataPoints.filter((d) => !d.isExpand);
-            expanded.forEach((d) => this.getChildDataPoints(dataPoints, d.ownId).forEach((d) => d.isHidden = true ));
+            var expanded = dataPoints.filter((d) => d.isExpand && d.level === 0);
+            for (var i = 0; i < expanded.length; i++) {
+                expanded = expanded.concat(this.getChildExpandedDataPoints(dataPoints, expanded[i].ownId)).filter((d) => d !== undefined);
+            }
+            dataPoints.forEach((d) => expanded.filter((d1) => d.parentId === d1.ownId).length > 0 || d.level === 0 ? d.isHidden = false : d.isHidden = true);
+            //expanded.forEach((d) => this.getChildDataPoints(dataPoints, d.ownId).forEach((d) => d.isHidden = true ));
 
             return {
                 dataPoints: dataPoints,
@@ -884,8 +894,8 @@
             };
         }
 
-        private getChildDataPoints(dataPoints: HierarchySlicerDataPoint[], ownId: string): HierarchySlicerDataPoint[] {
-            var children = dataPoints.filter((d) => d.parentId === ownId);
+        private getChildExpandedDataPoints(dataPoints: HierarchySlicerDataPoint[], ownId: string): HierarchySlicerDataPoint[] {
+            var children = dataPoints.filter((d) => d.parentId === ownId && d.isExpand);
             if (children.length === 0) {
                 return [];
             } else if (children[0].isLeaf) {
@@ -893,7 +903,7 @@
             } else {
                 var returnChildren = children;
                 for (var i = 0; i < children.length; i++) {
-                    returnChildren = returnChildren.concat(returnChildren, this.getChildDataPoints(dataPoints, children[i].ownId));
+                    returnChildren = returnChildren.concat(this.getChildExpandedDataPoints(dataPoints, children[i].ownId));
                 }
                 return returnChildren;
             }
