@@ -265,22 +265,18 @@
                     var selected = d.selected;
                     selectionHandler.handleSelection(d, true);
                     if (!selected || !d.isLeaf) {
-                        //var selectDataPoints = this.getChildDataPoints(this.dataPoints, d.ownId);
                         var selectDataPoints = this.dataPoints.filter((dp) => dp.parentId.indexOf(d.ownId) >= 0);
                         for (var i = 0; i < selectDataPoints.length; i++) {
                             if (selected === selectDataPoints[i].selected) {
-                                //selectionHandler.handleSelection(selectDataPoints[i], true);
-                                selectDataPoints[i].selected = true;
+                                selectDataPoints[i].selected = !selected;
                             }
                         }
                         selectDataPoints = this.getParentDataPoints(this.dataPoints, d.parentId);
                         for (var i = 0; i < selectDataPoints.length; i++) {
                             if (!selected && !selectDataPoints[i].selected) {
-                                //selectionHandler.handleSelection(selectDataPoints[i], true);
-                                selectDataPoints[i].selected = true;
-                            } else if (selected && (this.dataPoints.filter((dp) => dp.selected && dp.level === d.level).length === 0)) {
-                                //selectionHandler.handleSelection(selectDataPoints[i], true);
-                                selectDataPoints[i].selected = true;
+                                selectDataPoints[i].selected = !selected;
+                            } else if (selected && (this.dataPoints.filter((dp) => dp.selected && dp.level === d.level && dp.parentId === d.parentId).length === 0)) {
+                                selectDataPoints[i].selected = !selected;
                             }
                         }
                     }
@@ -663,6 +659,16 @@
                             type: { text: true }
                         }
                     },
+                },
+                privacy: {
+                    displayName: "Privacy",
+                    properties: {
+                        version: {
+                            displayName: "Version",
+                            type: { text: true },
+                            placeHolderText: "Placeholder",
+                        },
+                    },
                 }
             },
             supportsHighlight: true,
@@ -863,7 +869,7 @@
                         partialSelected: false,
                         isLeaf: isLeaf,
                         isExpand: expandedIds === [] ? false : expandedIds.filter((d) => d === ownId).length > 0 || false,
-                        isHidden: true, // Default true. Real status based on the expanded properties of parent(s)
+                        isHidden: c === 0 ? false : true, // Default true. Real status based on the expanded properties of parent(s)
                         id: filterExpr,
                         ownId: ownId,
                         parentId: parentId
@@ -879,12 +885,13 @@
             }
 
             // Set isHidden property
-            var expanded = dataPoints.filter((d) => d.isExpand && d.level === 0);
-            for (var i = 0; i < expanded.length; i++) {
-                expanded = expanded.concat(this.getChildExpandedDataPoints(dataPoints, expanded[i].ownId)).filter((d) => d !== undefined);
+            var expandedPoints = dataPoints.filter((d) => d.isExpand);
+            var expanded = expandedPoints.filter((d) => d.level === 0);
+            
+            for (var i = 1; i <= levels; i++) { // loop thru all remaining levels
+                expanded = expanded.concat(expandedPoints.filter((d) => d.level === i && expanded.filter((dp) => dp.level === i - 1 && dp.ownId === d.parentId).length > 0));
             }
             dataPoints.forEach((d) => expanded.filter((d1) => d.parentId === d1.ownId).length > 0 || d.level === 0 ? d.isHidden = false : d.isHidden = true);
-            //expanded.forEach((d) => this.getChildDataPoints(dataPoints, d.ownId).forEach((d) => d.isHidden = true ));
 
             return {
                 dataPoints: dataPoints,
@@ -1288,7 +1295,18 @@
                     };
                     instances.push(headerOptions);
                     break;
-
+                case "privacy":
+                    var privacy: VisualObjectInstance = {
+                        objectName: "privacy",
+                        displayName: "Privacy",
+                        selector: null,
+                        properties: {
+                            updates: false,
+                            version: "0.7.20160617",
+                        }
+                    };
+                    instances.push(privacy);
+                    break;
             }
 
             return instances;

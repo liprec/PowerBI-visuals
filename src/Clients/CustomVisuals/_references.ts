@@ -23,5 +23,8 @@
 /// <reference path="./visuals/streamGraph/visual/streamGraph.ts"/>
 /// <reference path="./visuals/lineDotChart/visual/lineDotChart.ts"/>
 /// <reference path="./visuals/sunburst/visual/sunburst.ts"/>
+/// <reference path="./visuals/boxWhiskerChart/visual/boxWhiskerChart.ts"/>
+/// <reference path="./visuals/forecastChart/visual/forecastChart.ts"/>
+/// <reference path="./visuals/hierarchySlicer/visual/hierarchySlicer.ts"/>
 /// <reference path="./plugins.ts"/>
 /// <reference path="./services/customVisualPluginService.ts"/>
