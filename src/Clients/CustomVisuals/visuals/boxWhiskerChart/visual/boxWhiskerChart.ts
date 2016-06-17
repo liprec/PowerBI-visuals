@@ -81,12 +81,12 @@ module powerbi.visuals.samples {
         public static capabilities: VisualCapabilities = {
             dataRoles: [
                 {
-                    name: 'Category',
+                    name: 'Groups', // Category
                     kind: powerbi.VisualDataRoleKind.Grouping,
                     displayName: 'Category'
                 },
                 {
-                    name: 'Sampling',
+                    name: 'Samples', // Sampling
                     kind: powerbi.VisualDataRoleKind.Grouping,
                     displayName: 'Sampling'
                 },
@@ -98,15 +98,15 @@ module powerbi.visuals.samples {
             ],
             dataViewMappings: [{
                 conditions: [
-                    { 'Category': { min: 0, max: 1 }, 'Values': { min: 0, max: 1 } },
+                    { 'Groups': { min: 0, max: 1 }, 'Values': { min: 0, max: 1 } },
                 ],
                 matrix: {
                     rows: {
-                        for: { in: 'Category' },
+                        for: { in: 'Groups' },
                         dataReductionAlgorithm: { top: { count: 100 } }
                     },
                     columns: {
-                        for: { in: 'Sampling' },
+                        for: { in: 'Samples' },
                         dataReductionAlgorithm: { top: { count: 50000 } }
                     },
                     values: {
