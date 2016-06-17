@@ -249,6 +249,11 @@ module powerbi.visuals.samples {
             dataLabelFontSize: { objectName: "labels", propertyName: "fontSize" },
         };
 
+        private static LocalizationStrings: jsCommon.IStringResourceProvider = {
+            get: (stringId: string) => stringId,
+            getOptional: (stringId: string) => stringId
+        };
+
         public static formatStringProp: DataViewObjectPropertyIdentifier = {
             objectName: "general",
             propertyName: "formatString",
