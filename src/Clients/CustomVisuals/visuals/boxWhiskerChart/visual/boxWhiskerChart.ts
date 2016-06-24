@@ -77,6 +77,14 @@ module powerbi.visuals.samples {
         }
     }
 
+    export module BoxWhiskerTypeOptions {
+        export enum MarginType {
+            Small,
+            Medium,
+            Large
+        }
+    }
+
     export class BoxWhiskerChart implements IVisual {
         public static capabilities: VisualCapabilities = {
             dataRoles: [
@@ -141,7 +149,18 @@ module powerbi.visuals.samples {
                             displayName: "Outliers",
                             description: "Show outliers",
                             type: { bool: true }
-                        }
+                        },
+                        margin: {
+                            displayName: "Chart margin",
+                            description: "The margin between the different boxes.\nOnly used when no datalabels are shown",
+                            type: {
+                                enumeration: createEnumType([
+                                    { value: BoxWhiskerTypeOptions.MarginType.Small, displayName: "Small" },
+                                    { value: BoxWhiskerTypeOptions.MarginType.Medium, displayName: "Medium" },
+                                    { value: BoxWhiskerTypeOptions.MarginType.Large, displayName: "Large" }
+                                ])
+                            }
+                        },
                     }
                 },
                 dataPoint: {
@@ -215,7 +234,8 @@ module powerbi.visuals.samples {
                         },
                         fontSize: {
                             displayName: "Text Size",
-                            type: { formatting: { fontSize: true } }
+                            type: { formatting: { fontSize: true } },
+                            description: "If datalabels are to big, the default size is used.",
                         },
                     }
                 },
@@ -235,6 +255,7 @@ module powerbi.visuals.samples {
         private static properties = {
             formatString: { objectName: "general", propertyName: "formatString" },
             whiskerType: { objectName: "chartOptions", propertyName: "whisker" },
+            marginType: { objectName: "chartOptions", propertyName: "margin" },
             fontSizeXAxis: { objectName: "xAxis", propertyName: "fontSize" },
             fontSizeYAxis: { objectName: "yAxis", propertyName: "fontSize" },
             showOutliers: { objectName: "chartOptions", propertyName: "outliers" },
@@ -550,8 +571,7 @@ module powerbi.visuals.samples {
             var dataView = this.dataView = options.dataViews[0],
                 data = this.data = this.converter(dataView, this.colors),
                 dataPoints = data.dataPoints,
-                duration = options.suppressAnimations ? 0 : 250,
-                axisSizeY = this.AxisSizeY;
+                duration = options.suppressAnimations ? 0 : 250;
 
             this.viewport = {
                 height: options.viewport.height > 0 ? options.viewport.height : 0,
@@ -567,20 +587,20 @@ module powerbi.visuals.samples {
             // calculate AxisSizeX, AxisSizeY
             this.AxisSizeX = TextMeasurementService.measureSvgTextHeight({
                 text: "XXXX",
-                fontFamily: "sens-serif",
-                fontSize: PixelConverter.fromPoint(this.getXAxisFontSize(this.dataView)) + "px",
+                fontFamily: "sans-serif",
+                fontSize: PixelConverter.fromPoint(this.getXAxisFontSize(this.dataView)),
             });
 
             this.AxisSizeY = TextMeasurementService.measureSvgTextWidth({
                 text: "XXXX",
-                fontFamily: "sens-serif",
-                fontSize: PixelConverter.fromPoint(this.getYAxisFontSize(this.dataView)) + "px",
+                fontFamily: "sans-serif",
+                fontSize: PixelConverter.fromPoint(this.getYAxisFontSize(this.dataView)),
             });
 
             this.margin.top = TextMeasurementService.measureSvgTextHeight({
                     text: "XXXX",
-                    fontFamily: "sens-serif",
-                    fontSize: PixelConverter.fromPoint(this.getYAxisFontSize(this.dataView)) + "px",
+                    fontFamily: "sans-serif",
+                    fontSize: PixelConverter.fromPoint(this.getYAxisFontSize(this.dataView)),
                 }) / 2.;
 
             var mainGroup = this.chart;
@@ -608,7 +628,7 @@ module powerbi.visuals.samples {
 
             var xScale = d3.scale.linear()
                 .domain([1, dataPoints.length + 1])
-                .range([this.margin.left + axisSizeY, this.viewport.width - this.margin.right]);
+                .range([this.margin.left + this.AxisSizeY, this.viewport.width - this.margin.right]);
 
             if (dataPoints.length === 0) {
                 this.chart.selectAll(BoxWhiskerChart.ChartNode.selector).remove();
@@ -669,8 +689,8 @@ module powerbi.visuals.samples {
             var totalXAxisWidth = dataPoints.map((d) =>
                 TextMeasurementService.measureSvgTextWidth({
                     text: d[0].label,
-                    fontFamily: "sens-serif",
-                    fontSize: PixelConverter.fromPoint(this.getXAxisFontSize(this.dataView)) + "px",
+                    fontFamily: "sans-serif",
+                    fontSize: PixelConverter.fromPoint(this.getXAxisFontSize(this.dataView)),
                 })).reduce((d1, d2) => d1 + d2);
 
             var overSampling = totalXAxisWidth /
@@ -776,8 +796,22 @@ module powerbi.visuals.samples {
             }
         }
 
-        private drawChart(dataPoints: BoxWhiskerChartDatapoint[][], xScale: D3.Scale.Scale, yScale: D3.Scale.Scale, duration: number): void {
-            var dotRadius: number = 4;
+        private drawChart(dataPoints: BoxWhiskerChartDatapoint[][], xScale: D3.Scale.QuantitativeScale, yScale: D3.Scale.Scale, duration: number): void {
+            var dotRadius: number = 4,
+                leftBoxMargin: number = 0.05;
+            if (!this.getDataLabelShow(this.dataView)) {
+                switch (this.getMarginType(this.dataView)) {
+                    case BoxWhiskerTypeOptions.MarginType.Small:
+                        leftBoxMargin = 0.05;
+                        break;
+                    case BoxWhiskerTypeOptions.MarginType.Medium:
+                        leftBoxMargin = 0.1;
+                        break;
+                    case BoxWhiskerTypeOptions.MarginType.Large:
+                        leftBoxMargin = 0.2;
+                        break;
+                }
+            }
 
             var stack = d3.layout.stack();
             var layers = stack(dataPoints);
@@ -798,11 +832,36 @@ module powerbi.visuals.samples {
 
             this.svg.on('click', () => this.selectionManager.clear().then(() => quartile.style('opacity', 1)));
 
+            var fontSize = this.getDataLabelFontSize(this.dataView) + "px";
+
+            var dataLabelwidth = xScale.invert(xScale(0) +
+                (Math.ceil(
+                    d3.max(dataPoints, (value) => {
+                        return d3.max(value, (point) => {
+                            return d3.max((point.dataLabels), (dataLabel) => {
+                                return TextMeasurementService.measureSvgTextWidth({
+                                    text: valueFormatter.format(dataLabel.value, this.format, true),
+                                    fontFamily: "sans-serif",
+                                    fontSize: PixelConverter.fromPoint(this.getDataLabelFontSize(this.dataView)),
+                                });
+                            });
+                        });
+                    })
+                    * 10) / 10.));
+
+            if (dataLabelwidth > 0.9) {
+                dataLabelwidth = 0.9;
+                fontSize = "11px";
+            }
+
+            var rightBoxMargin = 1. - (this.getDataLabelShow(this.dataView) ? dataLabelwidth : leftBoxMargin);
+            var boxMiddle = this.getDataLabelShow(this.dataView) ? leftBoxMargin + ((rightBoxMargin - leftBoxMargin) / 2.) : 0.5;
+
             var quartileData = (points) => {
                 return points.map((value) => {
-                    var x1 = xScale(value.category + (this.getDataLabelShow(this.dataView) ? 0.25 : 0.1));
-                    var x2 = xScale(value.category + 0.5);
-                    var x3 = xScale(value.category + (this.getDataLabelShow(this.dataView) ? 0.75 : 0.9));
+                    var x1 = xScale(value.category + leftBoxMargin);
+                    var x2 = xScale(value.category + boxMiddle);
+                    var x3 = xScale(value.category + rightBoxMargin);
                     var y1 = yScale(value.min);
                     var y2 = value.samples <= 3 ? yScale(value.min) : yScale(value.quartile1);
                     var y3 = value.samples <= 3 ? yScale(value.max) : yScale(value.quartile3);
@@ -813,9 +872,9 @@ module powerbi.visuals.samples {
 
             var medianData = (points) => {
                 return points.map((value) => {
-                    var x1 = xScale(value.category + (this.getDataLabelShow(this.dataView) ? 0.25 : 0.1));
+                    var x1 = xScale(value.category + leftBoxMargin);
                     var y1 = yScale(value.median);
-                    var x2 = xScale(value.category + (this.getDataLabelShow(this.dataView) ? 0.75 : 0.9));
+                    var x2 = xScale(value.category + rightBoxMargin);
                     var y2 = yScale(value.median);
                     return `M ${x1},${y1} L${x2},${y2}`;
                 }).join(' ');
@@ -823,7 +882,7 @@ module powerbi.visuals.samples {
 
             var avgData = (points) => {
                 return points.map((value) => {
-                    var x1 = xScale(value.category + 0.5);
+                    var x1 = xScale(value.category + boxMiddle);
                     var y1 = yScale(value.average);
                     var r = dotRadius;
                     var r2 = 2 * r;
@@ -833,7 +892,7 @@ module powerbi.visuals.samples {
 
             var outlierData = (points) => {
                 return points.map((value) => {
-                    var x1 = xScale(value.category + 0.5);
+                    var x1 = xScale(value.category + boxMiddle);
                     var y1 = yScale(value.value);
                     var r = dotRadius;
                     var r2 = 2 * r;
@@ -942,18 +1001,18 @@ module powerbi.visuals.samples {
                     var lowerLabels = d[0].dataLabels
                         .filter((dataLabel) => dataLabel.value <= d[0].median) // Lower half of data labels
                         .sort((dataLabel1, dataLabel2) => dataLabel2.value - dataLabel1.value); // Sort: median index 0
-                    var x = xScale(d[0].category + 0.77);
+                    var x = xScale(d[0].category + rightBoxMargin + 0.05);
 
                     topLabels[0].y = yScale(d[0].median) - 4;
-                    topLabels[0].x = xScale(d[0].category + 0.77);
+                    topLabels[0].x = xScale(d[0].category + rightBoxMargin + 0.05);
                     lowerLabels[0].y = yScale(d[0].median) - 4;
-                    lowerLabels[0].x = xScale(d[0].category + 0.77);
+                    lowerLabels[0].x = xScale(d[0].category + rightBoxMargin + 0.05);
 
                     var adjustment = 0;
                     var textHeight = (TextMeasurementService.measureSvgTextHeight({
                         text: "XXXX",
-                        fontFamily: "sens-serif",
-                        fontSize: PixelConverter.fromPoint(this.getDataLabelFontSize(this.dataView)) + "px",
+                        fontFamily: "sans-serif",
+                        fontSize: PixelConverter.fromPoint(this.getDataLabelFontSize(this.dataView)),
                     }) / 2) + 1;
 
                     for (var i = 1; i < topLabels.length; i++) {
@@ -1005,10 +1064,10 @@ module powerbi.visuals.samples {
                 .attr("x", dataLabel => dataLabel.x)
                 .attr("y", dataLabel => y0 - dataLabel.y)
                 .attr("fill", "black");
-
+            
             this.chart
                 .selectAll("text")
-                .style("font-size", this.getDataLabelFontSize(this.dataView) + "px");
+                .style("font-size", fontSize);
 
             dataLabels.exit().remove();
 
@@ -1079,6 +1138,10 @@ module powerbi.visuals.samples {
             return DataViewObjects.getValue(this.dataView.metadata.objects, BoxWhiskerChart.properties.whiskerType, BoxWhiskerTypeOptions.ChartType.MinMax);
         }
 
+        private getMarginType(dataView: DataView): BoxWhiskerTypeOptions.MarginType {
+            return DataViewObjects.getValue(this.dataView.metadata.objects, BoxWhiskerChart.properties.marginType, BoxWhiskerTypeOptions.MarginType.Medium);
+        }
+
         private getShowOutliers(dataView: DataView): boolean {
             return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, BoxWhiskerChart.properties.showOutliers, false);
         }
@@ -1135,6 +1198,7 @@ module powerbi.visuals.samples {
                         properties: {
                             whisker: this.getWhiskerType(this.dataView),
                             outliers: this.getShowOutliers(this.dataView),
+                            margin: this.getMarginType(this.dataView),
                         }
                     };
                     instances.push(chartOptions);
@@ -1210,7 +1274,7 @@ module powerbi.visuals.samples {
                         selector: null,
                         properties: {
                             updates: false,
-                            version: "0.12.20160616",
+                            version: "0.12.02",
                         }
                     };
                     instances.push(privacy);
