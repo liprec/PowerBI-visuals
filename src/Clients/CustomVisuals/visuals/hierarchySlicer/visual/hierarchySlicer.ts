@@ -221,8 +221,28 @@
             var slicerExpand = options.slicerExpand;
             var slicerCollapse = options.slicerCollapse;
 
-            expanders.on("click", (d: HierarchySlicerDataPoint) => {
+            expanders.on("click", (d: HierarchySlicerDataPoint, i:number) => {
                 d.isExpand = !d.isExpand;
+                var currentExpander = expanders.filter((e, l) => i === l);
+                currentExpander[0][0].firstChild.remove(); // remove expand/collapse icon
+                var spinner = currentExpander
+                    .append("div")
+                    .classed("xsmall", true)
+                    .classed("powerbi-spinner", true)
+                    .style({
+                        'margin': '0px;',
+                        'padding-left': '5px;',
+                        'display': 'block;',
+                    })
+                    .attr("ng-if", "viewModel.showProgressBar")
+                    .attr("delay", "500")
+                        .append("div")
+                        .classed("spinner", true);
+
+                for (var i = 0; i < 5; i++) {
+                    spinner.append("div")
+                        .classed("circle", true);
+                }
 
                 this.persistExpand(false);
             });
@@ -263,7 +283,7 @@
                 d3.event.preventDefault();
                 if (!settings.general.singleselect) { // multi select value
                     var selected = d.selected;
-                    selectionHandler.handleSelection(d, true);
+                    d.selected = !selected; // Toggle selection
                     if (!selected || !d.isLeaf) {
                         var selectDataPoints = this.dataPoints.filter((dp) => dp.parentId.indexOf(d.ownId) >= 0);
                         for (var i = 0; i < selectDataPoints.length; i++) {
@@ -282,47 +302,51 @@
                     }
                     if (d.isLeaf) {
                         if (this.dataPoints.filter((d) => d.selected && d.isLeaf).length === 0) { // Last leaf disabled
-                            selectionHandler.handleClearSelection();
+                            this.dataPoints.map((d) => d.selected = false); // Clear selection
                         } 
                     }
                 }
                 else { // single select value
                     var selected = d.selected;
-                    if (selected) {
-                        selectionHandler.handleClearSelection();
-                    } else {
-                        selectionHandler.handleClearSelection();
-                        selectionHandler.handleSelection(d, true);
-                    }
-
-                    //var selectDataPoints = this.getChildDataPoints(this.dataPoints, d.ownId);
-                    var selectDataPoints = this.dataPoints.filter((dp) => dp.parentId.indexOf(d.ownId) >= 0);
-                    selectDataPoints = selectDataPoints.concat(this.getParentDataPoints(this.dataPoints, d.parentId));
-                    for (var i = 0; i < selectDataPoints.length; i++) {
-                        if (selected === selectDataPoints[i].selected) {
-                            //selectionHandler.handleSelection(selectDataPoints[i], true);
-                            selectDataPoints[i].selected = true;
+                    this.dataPoints.map((d) => d.selected = false); // Clear selection
+                    if (!selected) {
+                        var selectDataPoints = [d]; //Self
+                        selectDataPoints = selectDataPoints.concat(this.dataPoints.filter((dp) => dp.parentId.indexOf(d.ownId) >= 0)); // Children
+                        selectDataPoints = selectDataPoints.concat(this.getParentDataPoints(this.dataPoints, d.parentId)); // Parents
+                        if (selectDataPoints) {
+                            for (var i = 0; i < selectDataPoints.length; i++) {
+                                selectDataPoints[i].selected = true;
+                            }
                         }
-                    } 
+                    }
                 }
 
+                var selectNrValues: number = 0
                 var filter: powerbi.data.SemanticFilter;
                 var rootLevels = this.dataPoints.filter((d) => d.level === 0 && d.selected);
-                 
-                if (rootLevels.length > 0) {
+
+                if (!rootLevels || (rootLevels.length === 0)) {
+                    selectionHandler.handleClearSelection();
+                    this.persistFilter(null);
+                }
+                else {
+                    selectNrValues++;
                     var children = this.getChildFilters(this.dataPoints, rootLevels[0].ownId, 1);
                     var rootFilters = [];
                     if (children) {
-                        rootFilters.push(powerbi.data.SQExprBuilder.and(rootLevels[0].id, children));
+                        rootFilters.push(powerbi.data.SQExprBuilder.and(rootLevels[0].id, children.filters));
+                        selectNrValues += children.memberCount;
                     } else {
                         rootFilters.push(rootLevels[0].id);
                     }
 
                     if (rootLevels.length > 1) {
                         for (var i = 1; i < rootLevels.length; i++) {
+                            selectNrValues++;
                             children = this.getChildFilters(this.dataPoints, rootLevels[i].ownId, 1);
                             if (children) {
-                                rootFilters.push(powerbi.data.SQExprBuilder.and(rootLevels[i].id, children));
+                                rootFilters.push(powerbi.data.SQExprBuilder.and(rootLevels[i].id, children.filters));
+                                selectNrValues += children.memberCount;
                             } else {
                                 rootFilters.push(rootLevels[i].id);
                             }
@@ -333,15 +357,14 @@
                     for (var i = 1; i < rootFilters.length; i++) {
                         rootFilter = powerbi.data.SQExprBuilder.or(rootFilter, rootFilters[i]);
                     }
+
+                    if (selectNrValues > 120) {
+
+                    }
                     
                     filter = powerbi.data.SemanticFilter.fromSQExpr(rootFilter);
                     this.persistFilter(filter);
                 }
-                else {
-                    selectionHandler.handleClearSelection();
-                    this.persistFilter(null);
-                }
-
             });
 
             slicerClear.on("click", (d: HierarchySlicerDataPoint) => {
@@ -355,12 +378,14 @@
                 'color': (d: HierarchySlicerDataPoint) => {
                     if (d.mouseOver)
                         return this.settings.slicerText.hoverColor;
-                    if (d.mouseOut) {
+                    else if (d.mouseOut) {
                         if (d.selected)
-                            return null;
+                            return this.settings.slicerText.fontColor;
                         else
-                            return null;
+                            return this.settings.slicerText.fontColor;
                     }
+                    else
+                        return this.settings.slicerText.fontColor; //fallback
                 }
             });
         }
@@ -397,26 +422,9 @@
             });
         }
 
-        private getChildDataPoints(dataPoints: HierarchySlicerDataPoint[], ownId: string, recursive: boolean = true): HierarchySlicerDataPoint[] {
-            var children = dataPoints.filter((d) => d.parentId === ownId);
-            if (children.length === 0) {
-                return [];
-            } else if (children[0].isLeaf) {
-                return children;
-            } else {
-                var returnChildren = children;
-                if (recursive) {
-                    for (var i = 0; i < children.length; i++) {
-                        returnChildren = returnChildren.concat(this.getChildDataPoints(dataPoints, children[i].ownId));
-                    }
-                }
-                return returnChildren;
-            }
-        }
-
         private getParentDataPoints(dataPoints: HierarchySlicerDataPoint[], parentId: string): HierarchySlicerDataPoint[] {
             var parent = dataPoints.filter((d) => d.ownId === parentId);
-            if (parent.length === 0) {
+            if (!parent || (parent.length === 0)) {
                 return [];
             } else if (parent[0].level === 0) {
                 return parent;
@@ -429,30 +437,57 @@
             }
         }
 
-        private getChildFilters(dataPoints: HierarchySlicerDataPoint[], parentId: string, level: number): data.SQExpr {
+        private getChildFilters(dataPoints: HierarchySlicerDataPoint[], parentId: string, level: number): { filters: data.SQExpr; memberCount: number; } {
+            var memberCount: number = 0;
             var childFilters = dataPoints.filter((d) => d.level === level && d.parentId === parentId && d.selected);
-            if (childFilters.length === 0) {
+            var totalChildren = dataPoints.filter((d) => d.level === level && d.parentId === parentId).length;
+            if (!childFilters || (childFilters.length === 0)) {
                 return;
             }
             else if (childFilters[0].isLeaf) { // Leaf level
-                var returnFilter = childFilters[0].id;
-                if (childFilters.length > 1) {
-                    for (var i = 1; i < childFilters.length; i++) {
-                        returnFilter = data.SQExprBuilder.or(returnFilter, childFilters[i].id);
+                if (totalChildren !== childFilters.length) {
+                    var returnFilter = childFilters[0].id;
+                    memberCount += childFilters.length;
+                    if (childFilters.length > 1) {
+                        for (var i = 1; i < childFilters.length; i++) {
+                            returnFilter = data.SQExprBuilder.or(returnFilter, childFilters[i].id);
+                        }
                     }
+                    return {
+                        filters: returnFilter,
+                        memberCount: memberCount,
+                    };
+                } else {
+                    return;
                 }
-                return returnFilter;
             } else {
-                var returnFilter = data.SQExprBuilder.and(childFilters[0].id, 
-                    this.getChildFilters(dataPoints, childFilters[0].ownId, level + 1));
-                if (childFilters.length > 1) {
-                    for (var i = 1; i < childFilters.length; i++) {
-                        returnFilter = data.SQExprBuilder.or(returnFilter, 
-                            data.SQExprBuilder.and(childFilters[i].id,
-                            this.getChildFilters(dataPoints, childFilters[i].ownId, level + 1)));
+                var returnFilter: data.SQExpr;
+                var allSelected = (totalChildren === childFilters.length);
+                memberCount += childFilters.length;
+                for (var i = 0; i < childFilters.length; i++) {
+                    var childChildFilter = this.getChildFilters(dataPoints, childFilters[i].ownId, level + 1);
+                    if (childChildFilter) {
+                        allSelected = false;
+                        memberCount += childChildFilter.memberCount;
+                        if (returnFilter) {
+                            returnFilter = data.SQExprBuilder.or(returnFilter,
+                                data.SQExprBuilder.and(childFilters[i].id,
+                                    childChildFilter.filters));
+                        } else {
+                            returnFilter = data.SQExprBuilder.and(childFilters[i].id, childChildFilter.filters);
+                        }
+                    } else {
+                        if (returnFilter) {
+                            returnFilter = data.SQExprBuilder.or(returnFilter, childFilters[i].id);
+                        } else {
+                            returnFilter = childFilters[i].id;
+                        }
                     }
                 }
-                return returnFilter;
+                return allSelected ? undefined : {
+                    filters: returnFilter,
+                    memberCount: memberCount,
+                };
             }
         }
 
@@ -463,7 +498,12 @@
             } else {
                 properties[hierarchySlicerProperties.filterPropertyIdentifier.propertyName] = "";
             }
-            properties[hierarchySlicerProperties.filterValuePropertyIdentifier.propertyName] = this.dataPoints.filter((d) => d.selected).map((d) => d.ownId).join(',');
+            var filterValues = this.dataPoints.filter((d) => d.selected).map((d) => d.ownId).join(',');
+            if (filterValues) {
+                properties[hierarchySlicerProperties.filterValuePropertyIdentifier.propertyName] = filterValues;
+            } else {
+                properties[hierarchySlicerProperties.filterValuePropertyIdentifier.propertyName] = "";
+            }
 
             var objects: VisualObjectInstancesToPersist = {
                 merge: [
@@ -476,7 +516,6 @@
 
             this.hostServices.persistProperties(objects);
             this.hostServices.onSelect({ data: [] });
-
         }
 
         private persistExpand(updateScrollbar: boolean) {
@@ -494,8 +533,6 @@
 
             this.hostServices.persistProperties(objects);
             this.hostServices.onSelect({ data: [] });
-
-            this.options.renderCallBack(updateScrollbar);
         }
     }
 
@@ -506,6 +543,14 @@
         header: {
             show: <DataViewObjectPropertyIdentifier>{ objectName: 'header', propertyName: 'show' },
             title: <DataViewObjectPropertyIdentifier>{ objectName: 'header', propertyName: 'title' },
+            fontColor: <DataViewObjectPropertyIdentifier>{ objectName: 'header', propertyName: 'fontColor' },
+            background: <DataViewObjectPropertyIdentifier>{ objectName: 'header', propertyName: 'background' },
+            textSize: <DataViewObjectPropertyIdentifier>{ objectName: 'header', propertyName: 'textSize' },
+        },
+        items: {
+            fontColor: <DataViewObjectPropertyIdentifier>{ objectName: 'items', propertyName: 'fontColor' },
+            background: <DataViewObjectPropertyIdentifier>{ objectName: 'items', propertyName: 'background' },
+            textSize: <DataViewObjectPropertyIdentifier>{ objectName: 'items', propertyName: 'textSize' },
         },
         selectedPropertyIdentifier: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'selected' },
         expandedValuePropertyIdentifier: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'expanded' },
@@ -587,7 +632,6 @@
     export interface HierarchySlicerBehaviorOptions {
         hostServices: IVisualHostServices;
         expanders: D3.Selection;
-        renderCallBack(updateScrollbar: boolean): void;
         slicerContainer: D3.Selection;
         slicerItemContainers: D3.Selection;
         slicerItemLabels: D3.Selection;
@@ -604,15 +648,23 @@
     export class HierarchySlicer implements IVisual {
         public static capabilities: VisualCapabilities = {
             dataRoles: [{
-                name: 'Fields',
-                kind: powerbi.VisualDataRoleKind.Grouping,
-                displayName: 'Fields'
-            }],
+                    name: 'Fields',
+                    kind: powerbi.VisualDataRoleKind.Grouping,
+                    displayName: 'Fields'
+                },
+                {
+                    name: 'Values',
+                    kind: VisualDataRoleKind.Measure,
+                    displayName: 'Values',
+                }],
             dataViewMappings: [{
+                conditions: [{
+                    'Values': { min: 0, max: 1 }
+                }],
                 table: {
                     rows: {
                         for: { in: 'Fields' },
-                        dataReductionAlgorithm: { bottom: { count: 2000 } }
+                        dataReductionAlgorithm: { bottom: { count: 4000 } }
                     }
                 }
             }],
@@ -657,7 +709,38 @@
                         title: {
                             displayName: 'Title',
                             type: { text: true }
-                        }
+                        },
+                        fontColor: {
+                            displayName: 'Font color',
+                            description: 'Font color of the title',
+                            type: { fill: { solid: { color: true } } }
+                        },
+                        background: {
+                            displayName: 'Background',
+                            type: { fill: { solid: { color: true } } }
+                        },
+                        textSize: {
+                            displayName: 'Text Size',
+                            type: { formatting: { fontSize: true } }
+                        },
+                    },
+                },
+                items: {
+                    displayName: 'Items',
+                    properties: {
+                        fontColor: {
+                            displayName: 'Font color',
+                            description: 'Font color of the cells',
+                            type: { fill: { solid: { color: true } } }
+                        },
+                        background: {
+                            displayName: 'Background',
+                            type: { fill: { solid: { color: true } } }
+                        },
+                        textSize: {
+                            displayName: 'Text Size',
+                            type: { formatting: { fontSize: true } }
+                        },
                     },
                 },
                 privacy: {
@@ -700,6 +783,7 @@
         private data: HierarchySlicerData;
         private treeView: ITreeView;
         private margin: IMargin;
+        private maxLevels: number;
         private waitingForData: boolean;
         private slicerContainer: D3.Selection;
         private slicerHeader: D3.Selection;
@@ -742,8 +826,8 @@
                     borderBottomWidth: 1,
                     show: true,
                     outline: 'BottomOnly',
-                    fontColor: '#a6a6a6',
-                    background: '#ffffff',
+                    fontColor: '#666666',
+                    background: undefined,
                     textSize: 10,
                     outlineColor: '#a6a6a6',
                     outlineWeight: 1,
@@ -764,7 +848,7 @@
                     disabledColor: 'grey',
                     marginLeft: 8,
                     outline: 'Frame',
-                    background: '#ffffff',
+                    background: undefined,
                     transparency: 0,
                     outlineColor: '#000000',
                     outlineWeight: 1,
@@ -780,11 +864,11 @@
 
         public converter(dataView: DataView): HierarchySlicerData {
             if (!dataView ||
-                !dataView.categorical ||
-                !dataView.categorical.categories ||
-                !dataView.categorical.categories[0] ||
-                !dataView.categorical.categories[0].values ||
-                !(dataView.categorical.categories[0].values.length > 0)) {
+                !dataView.table ||
+                !dataView.table.rows||
+                !(dataView.table.rows.length > 0) ||
+                !dataView.table.columns ||
+                !(dataView.table.columns.length > 0)) {
                 return {
                     dataPoints: [],
                     settings: null,
@@ -794,7 +878,6 @@
 
             var rows = dataView.table.rows;
             var columns = dataView.table.columns;
-            var identities = dataView.categorical.categories;
             var levels = rows[0].length - 1;
             var dataPoints = [];
             var defaultSettings: HierarchySlicerSettings = HierarchySlicer.DefaultSlicerSettings();
@@ -807,27 +890,29 @@
             
             defaultSettings.general.singleselect = DataViewObjects.getValue<boolean>(objects, hierarchySlicerProperties.selection.singleselect, defaultSettings.general.singleselect);
             defaultSettings.header.title = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.header.title, dataView.metadata.columns[0].displayName);
-            selectionFilter = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.filterPropertyIdentifier, "");
             selectedIds = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.filterValuePropertyIdentifier, "").split(',');
             expandedIds = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.expandedValuePropertyIdentifier, "").split(',');
-
+            
             for (var r = 0; r < rows.length; r++) {
                 var parentExpr = null;
                 var parentId: string = '';
-
+                
                 for (var c = 0; c < rows[r].length; c++) {
-                    var format = dataView.metadata.columns[c].format;
-                    var dataType: ValueTypeDescriptor = dataView.metadata.columns[c].type
-                    var labelValue = valueFormatter.format(rows[r][c], format) === null ? "(blank)" : valueFormatter.format(rows[r][c], format);
+                    var format = dataView.table.columns[c].format;
+                    var dataType: ValueTypeDescriptor = dataView.table.columns[c].type
+                    var labelValue: string = valueFormatter.format(rows[r][c], format);
+                    labelValue = labelValue === null ? "(blank)" : labelValue; 
+                    
                     var value: data.SQConstantExpr;
-
                     if (rows[r][c] === null) {
                         value = powerbi.data.SQExprBuilder.nullConstant();
                     } else {
                         if (dataType.text) {
                             value = powerbi.data.SQExprBuilder.text(rows[r][c]);
-                        } else if (dataType.integer || dataType.numeric) {
+                        } else if (dataType.integer) {
                             value = powerbi.data.SQExprBuilder.integer(rows[r][c]);
+                        } else if (dataType.numeric) {
+                            value = powerbi.data.SQExprBuilder.double(rows[r][c]);
                         } else if (dataType.bool) {
                             value = powerbi.data.SQExprBuilder.boolean(rows[r][c]);
                         } else if (dataType.dateTime) {
@@ -837,8 +922,10 @@
                         }
                     }
                     var filterExpr = powerbi.data.SQExprBuilder.compare(
-                        data.QueryComparisonKind.Equal,
-                        <powerbi.data.SQExpr>dataView.categorical.categories[0].identityFields[c],
+                        powerbi.data.QueryComparisonKind.Equal,
+                        dataView.table.columns[c].expr ?
+                            <powerbi.data.SQExpr>dataView.table.columns[c].expr :
+                            <powerbi.data.SQExpr>dataView.categorical.categories[0].identityFields[c], // Needed for PBI May 2016
                         value);
 
                     if (c > 0) {
@@ -848,19 +935,11 @@
                         parentId = "";
                         parentExpr = filterExpr;
                     }
-                    var ownId = parentId + (parentId === "" ? "" : '_') + labelValue.replace(',', '') + '-' + c;
+                    var ownId = parentId + (parentId === "" ? "" : '_') + labelValue.replace(/,/g, '') + '-' + c;
                     var isLeaf = c === rows[r].length - 1;
-                    
-                    var selector: data.Selector = {
-                        data: [data.createDataViewScopeIdentity(parentExpr)],
-                    };
-                    if (isLeaf) {
-                        selector = { data: [dataView.table.identity[r]] };
-                    }
-                    var identity = new SelectionId(selector, false);
 
                     var dataPoint = {
-                        identity: identity,
+                        identity: null, //identity,
                         selected: selectedIds.filter((d) => d === ownId).length > 0,
                         value: labelValue,
                         tooltip: labelValue,
@@ -885,13 +964,22 @@
             }
 
             // Set isHidden property
-            var expandedPoints = dataPoints.filter((d) => d.isExpand);
-            var expanded = expandedPoints.filter((d) => d.level === 0);
-            
-            for (var i = 1; i <= levels; i++) { // loop thru all remaining levels
-                expanded = expanded.concat(expandedPoints.filter((d) => d.level === i && expanded.filter((dp) => dp.level === i - 1 && dp.ownId === d.parentId).length > 0));
-            }
-            dataPoints.forEach((d) => expanded.filter((d1) => d.parentId === d1.ownId).length > 0 || d.level === 0 ? d.isHidden = false : d.isHidden = true);
+            var parentRootNodes = [];
+            var parentRootNodesTemp = [];
+            var parentRootNodesTotal = [];
+            for (var l = 0; l < levels; l++) {
+                var expandedRootNodes = dataPoints.filter((d) => d.isExpand && d.level === l); 
+                if (expandedRootNodes.length > 0) {
+                    for (var n = 0; n < expandedRootNodes.length; n++) {
+                        parentRootNodesTemp = parentRootNodes.filter((p) => expandedRootNodes[n].parentId === p.ownId); //Is parent expanded?                        
+                        if (l === 0 || (parentRootNodesTemp.length > 0)) {
+                            parentRootNodesTotal = parentRootNodesTotal.concat(expandedRootNodes[n]);
+                            dataPoints.filter((d) => d.parentId === expandedRootNodes[n].ownId && d.level === l + 1).forEach((d) => d.isHidden = false);
+                        }
+                    }
+                }
+                parentRootNodes = parentRootNodesTotal;
+            }                
 
             return {
                 dataPoints: dataPoints,
@@ -899,21 +987,6 @@
                 levels: levels,
                 hasSelectionOverride: true,
             };
-        }
-
-        private getChildExpandedDataPoints(dataPoints: HierarchySlicerDataPoint[], ownId: string): HierarchySlicerDataPoint[] {
-            var children = dataPoints.filter((d) => d.parentId === ownId && d.isExpand);
-            if (children.length === 0) {
-                return [];
-            } else if (children[0].isLeaf) {
-                return children;
-            } else {
-                var returnChildren = children;
-                for (var i = 0; i < children.length; i++) {
-                    returnChildren = returnChildren.concat(this.getChildExpandedDataPoints(dataPoints, children[i].ownId));
-                }
-                return returnChildren;
-            }
         }
 
         public constructor(options?: any) {
@@ -1048,7 +1121,9 @@
             this.updateSlicerBodyDimensions();
 
             var dataView = this.dataView,
-                data = this.data = this.converter(dataView);
+                data = this.data = this.converter(dataView)
+
+            this.maxLevels = this.data.levels + 1;
             
             if (data.dataPoints.length === 0) {
                 this.treeView.empty();
@@ -1056,7 +1131,7 @@
             }
 
             this.settings = this.data.settings;
-            this.updateSelectionStyle();
+            this.updateSettings();
 
             this.treeView
                 .viewport(this.getBodyViewport(this.viewport))
@@ -1069,10 +1144,34 @@
                 .render();
         }
 
+        private updateSettings(): void {
+            this.updateSelectionStyle();
+            this.updateFontStyle();
+            this.updateHeaderStyle();
+        }
+
         private updateSelectionStyle(): void {
             var objects = this.dataView && this.dataView.metadata && this.dataView.metadata.objects;
             if (objects) {
                 this.slicerContainer.classed('isMultiSelectEnabled', !DataViewObjects.getValue<boolean>(objects, hierarchySlicerProperties.selection.singleselect, this.settings.general.singleselect));
+            }
+        }
+
+        private updateFontStyle(): void {
+            var objects = this.dataView && this.dataView.metadata && this.dataView.metadata.objects;
+            if (objects) {
+                this.settings.slicerText.fontColor = DataViewObjects.getFillColor(objects, hierarchySlicerProperties.items.fontColor, this.settings.slicerText.fontColor);
+                this.settings.slicerText.background = DataViewObjects.getFillColor(objects, hierarchySlicerProperties.items.background, this.settings.slicerText.background);
+                this.settings.slicerText.textSize = DataViewObjects.getValue<number>(objects, hierarchySlicerProperties.items.textSize, this.settings.slicerText.textSize);
+            }
+        }
+
+        private updateHeaderStyle(): void {
+            var objects = this.dataView && this.dataView.metadata && this.dataView.metadata.objects;
+            if (objects) {
+                this.settings.header.fontColor = DataViewObjects.getFillColor(objects, hierarchySlicerProperties.header.fontColor, this.settings.header.fontColor);
+                this.settings.header.background = DataViewObjects.getFillColor(objects, hierarchySlicerProperties.header.background, this.settings.header.background);
+                this.settings.header.textSize = DataViewObjects.getValue<number>(objects, hierarchySlicerProperties.header.textSize, this.settings.header.textSize);
             }
         }
 
@@ -1089,18 +1188,21 @@
             var settings = this.settings;
 
             var treeItemElementParent = rowSelection.append('li')
-                .classed(HierarchySlicer.ItemContainer.class, true);
+                .classed(HierarchySlicer.ItemContainer.class, true)
+                .style({ 'background-color': settings.slicerText.background });
 
             // Expand/collapse
-            treeItemElementParent.each(function (d: HierarchySlicerDataPoint, i: number) {
-                var item = d3.select(this);
-                item.append('div')
-                    .classed(HierarchySlicer.ItemContainerExpander.class, true)
-                    .append('i')
-                    .classed("collapse-icon", true)
-                    .classed("expanded-icon", d.isExpand)
-                    .style("visibility", d.isLeaf ? "hidden" : "visible");
-            });
+            if (this.maxLevels > 1) {
+                treeItemElementParent.each(function (d: HierarchySlicerDataPoint, i: number) {
+                    var item = d3.select(this);
+                    item.append('div')
+                        .classed(HierarchySlicer.ItemContainerExpander.class, true)
+                        .append('i')
+                        .classed("collapse-icon", true)
+                        .classed("expanded-icon", d.isExpand)
+                        .style("visibility", d.isLeaf ? "hidden" : "visible");
+                });
+            }
 
             var treeItemElement = treeItemElementParent.append('div')
                 .classed(HierarchySlicer.ItemContainerChild.class, true);
@@ -1117,17 +1219,18 @@
             treeItemElement.each(function (d: HierarchySlicerDataPoint, i: number) {
                 var item = d3.select(this);
                 item.append('span')
-                    .classed(HierarchySlicer.LabelText.class, true);
+                    .classed(HierarchySlicer.LabelText.class, true)
+                    .style({
+                        'color': settings.slicerText.fontColor,
+                        'font-size': PixelConverter.fromPoint(settings.slicerText.textSize)
+                    });
             });
+            var maxLevel = this.maxLevels;
 
             treeItemElementParent.each(function (d: HierarchySlicerDataPoint, i: number) {
                 var item = d3.select(this);
-                item.style('padding-left', d.level * 15 + 'px');
+                item.style('padding-left', (maxLevel === 1 ? 8 : (d.level * 15)) + 'px');
             });
-
-            treeItemElement.append('span')
-                .classed(HierarchySlicer.CountText.class, true)
-                .style('font-size', PixelConverter.fromPoint(settings.slicerText.textSize));
         }
 
         private onUpdateSelection(rowSelection: D3.Selection, interactivityService: IInteractivityService): void {
@@ -1143,12 +1246,13 @@
                     .text(settings.header.title.trim());
 
                 this.slicerHeader.style({
-                        'color': settings.slicerText.fontColor,
-                        'border-style': 'solid',
-                        'border-color': settings.general.outlineColor,
-                        'border-width': this.getBorderWidth(settings.header.outline, settings.header.outlineWeight),
-                        'font-size': PixelConverter.fromPoint(settings.header.textSize),
-                    });
+                    'color': settings.header.fontColor,
+                    'background-color': settings.header.background,
+                    'border-style': 'solid',
+                    'border-color': settings.general.outlineColor,
+                    'border-width': this.getBorderWidth(settings.header.outline, settings.header.outlineWeight),
+                    'font-size': PixelConverter.fromPoint(settings.header.textSize),
+                });
 
                 this.slicerBody
                     .classed('slicerBody', true);
@@ -1173,7 +1277,6 @@
                         hostServices: this.hostServices,
                         dataPoints: data.dataPoints,
                         expanders: expanders,
-                        renderCallBack: (updateScrollbar: boolean) => this.updateInternal(updateScrollbar),
                         slicerContainer: this.slicerContainer,
                         slicerItemContainers: slicerItemContainers,
                         slicerItemLabels: slicerItemLabels,
@@ -1186,14 +1289,17 @@
                         levels: data.levels,
                     };
 
-                    interactivityService.bind(
-                        data.dataPoints,
-                        this.behavior,
-                        behaviorOptions,
-                        {
-                            overrideSelectionFromData: true,
-                            hasSelectionOverride: data.hasSelectionOverride
-                        });
+                    try { // strange bug in PBI May 2016 craches
+                        interactivityService.bind(
+                            data.dataPoints,
+                            this.behavior,
+                            behaviorOptions,
+                            {
+                                overrideSelectionFromData: true,
+                                hasSelectionOverride: data.hasSelectionOverride
+                            });
+                    } catch (e) {
+                    }
 
                     this.behavior.styleSlicerInputs(
                         rowSelection.select(HierarchySlicer.ItemContainerChild.selector),
@@ -1291,9 +1397,25 @@
                         selector: null,
                         properties: {
                             title: DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.header.title, this.settings.header.title),
+                            fontColor: DataViewObjects.getFillColor(objects, hierarchySlicerProperties.header.fontColor, this.settings.header.fontColor),
+                            background: DataViewObjects.getFillColor(objects, hierarchySlicerProperties.header.background, this.settings.header.background),
+                            textSize: DataViewObjects.getValue<number>(objects, hierarchySlicerProperties.header.textSize, this.settings.header.textSize),
                         }
                     };
                     instances.push(headerOptions);
+                    break;
+                case "items":
+                    var items: VisualObjectInstance = {
+                        objectName: "items",
+                        displayName: "Items",
+                        selector: null,
+                        properties: {
+                            fontColor: DataViewObjects.getFillColor(objects, hierarchySlicerProperties.items.fontColor, this.settings.slicerText.fontColor),
+                            background: DataViewObjects.getFillColor(objects, hierarchySlicerProperties.items.background, this.settings.slicerText.background),
+                            textSize: DataViewObjects.getValue<number>(objects, hierarchySlicerProperties.items.textSize, this.settings.slicerText.textSize),
+                        }
+                    }
+                    instances.push(items);
                     break;
                 case "privacy":
                     var privacy: VisualObjectInstance = {
@@ -1302,7 +1424,7 @@
                         selector: null,
                         properties: {
                             updates: false,
-                            version: "0.7.20160617",
+                            version: "0.7.2",
                         }
                     };
                     instances.push(privacy);

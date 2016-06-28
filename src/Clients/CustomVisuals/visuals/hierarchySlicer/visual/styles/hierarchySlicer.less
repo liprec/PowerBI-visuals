@@ -40,10 +40,13 @@
 */
 .scroll-wrapper{width:100%;height:100%;display:block;position:relative;overflow:hidden}.scroll-wrapper .scroll-content{-ms-overflow-style:none!important}.scroll-wrapper .scroll-y{width:6px!important;right:0!important}.scroll-wrapper .scroll-y .scroll-element_track{background-color:transparent!important}.scroll-wrapper .scroll-y .scroll-bar{background-color:#C8C8C8!important;min-height:20px;max-height:calc(100% - 12px)}
 
+/* powerbi-spinner */
+.pbi-spinner{background-position:-32px 0;width:20px;height:20px}.pbi-spinner-large{background-position:0 0;width:32px;height:32px}.powerbi-spinner.dotsLoader .spinner{width:100%;height:30px;overflow-x:hidden;overflow-y:hidden;text-align:center;font-size:20px;color:#000}.powerbi-spinner.dotsLoader span{display:block;margin:0 auto}.powerbi-spinner.dotsLoader .dots span{display:inline-block;background:#000;width:8px;height:8px;border-radius:100%;margin:0 4px;position:relative;-webkit-animation:dotsLoader 4s infinite;-webkit-animation-timing-function:cubic-bezier(.03,.615,.995,.415);-webkit-animation-fill-mode:both;animation:dotsLoader 4s infinite;animation-timing-function:cubic-bezier(.03,.615,.995,.415);animation-fill-mode:both}.powerbi-spinner.dotsLoader .dots span:nth-child(1){-webkit-animation-delay:1s;animation-delay:1s}.powerbi-spinner.dotsLoader .dots span:nth-child(2){-webkit-animation-delay:.8s;animation-delay:.8s}.powerbi-spinner.dotsLoader .dots span:nth-child(3){-webkit-animation-delay:.6s;animation-delay:.6s}.powerbi-spinner.dotsLoader .dots span:nth-child(4){-webkit-animation-delay:.4s;animation-delay:.4s}.powerbi-spinner.dotsLoader .dots span:nth-child(5){-webkit-animation-delay:.2s;animation-delay:.2s}.powerbi-spinner.dotsLoader .dots span:nth-child(6){-webkit-animation-delay:0s;animation-delay:0s}@-webkit-keyframes dotsLoader{0%{-webkit-transform:translateX(-80px);opacity:0}25%{opacity:1}50%{-webkit-transform:translateX(80px);opacity:0}100%{opacity:0}}@-moz-keyframes dotsLoader{0%{-moz-transform:translateX(-80px);opacity:0}25%{opacity:1}50%{-moz-transform:translateX(80px);opacity:0}100%{opacity:0}}@-ms-keyframes dotsLoader{0%,100%,50%{opacity:0}0%{-ms-transform:translateX(-80px)}25%{opacity:1}50%{-ms-transform:translateX(80px)}}@keyframes dotsLoader{0%{transform:translateX(-80px);opacity:0}25%{opacity:1}50%{transform:translateX(80px);opacity:0}100%{opacity:0}}@-moz-keyframes spin{100%{-moz-transform:rotate(360deg)}}@-webkit-keyframes spin{100%{-webkit-transform:rotate(360deg)}}@keyframes spin{100%{-webkit-transform:rotate(360deg);transform:rotate(360deg)}}.powerbi-spinner:not(.dotsLoader){display:inline-block;width:20px;height:20px;text-align:initial!important;vertical-align:middle}.powerbi-spinner:not(.dotsLoader) .spinner{transform:scale(.35714286)}.powerbi-spinner:not(.dotsLoader).centered{position:absolute;top:50%;left:50%;margin-top:-10px;margin-left:-10px}.powerbi-spinner:not(.dotsLoader).xlarge{width:48px;height:48px}.powerbi-spinner:not(.dotsLoader).xlarge .spinner{transform:scale(.85714286)}.powerbi-spinner:not(.dotsLoader).xlarge.centered{margin-top:-24px;margin-left:-24px}.powerbi-spinner:not(.dotsLoader).large{width:32px;height:32px}.powerbi-spinner:not(.dotsLoader).large .spinner{transform:scale(.57142857)}.powerbi-spinner:not(.dotsLoader).large.centered{margin-top:-16px;margin-left:-16px}.powerbi-spinner:not(.dotsLoader).small{width:20px;height:20px}.powerbi-spinner:not(.dotsLoader).small .spinner{transform:scale(.35714286)}.powerbi-spinner:not(.dotsLoader).small.centered{margin-top:-10px;margin-left:-10px}.powerbi-spinner:not(.dotsLoader).xsmall{width:16px;height:16px}.powerbi-spinner:not(.dotsLoader).xsmall .spinner{transform:scale(.28571429)}.powerbi-spinner:not(.dotsLoader).xsmall.centered{margin-top:-8px;margin-left:-8px}.powerbi-spinner:not(.dotsLoader) .spinner{position:static;display:block;width:40px;height:40px;padding:8px;box-sizing:content-box;transform-origin:0 0;-webkit-transform-origin:0 0}html[dir=rtl] .powerbi-spinner:not(.dotsLoader) .spinner{transform-origin:top left}.powerbi-spinner:not(.dotsLoader) .spinner .circle{position:absolute;width:38px;height:38px;opacity:0;transform:rotate(225deg);animation-iteration-count:infinite;animation-name:orbit;animation-duration:5.5s}.powerbi-spinner:not(.dotsLoader) .spinner .circle:after{content:'';position:absolute;width:8px;height:8px;border-radius:100%;background:#666}.powerbi-spinner:not(.dotsLoader) .spinner .circle:nth-child(2){animation-delay:360ms}.powerbi-spinner:not(.dotsLoader) .spinner .circle:nth-child(3){animation-delay:720ms}.powerbi-spinner:not(.dotsLoader) .spinner .circle:nth-child(4){animation-delay:1.08s}.powerbi-spinner:not(.dotsLoader) .spinner .circle:nth-child(5){animation-delay:1.44s}@keyframes orbit{0%{transform:rotate(225deg);opacity:1;animation-timing-function:ease-out}7%{transform:rotate(345deg);animation-timing-function:linear}30%{transform:rotate(455deg);animation-timing-function:ease-in-out}39%{transform:rotate(690deg);animation-timing-function:linear}70%{transform:rotate(815deg);opacity:1;animation-timing-function:ease-out}75%{transform:rotate(945deg);animation-timing-function:ease-out}100%,76%{transform:rotate(945deg);opacity:0}}
+
 /* Custom: no horizontal scrollbars */
 .scrollbar-inner>.scroll-element.scroll-x{visibility:hidden;}
 
-.clear {
+.visual-HierarchySlicer1458836712039 .clear {
     background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAABnRSTlMA/wD/AP83WBt9AAAACXBIWXMAABYlAAAWJQFJUiTwAAAAfUlEQVR4nHWQwQ0EMQgD4ZQ6oJJtHiT6IH0E74MVyufyiWVljAkDoP/n11dVtXB3d28NgG/a3VWViDLzeZ6PAwDAzDKzdWaa2TmHq4qZmxORSdp7Z+aqqogYFwAzd76qroiYeUTUARO2xpoXzYlIVVG3uBtNwW+xbnH/xtAvZwyCObCjxL8AAAAASUVORK5CYII=');
     background-position:center !important;
     background-repeat: no-repeat !important;
@@ -78,6 +81,7 @@
     height: 12px !important;
     display: inline-block !important;
     margin-right: -6px !important;
+    padding-left: 5px !important;
     transform:rotate(-45deg);
     -webkit-transform:rotate(-45deg);
 }
@@ -89,8 +93,10 @@
     -webkit-transform:rotate(0);
 }
 
-.slicerContainer .slicerItemContainer {
-    justify-content: flex-start !important;
-}
-
+/* Adjustments */
+.slicerContainer .slicerItemContainer {justify-content: flex-start !important;}
 .scroll-element,[hidden],template{display:none}
+.slicerContainer .slicerItemContainer * {vertical-align:middle !important;}
+.slicerItemContainerExpander {width:19px;}
+.slicerCheckbox {margin-left:0px !important;margin-right:4px !important;}
+.powerbi-spinner{display: inline-block !important;}
