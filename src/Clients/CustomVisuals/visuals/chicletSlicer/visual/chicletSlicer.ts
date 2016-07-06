@@ -31,6 +31,9 @@ module powerbi.visuals.samples {
     import ClassAndSelector = jsCommon.CssConstants.ClassAndSelector;
     import createClassAndSelector = jsCommon.CssConstants.createClassAndSelector;
     import PixelConverter = jsCommon.PixelConverter;
+    import SemanticFilter = powerbi.data.SemanticFilter;
+    import SQExprConverter = powerbi.data.SQExprConverter;
+    import SelectionIdBuilder = powerbi.visuals.SelectionIdBuilder;
 
     export interface ITableView {
         data(data: any[], dataIdFunction: (d) => {}, dataAppended: boolean): ITableView;
@@ -291,6 +294,7 @@ module powerbi.visuals.samples {
             showDisabled: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'showDisabled' },
             multiselect: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'multiselect' },
             selection: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'selection' },
+            selfFilterEnabled: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'selfFilterEnabled' },
         },
         header: {
             show: <DataViewObjectPropertyIdentifier>{ objectName: 'header', propertyName: 'show' },
@@ -383,6 +387,7 @@ module powerbi.visuals.samples {
         isSelectAllDataPoint?: boolean;
         imageURL?: string;
         selectable?: boolean;
+        filtered?: boolean;
     }
 
     export interface ChicletSlicerSettings {
@@ -393,8 +398,9 @@ module powerbi.visuals.samples {
             multiselect: boolean;
             showDisabled: string;
             selection: string;
+            selfFilterEnabled: boolean;
             getSavedSelection?: () => string[];
-            setSavedSelection?: (selectionIds: string[]) => void;
+            setSavedSelection?: (filter: SemanticFilter, selectionIds: string[]) => void;
         };
         margin: IMargin;
         header: {
@@ -647,6 +653,8 @@ module powerbi.visuals.samples {
             suppressDefaultTitle: true,
         };
         private element: JQuery;
+        private searchHeader: JQuery;
+        private searchInput: JQuery;
         private currentViewport: IViewport;
         private dataView: DataView;
         private slicerHeader: D3.Selection;
@@ -685,6 +693,7 @@ module powerbi.visuals.samples {
                     multiselect: true,
                     showDisabled: ChicletSlicerShowDisabled.INPLACE,
                     selection: null,
+                    selfFilterEnabled: false
                 },
                 margin: {
                     top: 50,
@@ -749,7 +758,7 @@ module powerbi.visuals.samples {
             }
         }
 
-        public static converter(dataView: DataView, localizedSelectAllText: string, interactivityService: IInteractivityService): ChicletSlicerData {
+        public static converter(dataView: DataView, localizedSelectAllText: string, searchText: string, interactivityService: IInteractivityService): ChicletSlicerData {
             if (!dataView ||
                 !dataView.categorical ||
                 !dataView.categorical.categories ||
@@ -770,6 +779,7 @@ module powerbi.visuals.samples {
                 defaultSettings.general.multiselect = DataViewObjects.getValue<boolean>(objects, chicletSlicerProps.general.multiselect, defaultSettings.general.multiselect);
                 defaultSettings.general.showDisabled = DataViewObjects.getValue<string>(objects, chicletSlicerProps.general.showDisabled, defaultSettings.general.showDisabled);
                 defaultSettings.general.selection = DataViewObjects.getValue(dataView.metadata.objects, chicletSlicerProps.general.selection, defaultSettings.general.selection);
+                defaultSettings.general.selfFilterEnabled = DataViewObjects.getValue<boolean>(objects, chicletSlicerProps.general.selfFilterEnabled, defaultSettings.general.selfFilterEnabled);
 
                 defaultSettings.header.show = DataViewObjects.getValue<boolean>(objects, chicletSlicerProps.header.show, defaultSettings.header.show);
                 defaultSettings.header.title = DataViewObjects.getValue<string>(objects, chicletSlicerProps.header.title, defaultSettings.header.title);
@@ -798,6 +808,11 @@ module powerbi.visuals.samples {
                 defaultSettings.images.imageSplit = DataViewObjects.getValue<number>(objects, chicletSlicerProps.images.imageSplit, defaultSettings.images.imageSplit);
                 defaultSettings.images.stretchImage = DataViewObjects.getValue<boolean>(objects, chicletSlicerProps.images.stretchImage, defaultSettings.images.stretchImage);
                 defaultSettings.images.bottomImage = DataViewObjects.getValue<boolean>(objects, chicletSlicerProps.images.bottomImage, defaultSettings.images.bottomImage);
+            }
+
+            if(defaultSettings.general.selfFilterEnabled && searchText) {
+                searchText = searchText.toLowerCase();
+                converter.dataPoints.forEach(x => x.filtered = x.category.toLowerCase().indexOf(searchText) < 0);
             }
 
             var categories: DataViewCategoricalColumn = dataView.categorical.categories[0];
@@ -829,9 +844,8 @@ module powerbi.visuals.samples {
 
         private static canSelect(args: SelectEventArgs): boolean {
             var selectors = args.data;
-
             // We can't have multiple selections if any include more than one identity
-            if (selectors.length > 1) {
+            if (selectors && (selectors.length > 1)) {
                 if (selectors.some((value: data.Selector) => value && value.data && value.data.length > 1)) {
                     return false;
                 }
@@ -946,6 +960,7 @@ module powerbi.visuals.samples {
                     rows: slicerSettings.general.rows,
                     showDisabled: slicerSettings.general.showDisabled,
                     multiselect: slicerSettings.general.multiselect,
+                    selfFilterEnabled: slicerSettings.general.selfFilterEnabled
                 }
             }];
         }
@@ -966,7 +981,7 @@ module powerbi.visuals.samples {
             this.updateSlicerBodyDimensions();
 
             var localizedSelectAllText: string = 'Select All';
-            var data = ChicletSlicer.converter(this.dataView, localizedSelectAllText, this.interactivityService);
+            var data = ChicletSlicer.converter(this.dataView, localizedSelectAllText, this.searchInput.val(), this.interactivityService);
             if (!data) {
                 this.tableView.empty();
                 return;
@@ -992,13 +1007,16 @@ module powerbi.visuals.samples {
                         return [];
                     }
                 };
-            data.slicerSettings.general.setSavedSelection = (selectionIds: string[]) => {
+
+            data.slicerSettings.general.setSavedSelection = (filter: SemanticFilter, selectionIds: string[]): void => {
                 this.isSelectionSaved = true;
                 this.hostServices.persistProperties(<VisualObjectInstancesToPersist>{
                         merge: [{
                         objectName: "general",
                         selector: null,
-                        properties: { selection: selectionIds && JSON.stringify(selectionIds) || "" }
+                        properties: {
+                            filter: filter,
+                            selection: selectionIds && JSON.stringify(selectionIds) || "" }
                     }]
                 });
             };
@@ -1045,7 +1063,7 @@ module powerbi.visuals.samples {
                 .orientation(this.settings.general.orientation)
                 .rows(this.settings.general.rows)
                 .columns(this.settings.general.columns)
-                .data(data.slicerDataPoints,
+                .data(data.slicerDataPoints.filter(x => !x.filtered),
                 (d: ChicletSlicerDataPoint) => $.inArray(d, data.slicerDataPoints),
                 resetScrollbarPosition)
                 .viewport(this.getSlicerBodyViewport(this.currentViewport))
@@ -1067,6 +1085,8 @@ module powerbi.visuals.samples {
             //     }
             //     // console.error('>>> 2', 'RESTORE',   savedSelection,     arrSelected,     data.slicerDataPoints )
             // }
+
+            this.updateSearchHeader();
         }
 
         private initContainer() {
@@ -1096,6 +1116,8 @@ module powerbi.visuals.samples {
                     'border-width': this.getBorderWidth(settings.header.outline, settings.header.outlineWeight),
                     'font-size': PixelConverter.fromPoint(settings.header.textSize),
                 });
+
+            this.createSearchHeader($(slicerContainer.node()));
 
             this.slicerBody = slicerContainer
                 .append('div').classed(ChicletSlicer.Body.class, true)
@@ -1202,6 +1224,8 @@ module powerbi.visuals.samples {
                         this.slicerBody.style('background-color', null);
 
                     if (this.interactivityService && this.slicerBody) {
+                        this.interactivityService.applySelectionStateToData(data.slicerDataPoints);
+
                         var slicerBody = this.slicerBody.attr('width', this.currentViewport.width);
                         var slicerItemContainers = slicerBody.selectAll(ChicletSlicer.ItemContainer.selector);
                         var slicerItemLabels = slicerBody.selectAll(ChicletSlicer.LabelText.selector);
@@ -1252,6 +1276,36 @@ module powerbi.visuals.samples {
             };
 
             this.tableView = TableViewFactory.createTableView(tableViewOptions);
+        }
+
+        private createSearchHeader(container: JQuery): void {
+            this.searchHeader = $("<div>")
+                .appendTo(container)
+                .addClass("searchHeader")
+                .addClass("collapsed");
+
+            $("<div>").appendTo(this.searchHeader)
+                .attr("title", "Search")
+                .addClass("search");
+
+            var counter = 0;
+            this.searchInput = $("<input>").appendTo(this.searchHeader)
+                .attr("type", "text")
+                .attr("drag-resize-disabled", "true")
+                .addClass("searchInput")
+                .on("input", () => this.hostServices.persistProperties(<VisualObjectInstancesToPersist>{
+                    merge: [{
+                        objectName: "general",
+                        selector: null,
+                        properties: {
+                            counter: counter++
+                        }}]
+                }));
+        }
+
+        private updateSearchHeader(): void {
+            this.searchHeader.toggleClass("show", this.slicerData.slicerSettings.general.selfFilterEnabled);
+            this.searchHeader.toggleClass("collapsed", !this.slicerData.slicerSettings.general.selfFilterEnabled);
         }
 
         private onLoadMoreData(): void {
@@ -1382,8 +1436,8 @@ module powerbi.visuals.samples {
                     if (objects && objects.general && objects.general.filter) {
                         if (!this.categoryColumnRef)
                             return;
-                        var filter = <powerbi.data.SemanticFilter>objects.general.filter;
-                        var scopeIds = powerbi.data.SQExprConverter.asScopeIdsContainer(filter, this.categoryColumnRef);
+                        var filter = <SemanticFilter>objects.general.filter;
+                        var scopeIds = SQExprConverter.asScopeIdsContainer(filter, this.categoryColumnRef);
                         if (scopeIds) {
                             isInvertedSelectionMode = scopeIds.isNot;
                             numberOfScopeIds = scopeIds.scopeIds ? scopeIds.scopeIds.length : 0;
@@ -1419,7 +1473,7 @@ module powerbi.visuals.samples {
                     var imageURL: string = '';
 
                     for (var categoryIndex: number = 0, categoryCount = this.categoryValues.length; categoryIndex < categoryCount; categoryIndex++) {
-                        var categoryIdentity = this.category.identity ? this.category.identity[categoryIndex] : null;
+                        //var categoryIdentity = this.category.identity ? this.category.identity[categoryIndex] : null;
                         var categoryIsSelected = isCategoryColumnSelected(chicletSlicerProps.selectedPropertyIdentifier, this.category, categoryIndex);
                         var selectable: boolean = true;
 
@@ -1467,8 +1521,9 @@ module powerbi.visuals.samples {
                                 }
                             }
                         }
+                        var categorySelectionId: SelectionId = SelectionIdBuilder.builder().withCategory(this.category, categoryIndex).createSelectionId();
                         this.dataPoints.push({
-                            identity: SelectionId.createWithId(categoryIdentity),
+                            identity: categorySelectionId,
                             category: categoryLabel,
                             imageURL: imageURL,
                             value: value,
@@ -1580,7 +1635,6 @@ module powerbi.visuals.samples {
         private options: ChicletSlicerBehaviorOptions;
 
         public bindEvents(options: ChicletSlicerBehaviorOptions, selectionHandler: ISelectionHandler): void {
-            var filterPropertyId = chicletSlicerProps.filterPropertyIdentifier;
             var slicers = this.slicers = options.slicerItemContainers;
             this.slicerItemLabels = options.slicerItemLabels;
             this.slicerItemInputs = options.slicerItemInputs;
@@ -1635,13 +1689,11 @@ module powerbi.visuals.samples {
                 else {
                     selectionHandler.handleSelection(d, false /* isMultiSelect */);
                 }
-                selectionHandler.persistSelectionFilter(filterPropertyId);
                 this.saveSelection(selectionHandler);
             });
 
             slicerClear.on("click", (d: SelectableDataPoint) => {
                 selectionHandler.handleClearSelection();
-                selectionHandler.persistSelectionFilter(filterPropertyId);
                 this.saveSelection(selectionHandler);
             });
         }
@@ -1656,9 +1708,25 @@ module powerbi.visuals.samples {
             }
         }
 
+        private static getFilterFromSelectors(selectionHandler: ISelectionHandler, isSelectionModeInverted: boolean): SemanticFilter {
+            var selectors: data.Selector[] = [];
+            var selectedIds: SelectionId[] = <SelectionId[]>(<any>selectionHandler).selectedIds;
+
+            if (selectedIds.length > 0) {
+                selectors = _.chain(selectedIds)
+                    .filter((value: SelectionId) => value.hasIdentity())
+                    .map((value: SelectionId) => value.getSelector())
+                    .value();
+            }
+
+            var filter: SemanticFilter = powerbi.data.Selector.filterFromSelector(selectors, isSelectionModeInverted);
+            return filter;
+        }
+
         public saveSelection(selectionHandler: ISelectionHandler): void {
+            var filter: SemanticFilter = ChicletSlicerWebBehavior.getFilterFromSelectors(selectionHandler, this.interactivityService.isSelectionModeInverted());
             var selectionIdKeys = (<SelectionId[]>(<any>selectionHandler).selectedIds).map(x => x.getKey());
-            this.slicerSettings.general.setSavedSelection(selectionIdKeys);
+            this.slicerSettings.general.setSavedSelection(filter, selectionIdKeys);
         }
 
         public renderSelection(hasSelection: boolean): void {

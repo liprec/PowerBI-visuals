@@ -119,7 +119,7 @@ module powerbi.data {
                     // Guard against a DataViewMatrix with composite grouping in columns, because composite group in Series is 
                     // not yet expressible in the current version of DataViewValueColumns and DataViewValueColumnGroup interfaces.
                     // this.canPivotCategorical() would have returned false in the first place for this query.
-                    let hasCompositeGroupInSeries = utils.DataViewMatrixUtils.containsCompositeGroup(newDataViewMatrix.columns);
+                    let hasCompositeGroupInSeries = DataViewMatrixUtils.containsCompositeGroup(newDataViewMatrix.columns);
                     if (!hasCompositeGroupInSeries) {
                         newDataView.categorical = categoricalFromUnpivotedMatrix(newDataViewMatrix, newDataView.metadata.columns);
                     }
@@ -178,6 +178,10 @@ module powerbi.data {
                 visitRole: (roleName: string) => { addGroupingRole(roleName, categoryGroups); }
             });
 
+            DataViewMapping.visitGrouped(<DataViewGroupedRoleMapping>categoricalMapping.values, {
+                visitRole: (roleName: string) => { addGroupingRole(roleName, valueGroups); }
+            });
+            
             DataViewMapping.visitCategoricalValues(categoricalMapping.values, {
                 visitRole: (roleName: string) => { addGroupingRole(roleName, valueGroups); }
             });

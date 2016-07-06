@@ -20,6 +20,7 @@ declare module powerbi {
         ViewMode = 8,
         Style = 16,
         ResizeEnd = 32,
+        All = 62,
     }
     enum VisualPermissions {
     }
@@ -51,6 +52,10 @@ declare module powerbi {
     const enum JoinPredicateBehavior {
         /** Prevent items in this role from acting as join predicates. */
         None = 0,
+    }
+    const enum PromiseResultType {
+        Success = 0,
+        Failure = 1,
     }
 }
 /*
@@ -186,8 +191,15 @@ declare module powerbi {
 
         /**
          * Combines multiple promises into a single promise that is resolved when all of the input promises are resolved.
+         * Rejects immediately if any of the promises fail
          */
         all(promises: IPromise2<any, any>[]): IPromise<any[]>;
+        
+        /**
+         * Combines multiple promises into a single promise that is resolved when all of the input promises are resolved.
+         * Does not resolve until all promises finish (success or failure).
+         */
+        allSettled<T>(promises: IPromise2<any, any>[]): IPromise<IPromiseResult<T>[]>;        
 
         /**
          * Wraps an object that might be a value or a then-able promise into a promise. 
@@ -273,6 +285,11 @@ declare module powerbi {
 
     export interface IResultCallback<T> {
         (result: T, done: boolean): void;
+    }
+    
+    export interface IPromiseResult<T> {
+        type: PromiseResultType;
+        value: T;
     }
 }﻿/*
  *  Power BI Visualizations
@@ -590,14 +607,7 @@ declare module powerbi.visuals.telemetry {
     	name: string;
     	apiVersion: string;
     	custom: boolean;
-    }
-    
-    export interface VisualTelemetryInfo {
-        name: string;
-        apiVersion: string;
-        custom: boolean;
-    }
-    
+    }    
 }﻿/*
  *  Power BI Visualizations
  *
@@ -742,6 +752,14 @@ declare module powerbi.data {
         //changed to descriptor to not need to depend on ValueType class
         type?: ValueTypeDescriptor;
         joinPredicate?: JoinPredicateBehavior;
+
+        // Indication from the compiler to the visual that the role item has a scalar key available
+        hasScalarKey?: boolean;
+
+        // Indication from the visual to the query generator that a scalar key should be added to the query
+        // for this role item.  The property indicates where the key should be attached to the objects
+        // collection in the resulting data view.
+        scalarKeyMinProperty?: DataViewObjectPropertyIdentifier;
     }
 }﻿/*
  *  Power BI Visualizations
@@ -1287,10 +1305,13 @@ declare module powerbi {
         supported?: NumberRange;
     }
 
+    export interface ValueRange<T> {
+        min?: T;
+        max?: T;
+    }
+
     /** Defines the acceptable values of a number. */
-    export interface NumberRange {
-        min?: number;
-        max?: number;
+    export interface NumberRange extends ValueRange<number> {
     }
 
     export interface DataViewMappingScriptDefinition {
@@ -3229,12 +3250,16 @@ declare module powerbi.extensibility {
 declare module powerbi.extensibility {
 
     export interface IVisualPluginOptions {
-        capabilities: VisualCapabilities;
+        transform?: IVisualDataViewTransform;
     }
 
     export interface IVisualConstructor {
-        __capabilities__: VisualCapabilities;
-    }
+        __transform__?: IVisualDataViewTransform;
+    }   
+    
+    export interface IVisualDataViewTransform {
+        <T>(dataview: DataView[]): T;
+    } 
 
     // These are the base interfaces. These should remain empty
     // All visual versions should extend these for type compatability
@@ -3246,7 +3271,6 @@ declare module powerbi.extensibility {
     export interface VisualUpdateOptions { }
 
     export interface VisualConstructorOptions { }
-  
 }
 /*
  *  Power BI Visualizations
@@ -3410,7 +3434,7 @@ declare module powerbi.extensibility.v110 {
      */
     export interface IVisual extends extensibility.IVisual {
         /** Notifies the IVisual of an update (data, viewmode, size change). */
-        update(options: VisualUpdateOptions): void;
+        update<T>(options: VisualUpdateOptions, viewModel?: T): void;
 
         /** Notifies the visual that it is being destroyed, and to do any cleanup necessary (such as unsubscribing event handlers). */
         destroy?(): void;
@@ -3422,6 +3446,8 @@ declare module powerbi.extensibility.v110 {
     export interface IVisualHost extends extensibility.IVisualHost {
         createSelectionIdBuilder: () => visuals.ISelectionIdBuilder;
         createSelectionManager: () => ISelectionManager;
+        /** An array of default colors to be used by the visual */
+        colors: IColorInfo[];
     }
 
     export interface VisualUpdateOptions extends extensibility.VisualUpdateOptions {
@@ -3435,7 +3461,6 @@ declare module powerbi.extensibility.v110 {
         element: HTMLElement;
         host: IVisualHost;
     }
-
 }
 /*
 *  Power BI Visualizations

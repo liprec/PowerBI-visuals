@@ -36,7 +36,6 @@ module powerbitests {
     }
     let mockVisualPlugin: powerbi.IVisualPlugin = {
         name: mockVisualGuid,
-        class: mockVisualGuid,
         capabilities: {},
         create: () => new MockVisual(),
         custom: true
@@ -55,15 +54,6 @@ module powerbitests {
         };
         let style = powerbi.visuals.visualStyles.create();
 
-        describe("capabilities", () => {
-            it("should register capabilities", () => {
-                let plugin = powerbi.visuals.visualPluginFactory.create().getPlugin("debugVisual");
-
-                expect(plugin).toBeDefined();
-                expect(plugin.capabilities).toBe(powerbi.visuals.system.DebugVisual.capabilities);
-            });
-        });
-
         function buildUpdateOptions(viewport: powerbi.IViewport, object: powerbi.DataView): powerbi.VisualUpdateOptions {
             return {
                 viewport: viewport,
@@ -79,6 +69,7 @@ module powerbitests {
             let getSpy: jasmine.Spy;
             let getScriptSpy: jasmine.Spy;
             let getJSONSpy: jasmine.Spy;
+            let capabilities: powerbi.VisualCapabilities;
 
             beforeEach(() => {
 
@@ -95,13 +86,15 @@ module powerbitests {
                     return d.promise();
                 });
 
+                capabilities = { dataRoles: null };
+
                 getJSONSpy = spyOn($, 'getJSON').and.callFake(url => {
                     let d = $.Deferred();
                     d.resolve({
                         visual: {
                             guid: mockVisualGuid
                         },
-                        capabilities: {}
+                        capabilities: capabilities
                     });
                     return d.promise();
                 });
@@ -122,6 +115,13 @@ module powerbitests {
 
                 debugVisual = new powerbi.visuals.system.DebugVisual();
                 debugVisual.init(initOptions);
+            });
+
+            describe("init", () => {
+                it("Should override capabilities with capabilities in pbiviz.json", () => {
+                    let plugin = window['powerbi']['visuals']['plugins'][mockVisualGuid];
+                    expect(plugin.capabilities).toBe(capabilities);
+                });
             });
 
             describe("update", () => {
@@ -163,10 +163,33 @@ module powerbitests {
                 it("update should be called upon refesh if previously updated", () => {
                     let adapterUpdateSpy = spyOn((<any>debugVisual).adapter, 'update');
 
-                    debugVisual.update(buildUpdateOptions(viewport, null));
+                    debugVisual.update(buildUpdateOptions(viewport, { metadata: null }));
+                    expect(adapterUpdateSpy).toHaveBeenCalled();
+
+                    //new spy because adapter is re-created on reloadAdapter()
+                    let visual = new MockVisual();
+                    spyOn(powerbi.extensibility, 'createVisualAdapter').and.returnValue(visual);
+                    let adapterUpdateSpy2 = spyOn(visual, 'update');
+
+                    (<any>debugVisual).reloadAdapter();
+                    expect(adapterUpdateSpy2).toHaveBeenCalled();
+                });
+
+                it("update should include previous update options with type set to all", () => {
+                    let data: powerbi.DataView = { metadata: null };
+                    debugVisual.update(buildUpdateOptions(viewport, data));
+
+                    //new spy because adapter is re-created on reloadAdapter()
+                    let visual = new MockVisual();
+                    spyOn(powerbi.extensibility, 'createVisualAdapter').and.returnValue(visual);
+                    let adapterUpdateSpy = spyOn(visual, 'update');
+
                     (<any>debugVisual).reloadAdapter();
 
-                    expect(adapterUpdateSpy).toHaveBeenCalled();
+                    let updateOptions: powerbi.VisualUpdateOptions = adapterUpdateSpy.calls.mostRecent().args[0];
+                    expect(updateOptions.dataViews[0]).toBe(data);
+                    expect(updateOptions.viewport).toBe(viewport);
+                    expect(updateOptions.type).toBe(powerbi.VisualUpdateType.All);
                 });
             });
 
@@ -178,12 +201,24 @@ module powerbitests {
                 it("calling auto reload should set and clear the interval", () => {
                     expect((<any>debugVisual).autoReloadInterval).toBeFalsy();
 
+                    //test for implicit toggling
                     (<any>debugVisual).toggleAutoReload();
-
                     expect((<any>debugVisual).autoReloadInterval).toBeTruthy();
 
                     (<any>debugVisual).toggleAutoReload();
+                    expect((<any>debugVisual).autoReloadInterval).toBeFalsy();
 
+                    //test for explicitly setting
+                    (<any>debugVisual).toggleAutoReload(false);
+                    expect((<any>debugVisual).autoReloadInterval).toBeFalsy();
+
+                    (<any>debugVisual).toggleAutoReload(true);
+                    expect((<any>debugVisual).autoReloadInterval).toBeTruthy();
+
+                    (<any>debugVisual).toggleAutoReload(true);
+                    expect((<any>debugVisual).autoReloadInterval).toBeTruthy();
+
+                    (<any>debugVisual).toggleAutoReload(false);
                     expect((<any>debugVisual).autoReloadInterval).toBeFalsy();
                 });
 
@@ -199,6 +234,97 @@ module powerbitests {
                     }, (<any>powerbi.visuals.system.DebugVisual).autoReloadPollTime);
                 });
             });
+
+            describe("data viewer toggle", () => {
+
+                beforeEach(() => {
+                    let mockDataViewPlugin = powerbi.Prototype.inherit(mockVisualPlugin);
+                    mockDataViewPlugin.name = 'dataViewer';
+                    window['powerbi']['visuals']['plugins']['dataViewer'] = mockDataViewPlugin;
+                });
+
+                it("should default to hidden", () => {
+                    expect((<any>debugVisual).dataViewShowing).toBe(false);
+                });
+
+                it("should toggle dataViewShowing", () => {
+                    expect((<any>debugVisual).dataViewShowing).toBe(false);
+
+                    //test for implicit toggling
+                    (<any>debugVisual).toggleDataview();
+                    expect((<any>debugVisual).dataViewShowing).toBe(true);
+
+                    (<any>debugVisual).toggleDataview();
+                    expect((<any>debugVisual).dataViewShowing).toBe(false);
+
+                    //test for explicitly setting
+                    (<any>debugVisual).toggleDataview(false);
+                    expect((<any>debugVisual).dataViewShowing).toBe(false);
+
+                    (<any>debugVisual).toggleDataview(true);
+                    expect((<any>debugVisual).dataViewShowing).toBe(true);
+
+                    (<any>debugVisual).toggleDataview(true);
+                    expect((<any>debugVisual).dataViewShowing).toBe(true);
+
+                    (<any>debugVisual).toggleDataview(false);
+                    expect((<any>debugVisual).dataViewShowing).toBe(false);
+                });
+
+                it("should hide dataview on manual refresh", () => {
+                    expect((<any>debugVisual).dataViewShowing).toBe(false);
+
+                    (<any>debugVisual).toggleDataview();
+                    expect((<any>debugVisual).dataViewShowing).toBe(true);
+
+                    //auto reload doesn't hide dataview
+                    (<any>debugVisual).reloadAdapter(true);
+                    expect((<any>debugVisual).dataViewShowing).toBe(true);
+
+                    //manual reload does
+                    (<any>debugVisual).reloadAdapter();
+                    expect((<any>debugVisual).dataViewShowing).toBe(false);
+                });
+
+                it("should load / unload dataViewer visual", () => {
+                    let debugElem, dataViewerElem;
+
+                    debugElem = $element.find('.debugVisualContainer').find('.visual-' + mockVisualGuid);
+                    dataViewerElem = $element.find('.debugVisualContainer').find('.visual-dataViewer');
+                    expect(debugElem.length).toBe(1);
+                    expect(dataViewerElem.length).toBe(0);
+
+                    (<any>debugVisual).toggleDataview();
+
+                    debugElem = $element.find('.debugVisualContainer').find('.visual-' + mockVisualGuid);
+                    dataViewerElem = $element.find('.debugVisualContainer').find('.visual-dataViewer');
+                    expect(debugElem.length).toBe(0);
+                    expect(dataViewerElem.length).toBe(1);
+
+                    (<any>debugVisual).toggleDataview();
+
+                    debugElem = $element.find('.debugVisualContainer').find('.visual-' + mockVisualGuid);
+                    dataViewerElem = $element.find('.debugVisualContainer').find('.visual-dataViewer');
+                    expect(debugElem.length).toBe(1);
+                    expect(dataViewerElem.length).toBe(0);
+                });
+
+                it("should pass last update options with type set to all", () => {
+                    let data: powerbi.DataView = { metadata: null };
+                    debugVisual.update(buildUpdateOptions(viewport, data));
+
+                    let visual = new MockVisual();
+                    spyOn(powerbi.extensibility, 'createVisualAdapter').and.returnValue(visual);
+                    let adapterUpdateSpy = spyOn(visual, 'update');
+                    (<any>debugVisual).toggleDataview();
+
+                    let updateOptions: powerbi.VisualUpdateOptions = adapterUpdateSpy.calls.mostRecent().args[0];
+                    expect(adapterUpdateSpy).toHaveBeenCalled();
+                    expect(updateOptions.dataViews[0]).toBe(data);
+                    expect(updateOptions.viewport).toBe(viewport);
+                    expect(updateOptions.type).toBe(powerbi.VisualUpdateType.All);
+                });
+            });
         });
 
         describe("visual - compile error", () => {
@@ -208,10 +334,12 @@ module powerbitests {
             let getScriptSpy: jasmine.Spy;
             let getJSONSpy: jasmine.Spy;
             let statusResponder: () => string;
+            let hostSpy: jasmine.Spy;
 
             beforeEach(() => {
 
                 let host = mocks.createVisualHostServices();
+                hostSpy = spyOn(host, 'visualCapabilitiesChanged').and.callFake(() => { });
                 $element = helpers.testDom("500", "500");
                 statusResponder = () => 'error';
 
@@ -251,6 +379,7 @@ module powerbitests {
                 };
 
                 debugVisual = new powerbi.visuals.system.DebugVisual();
+                powerbi.visuals.plugins.debugVisual.capabilities = { dataRoles: null };
                 debugVisual.init(initOptions);
             });
 
@@ -263,6 +392,11 @@ module powerbitests {
                 it("Should not attempt to contact server for json or scripts", () => {
                     expect(getScriptSpy).not.toHaveBeenCalled();
                     expect(getJSONSpy).not.toHaveBeenCalled();
+                });
+
+                it("Should reset capabilities", () => {
+                    expect(hostSpy).toHaveBeenCalled();
+                    expect(powerbi.visuals.plugins.debugVisual.capabilities).toEqual({});
                 });
             });
 
@@ -301,6 +435,20 @@ module powerbitests {
                         done();
                     }, (<any>powerbi.visuals.system.DebugVisual).autoReloadPollTime);
                 });
+
+                it("Should only load error message and reset capabilities once", () => {
+                    let buildErrorMessage = spyOn(debugVisual, 'buildErrorMessage');
+
+                    expect(hostSpy.calls.count()).toBe(1);
+
+                    (<any>debugVisual).reloadAdapter();
+                    expect(hostSpy.calls.count()).toBe(2);
+                    expect(buildErrorMessage.calls.count()).toBe(1);
+
+                    (<any>debugVisual).reloadAdapter(true);
+                    expect(hostSpy.calls.count()).toBe(2);
+                    expect(buildErrorMessage.calls.count()).toBe(1);
+                });
             });
         });
 
@@ -312,10 +460,12 @@ module powerbitests {
             let getSpy: jasmine.Spy;
             let getJSONSpy: jasmine.Spy;
             let getScriptSpy: jasmine.Spy;
+            let hostSpy: jasmine.Spy;
 
             beforeEach(() => {
 
                 host = mocks.createVisualHostServices();
+                hostSpy = spyOn(host, 'visualCapabilitiesChanged').and.callFake(() => { });
                 $element = helpers.testDom("500", "500");
 
                 getSpy = spyOn($, 'get').and.callFake(url => {
@@ -344,6 +494,7 @@ module powerbitests {
                 };
 
                 debugVisual = new powerbi.visuals.system.DebugVisual();
+                powerbi.visuals.plugins.debugVisual.capabilities = { dataRoles: null };
                 debugVisual.init(initOptions);
             });
 
@@ -351,6 +502,10 @@ module powerbitests {
                 it("Should display error message", () => {
                     let elem = $element.find('.debugVisualContainer .errorContainer');
                     expect(elem.length).toBe(1);
+                });
+                it("Should reset capabilities", () => {
+                    expect(hostSpy).toHaveBeenCalled();
+                    expect(powerbi.visuals.plugins.debugVisual.capabilities).toEqual({});
                 });
             });
 
@@ -392,11 +547,13 @@ module powerbitests {
             let initOptions: powerbi.VisualInitOptions;
             let debugVisual: powerbi.visuals.system.DebugVisual;
             let getSpy: jasmine.Spy;
+            let hostSpy: jasmine.Spy;
 
             beforeEach(() => {
                 powerbi.localStorageService.setData('DEVELOPER_MODE_ENABLED', undefined);
 
                 host = mocks.createVisualHostServices();
+                hostSpy = spyOn(host, 'visualCapabilitiesChanged').and.callFake(() => { });
                 $element = helpers.testDom("500", "500");
 
                 getSpy = spyOn($, 'get');
@@ -409,6 +566,7 @@ module powerbitests {
                 };
 
                 debugVisual = new powerbi.visuals.system.DebugVisual();
+                powerbi.visuals.plugins.debugVisual.capabilities = { dataRoles: null };
                 debugVisual.init(initOptions);
             });
 
@@ -420,6 +578,11 @@ module powerbitests {
 
                 it("Should not attempt to contact server", () => {
                     expect(getSpy).not.toHaveBeenCalled();
+                });
+
+                it("Should reset capabilities", () => {
+                    expect(hostSpy).toHaveBeenCalled();
+                    expect(powerbi.visuals.plugins.debugVisual.capabilities).toEqual({});
                 });
             });
         });

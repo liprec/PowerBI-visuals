@@ -30,7 +30,7 @@ module powerbi.visuals {
     import createClassAndSelector = jsCommon.CssConstants.createClassAndSelector;
     import createDataViewScopeIdentity = powerbi.data.createDataViewScopeIdentity;
     import DataViewConcatenateCategoricalColumns = powerbi.data.DataViewConcatenateCategoricalColumns;
-    import DataViewMatrixUtils = powerbi.data.utils.DataViewMatrixUtils;
+    import DataViewMatrixUtils = powerbi.data.DataViewMatrixUtils;
     import SQExpr = powerbi.data.SQExpr;
     import SQExprBuilder = powerbi.data.SQExprBuilder;
 
@@ -248,7 +248,7 @@ module powerbi.visuals {
             let textProperties = {
                 fontSize: jsCommon.PixelConverter.toString(fontSize),
                 text: frameData[currentFrameIndex].text || "",
-                fontFamily: "wf_segoe-ui_normal",
+                fontFamily: Font.Family.regular.css,
             };
             let textHeight = TextMeasurementService.estimateSvgTextHeight(textProperties) - TextMeasurementService.estimateSvgTextBaselineDelta(textProperties);
 
@@ -368,7 +368,7 @@ module powerbi.visuals {
         private moveToFrameAndRender(frameIndex: number): void {
             let playData = this.playData;
 
-            this.isPlaying = false;
+            this.isPlaying = true;
 
             if (playData && frameIndex >= 0 && frameIndex < playData.allViewModels.length && frameIndex !== playData.currentFrameIndex) {
                 playData.currentFrameIndex = frameIndex;
@@ -376,6 +376,8 @@ module powerbi.visuals {
                 playData.currentViewModel = data;
                 this.renderDelegate(data);
             }
+
+            this.isPlaying = false;
         }
 
         public isCurrentlyPlaying(): boolean {
@@ -923,7 +925,7 @@ module powerbi.visuals {
 
         function getLabelData(keys: PlayChartFrameData[], keyColumn?: DataViewMetadataColumn): PlayAxisTickLabelData {
             let textProperties: TextProperties = {
-                fontFamily: 'wf_segoe-ui_normal',
+                fontFamily: Font.Family.regular.css,
                 fontSize: jsCommon.PixelConverter.toString(14),
             };
 

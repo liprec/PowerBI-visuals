@@ -2,7 +2,7 @@
  *  Power BI Visualizations
  *
  *  Copyright (c) Microsoft Corporation
- *  All rights reserved. 
+ *  All rights reserved.
  *  MIT License
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -11,14 +11,14 @@
  *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  *  copies of the Software, and to permit persons to whom the Software is
  *  furnished to do so, subject to the following conditions:
- *   
- *  The above copyright notice and this permission notice shall be included in 
+ *
+ *  The above copyright notice and this permission notice shall be included in
  *  all copies or substantial portions of the Software.
- *   
- *  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
- *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
- *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
- *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ *
+ *  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
@@ -203,6 +203,42 @@ module powerbitests {
             var unicodeInput = "abc!@#$%^&*()123";
 
             expect(StringExtensions.deriveClsCompliantName(unicodeInput, "fallback")).toBe("abc123");
+        });
+        
+        it('contains', () => {
+            expect(StringExtensions.contains('work it harder', 'work')).toBe(true, 'start');
+            expect(StringExtensions.contains('work it harder', 'it')).toBe(true, 'middle');
+            expect(StringExtensions.contains('work it harder', 'harder')).toBe(true, 'end');
+            expect(StringExtensions.contains('work it harder', 'work it')).toBe(true, 'with space');
+            
+            expect(StringExtensions.contains('harder', 'work it harder')).toBe(false);
+            
+            expect(StringExtensions.contains('work it harder', 'HARDER')).toBe(false, 'lower-case vs. upper-case');
+            expect(StringExtensions.contains('WORK IT HARDER', 'harder')).toBe(false, 'upper-case vs. lower-case');
+            
+            expect(StringExtensions.contains(null, 'null')).toBe(false, "null source");
+            expect(StringExtensions.contains(undefined, 'undefined')).toBe(false, "null source");
+            expect(StringExtensions.contains('', 'empty')).toBe(false, "empty source");
+            expect(StringExtensions.contains('non-empty', '')).toBe(true, "empty substring");
+        });
+        
+        it('containsIgnoreCase', () => {
+            expect(StringExtensions.containsIgnoreCase('make it better', 'make')).toBe(true, 'start');
+            expect(StringExtensions.containsIgnoreCase('make it better', 'it')).toBe(true, 'middle');
+            expect(StringExtensions.containsIgnoreCase('make it better', 'better')).toBe(true, 'start');
+            expect(StringExtensions.containsIgnoreCase('make it better', 'make it')).toBe(true, 'with space');
+            
+            expect(StringExtensions.containsIgnoreCase('better', 'make it better')).toBe(false);
+            
+            expect(StringExtensions.containsIgnoreCase('make it better', 'MAKE')).toBe(true, 'start, lower-case vs. upper-case');
+            expect(StringExtensions.containsIgnoreCase('make it better', 'IT')).toBe(true, 'middle, lower-case vs. upper-case');
+            expect(StringExtensions.containsIgnoreCase('make it better', 'BETTER')).toBe(true, 'end, lower-case vs. upper-case');
+            expect(StringExtensions.containsIgnoreCase('MAKE IT BETTER', 'make it')).toBe(true, 'with space, upper-case vs. lower-case');
+            
+            expect(StringExtensions.containsIgnoreCase(null, 'null')).toBe(false, "null source");
+            expect(StringExtensions.containsIgnoreCase(undefined, 'undefined')).toBe(false, "null source");
+            expect(StringExtensions.containsIgnoreCase('', 'empty')).toBe(false, "empty string source");
+            expect(StringExtensions.containsIgnoreCase('non-empty', '')).toBe(true, "empty substring");
         });
     });
 }

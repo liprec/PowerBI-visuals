@@ -3,26 +3,18 @@ declare function requireAll(requireContext: any): any;
 
 declare module powerbi.visuals.samples {
     import ArcDescriptor = D3.Layout.ArcDescriptor;
-    interface AsterData {
+    interface AsterPlotData {
         dataPoints: AsterDataPoint[];
         highlightedDataPoints?: AsterDataPoint[];
+        settings: AsterPlotSettings;
+        hasHighlights: boolean;
         legendData: LegendData;
-        valueFormatter: IValueFormatter;
-        legendSettings: AsterPlotLegendSettings;
-        labelSettings: VisualDataLabelsSettings;
-        showOuterLine: boolean;
-        outerLineThickness: number;
-    }
-    interface AsterPlotLegendSettings {
-        show: boolean;
-        position: string;
-        showTitle: boolean;
-        labelColor: string;
-        titleText: string;
-        fontSize: number;
+        labelFormatter: IValueFormatter;
+        centerText: string;
     }
     interface AsterArcDescriptor extends ArcDescriptor {
         isLabelHasConflict?: boolean;
+        data: AsterDataPoint;
     }
     interface AsterDataPoint extends SelectableDataPoint {
         color: string;
@@ -35,9 +27,9 @@ declare module powerbi.visuals.samples {
     }
     interface AsterPlotBehaviorOptions {
         selection: D3.Selection;
-        highlightedSelection: D3.Selection;
         clearCatcher: D3.Selection;
         interactivityService: IInteractivityService;
+        hasHighlights: boolean;
     }
     class AsterPlotWarning implements IVisualWarning {
         private message;
@@ -45,9 +37,61 @@ declare module powerbi.visuals.samples {
         code: string;
         getMessages(resourceProvider: jsCommon.IStringResourceProvider): IVisualErrorMessage;
     }
+    class AsterPlotSettings {
+        static Default: AsterPlotSettings;
+        static parse(dataView: DataView, capabilities: VisualCapabilities): AsterPlotSettings;
+        static getProperties(capabilities: VisualCapabilities): {
+            [i: string]: {
+                [i: string]: DataViewObjectPropertyIdentifier;
+            };
+        } & {
+            general: {
+                formatString: DataViewObjectPropertyIdentifier;
+            };
+            dataPoint: {
+                fill: DataViewObjectPropertyIdentifier;
+            };
+        };
+        static createEnumTypeFromEnum(type: any): IEnumType;
+        private static getValueFnByType(type);
+        static enumerateObjectInstances(settings: AsterPlotSettings, options: EnumerateVisualObjectInstancesOptions, capabilities: VisualCapabilities): ObjectEnumerationBuilder;
+        originalSettings: AsterPlotSettings;
+        createOriginalSettings(): void;
+        legend: {
+            show: boolean;
+            position: string;
+            showTitle: boolean;
+            titleText: string;
+            labelColor: string;
+            fontSize: number;
+        };
+        labels: {
+            show: boolean;
+            color: string;
+            displayUnits: number;
+            precision: number;
+            fontSize: number;
+        };
+        outerLine: {
+            show: boolean;
+            thickness: number;
+        };
+    }
+    class AsterPlotColumns<T> {
+        static Roles: AsterPlotColumns<string>;
+        static getColumnSources(dataView: DataView): AsterPlotColumns<DataViewMetadataColumn>;
+        static getTableValues(dataView: DataView): AsterPlotColumns<any[]>;
+        static getTableRows(dataView: DataView): AsterPlotColumns<any[]>[];
+        static getCategoricalValues(dataView: DataView): AsterPlotColumns<any[]>;
+        static getSeriesValues(dataView: DataView): string[];
+        static getCategoricalColumns(dataView: DataView): AsterPlotColumns<DataViewCategoryColumn & DataViewValueColumn[] & DataViewValueColumns>;
+        private static getColumnSourcesT<T>(dataView);
+        Category: T;
+        Y: T;
+    }
     class AsterPlot implements IVisual {
         static capabilities: VisualCapabilities;
-        private static Properties;
+        private static AsterSlices;
         private static AsterSlice;
         private static AsterHighlightedSlice;
         private static OuterLine;
@@ -56,43 +100,34 @@ declare module powerbi.visuals.samples {
         private static CenterLabelClass;
         private static CenterTextFontHeightCoefficient;
         private static CenterTextFontWidthCoefficient;
-        private margin;
+        static converter(dataView: DataView, colors: IDataColorPalette): AsterPlotData;
+        private static parseSettings(dataView, categorySource);
+        private layout;
         private svg;
         private mainGroupElement;
         private mainLabelsElement;
+        private slicesElement;
         private centerText;
         private clearCatcher;
         private colors;
-        private dataView;
-        private hostService;
+        private hostServices;
         private interactivityService;
         private legend;
         private data;
-        private currentViewport;
+        private settings;
         private behavior;
-        private hasHighlights;
-        private getDefaultAsterData();
-        converter(dataView: DataView, colors: IDataColorPalette): AsterData;
-        private dataViewContainsCategory(dataView);
-        private getLabelSettings(objects, labelSettings);
-        private updateLegendSettings(objects, catSource, legendSettings);
         init(options: VisualInitOptions): void;
         update(options: VisualUpdateOptions): void;
-        private renderArcsAndLabels(dataPoints, duration, labelSettings, isHighlight?);
-        private getLabelLayout(labelSettings, arc, viewport);
+        private renderArcsAndLabels(duration, isHighlight?);
+        private getLabelLayout(arc, viewport);
         private drawLabels(data, context, layout, viewport, outlineArc, labelArc);
-        private renderLegend(asterPlotData);
+        private renderLegend();
         private updateViewPortAccordingToLegend();
         private drawOuterLine(innerRadius, radius, data);
-        private getCenterText(dataView);
         private drawCenterText(innerRadius);
-        private getLabelFill(dataView);
-        private dataViewContainsObjects(dataView);
-        private enumerateLegend(instances);
-        private clearData();
+        private clear();
         onClearSelection(): void;
-        private enumerateLabels(instances);
-        enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[];
+        enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumerationObject;
     }
 }
 
@@ -557,6 +592,11 @@ declare module powerbi.visuals.samples {
         static getIsScalar(objects: DataViewObjects, propertyId: DataViewObjectPropertyIdentifier, type: ValueType): boolean;
         private populateObjectProperties(dataViews);
         update(options: VisualUpdateOptions): void;
+        /**
+         * Clear the viewport area
+         */
+        private clearViewport();
+        private setVisibility(status?);
         static parseLabelSettings(objects: DataViewObjects): VisualDataLabelsSettings;
         static parseBorderSettings(objects: DataViewObjects): MekkoBorderSettings;
         private enumerateBorder(enumeration);
@@ -740,9 +780,14 @@ declare module powerbi.visuals.samples {
         colour: string;
         selectionId: SelectionId;
     }
+    interface SankeyDiagramColumn {
+        countOfNodes: number;
+        sumValueOfNodes: number;
+    }
     interface SankeyDiagramDataView {
         nodes: SankeyDiagramNode[];
         links: SankeyDiagramLink[];
+        columns: SankeyDiagramColumn[];
         settings: SankeyDiagramSettings;
     }
     interface SankeyDiagramRoleNames {
@@ -762,8 +807,9 @@ declare module powerbi.visuals.samples {
         private static DefaultColourOfLink;
         private static DefaultSettings;
         private static MinWidthOfLabel;
-        private static NodePadding;
-        private static LabelPadding;
+        private static NodeBottomMargin;
+        private static NodeMargin;
+        private static LabelMargin;
         static RoleNames: SankeyDiagramRoleNames;
         static capabilities: VisualCapabilities;
         private static Properties;
@@ -785,7 +831,10 @@ declare module powerbi.visuals.samples {
         init(visualsInitOptions: VisualInitOptions): void;
         update(visualUpdateOptions: VisualUpdateOptions): void;
         private updateViewport(viewport);
-        private getPositiveNumber(value);
+        /**
+         * Public for testability.
+         */
+        getPositiveNumber(value: number): number;
         private updateElements(height, width);
         converter(dataView: DataView): SankeyDiagramDataView;
         private getObjectsFromDataView(dataView);
@@ -794,17 +843,29 @@ declare module powerbi.visuals.samples {
         private updateValueOfNode(node);
         private getTooltipForNode(valueFormatter, nodeName, nodeWeight);
         private parseSettings(objects);
-        private findNodePosition(sankeyDiagramDataView);
-        private findNodePositionByX(sankeyDiagramDataView);
-        private scaleByAxisX(nodes, scale);
+        private computePositions(sankeyDiagramDataView);
+        private computeXPositions(sankeyDiagramDataView);
         private getScaleByAxisX(numberOfColumns?);
-        private findNodePositionByY(sankeyDiagramDataView);
-        private getScaleByAxisY(numberOfRows, sumValueOfNodes);
-        private scaleByAxisY(nodes, links, scale);
+        /**
+         * Public for testability.
+         */
+        sortNodesByX(nodes: SankeyDiagramNode[]): SankeyDiagramNode[];
+        /**
+         * Public for testability.
+         */
+        getColumns(nodes: SankeyDiagramNode[]): SankeyDiagramColumn[];
+        /**
+         * Public for testability.
+         */
+        getMaxColumn(columns?: SankeyDiagramColumn[]): SankeyDiagramColumn;
+        private getScaleByAxisY(sumValueOfNodes);
+        private getAvailableSumNodeMarginByY();
+        private scalePositionsByAxes(nodes, columns, scale, viewportHeight);
+        private computeYPosition(nodes, scale);
         private render(sankeyDiagramDataView);
         private renderNodes(sankeyDiagramDataView);
         private getLabelPositionByAxisX(node);
-        private isLabelLargerWidth(node);
+        private isLabelLargerThanWidth(node);
         private getCurrentPositionOfLabelByAxisX(node);
         private renderLinks(sankeyDiagramDataView);
         private getSvgPath(link);
@@ -1158,6 +1219,7 @@ declare module powerbi.visuals.samples {
 }
 
 declare module powerbi.visuals.samples {
+    import SemanticFilter = powerbi.data.SemanticFilter;
     interface ITableView {
         data(data: any[], dataIdFunction: (d) => {}, dataAppended: boolean): ITableView;
         rowHeight(rowHeight: number): ITableView;
@@ -1194,6 +1256,7 @@ declare module powerbi.visuals.samples {
             showDisabled: DataViewObjectPropertyIdentifier;
             multiselect: DataViewObjectPropertyIdentifier;
             selection: DataViewObjectPropertyIdentifier;
+            selfFilterEnabled: DataViewObjectPropertyIdentifier;
         };
         header: {
             show: DataViewObjectPropertyIdentifier;
@@ -1249,6 +1312,7 @@ declare module powerbi.visuals.samples {
         isSelectAllDataPoint?: boolean;
         imageURL?: string;
         selectable?: boolean;
+        filtered?: boolean;
     }
     interface ChicletSlicerSettings {
         general: {
@@ -1258,8 +1322,9 @@ declare module powerbi.visuals.samples {
             multiselect: boolean;
             showDisabled: string;
             selection: string;
+            selfFilterEnabled: boolean;
             getSavedSelection?: () => string[];
-            setSavedSelection?: (selectionIds: string[]) => void;
+            setSavedSelection?: (filter: SemanticFilter, selectionIds: string[]) => void;
         };
         margin: IMargin;
         header: {
@@ -1307,6 +1372,8 @@ declare module powerbi.visuals.samples {
     class ChicletSlicer implements IVisual {
         static capabilities: VisualCapabilities;
         private element;
+        private searchHeader;
+        private searchInput;
         private currentViewport;
         private dataView;
         private slicerHeader;
@@ -1335,7 +1402,7 @@ declare module powerbi.visuals.samples {
         private static Body;
         static DefaultStyleProperties(): ChicletSlicerSettings;
         constructor(options?: ChicletSlicerConstructorOptions);
-        static converter(dataView: DataView, localizedSelectAllText: string, interactivityService: IInteractivityService): ChicletSlicerData;
+        static converter(dataView: DataView, localizedSelectAllText: string, searchText: string, interactivityService: IInteractivityService): ChicletSlicerData;
         init(options: VisualInitOptions): void;
         private static canSelect(args);
         update(options: VisualUpdateOptions): void;
@@ -1347,6 +1414,8 @@ declare module powerbi.visuals.samples {
         private enumerateImages(data);
         private updateInternal(resetScrollbarPosition);
         private initContainer();
+        private createSearchHeader(container);
+        private updateSearchHeader();
         private onLoadMoreData();
         private getSlicerBodyViewport(currentViewport);
         private updateSlicerBodyDimensions();
@@ -1380,6 +1449,7 @@ declare module powerbi.visuals.samples {
         private options;
         bindEvents(options: ChicletSlicerBehaviorOptions, selectionHandler: ISelectionHandler): void;
         loadSelection(selectionHandler: ISelectionHandler): void;
+        private static getFilterFromSelectors(selectionHandler, isSelectionModeInverted);
         saveSelection(selectionHandler: ISelectionHandler): void;
         renderSelection(hasSelection: boolean): void;
         private renderMouseover();
@@ -1389,22 +1459,26 @@ declare module powerbi.visuals.samples {
 
 declare module powerbi.visuals.samples {
     interface ChordChartData {
+        settings: ChordChartSettings;
+        dataView: DataView;
         dataMatrix: number[][];
         labelDataPoints: ChordArcDescriptor[];
         legendData?: LegendData;
-        labelFontSize: number;
         tooltipData: ChordTooltipData[][];
         sliceTooltipData: ChordTooltipData[];
         tickUnit: number;
         differentFromTo: boolean;
         defaultDataPointColor?: string;
         prevAxisVisible: boolean;
-        showAllDataPoints?: boolean;
-        showLabels: boolean;
-        showAxis: boolean;
     }
-    interface ChordArcDescriptor extends D3.Layout.ArcDescriptor {
+    interface ChordArcDescriptor extends D3.Layout.ArcDescriptor, IDataLabelInfo {
         data: ChordArcLabelData;
+    }
+    interface ChordTicksArcDescriptor extends D3.Layout.ArcDescriptor {
+        angleLabels: {
+            angle: number;
+            label: string;
+        }[];
     }
     interface ChordArcLabelData extends LabelEnabledDataPoint, SelectableDataPoint {
         label: string;
@@ -1415,32 +1489,59 @@ declare module powerbi.visuals.samples {
     interface ChordTooltipData {
         tooltipInfo: TooltipDataItem[];
     }
-    class ChordChart implements IVisual {
-        static capabilities: VisualCapabilities;
-        static chordChartProps: {
+    class ChordChartSettings {
+        static Default: ChordChartSettings;
+        static parse(dataView: DataView, capabilities: VisualCapabilities): ChordChartSettings;
+        static getProperties(capabilities: VisualCapabilities): {
+            [i: string]: {
+                [i: string]: DataViewObjectPropertyIdentifier;
+            };
+        } & {
             general: {
                 formatString: DataViewObjectPropertyIdentifier;
             };
             dataPoint: {
-                defaultColor: DataViewObjectPropertyIdentifier;
                 fill: DataViewObjectPropertyIdentifier;
-                showAllDataPoints: DataViewObjectPropertyIdentifier;
-            };
-            axis: {
-                show: DataViewObjectPropertyIdentifier;
-            };
-            labels: {
-                show: DataViewObjectPropertyIdentifier;
-                color: DataViewObjectPropertyIdentifier;
-                fontSize: DataViewObjectPropertyIdentifier;
             };
         };
+        static createEnumTypeFromEnum(type: any): IEnumType;
+        private static getValueFnByType(type);
+        static enumerateObjectInstances(settings: any, options: EnumerateVisualObjectInstancesOptions, capabilities: VisualCapabilities): ObjectEnumerationBuilder;
+        dataPoint: {
+            defaultColor: any;
+            showAllDataPoints: boolean;
+        };
+        axis: {
+            show: boolean;
+        };
+        labels: {
+            show: boolean;
+            color: string;
+            fontSize: number;
+        };
+    }
+    class ChordChartColumns<T> {
+        static Roles: ChordChartColumns<string>;
+        static getColumnSources(dataView: DataView): ChordChartColumns<DataViewMetadataColumn>;
+        static getTableValues(dataView: DataView): ChordChartColumns<any[]>;
+        static getTableRows(dataView: DataView): ChordChartColumns<any[]>[];
+        static getCategoricalValues(dataView: DataView): ChordChartColumns<any[]>;
+        static getSeriesValues(dataView: DataView): string[];
+        static getCategoricalColumns(dataView: DataView): ChordChartColumns<DataViewCategoryColumn & DataViewValueColumn[] & DataViewValueColumns>;
+        private static getColumnSourcesT<T>(dataView);
+        Category: T;
+        Series: T;
+        Y: T;
+    }
+    class ChordChart implements IVisual {
+        static capabilities: VisualCapabilities;
         static PolylineOpacity: number;
         private static OuterArcRadiusRatio;
         private static InnerArcRadiusRatio;
-        private static DefaultLabelColor;
-        private static DefaultLabelsFontSize;
+        private static LabelMargin;
+        private static DefaultMargin;
         private static VisualClassName;
+        private static TicksFontSize;
         private static sliceClass;
         private static chordClass;
         private static sliceTicksClass;
@@ -1455,38 +1556,44 @@ declare module powerbi.visuals.samples {
         private element;
         private svg;
         private mainGraphicsContext;
+        private slices;
+        private labels;
+        private lines;
         private data;
+        private settings;
+        private layout;
+        private duration;
         private colors;
         private selectionManager;
-        private dataView;
+        private radius;
+        private innerRadius;
+        private outerRadius;
         static converter(dataView: DataView, colors: IDataColorPalette, prevAxisVisible: boolean): ChordChartData;
-        static getValidArrayLength(array: any[]): number;
-        static convertToChordArcDescriptor(groups: D3.Layout.ArcDescriptor[], datum: ChordArcLabelData[]): ChordArcDescriptor[];
-        private calculateRadius(viewport);
-        static drawDefaultCategoryLabels(graphicsContext: D3.Selection, chordData: ChordChartData, radius: number, viewport: IViewport): void;
+        private static parseSettings(dataView);
+        private static getValidArrayLength(array);
+        private static getChordArcDescriptors(groups, datum);
         init(options: VisualInitOptions): void;
         update(options: VisualUpdateOptions): void;
-        destroy(): void;
-        static cleanTicks(context: D3.Selection): void;
-        static drawTicks(graphicsContext: D3.Selection, chordData: ChordChartData, chordLayout: D3.Layout.ChordLayout, outerRadius: number, duration: number, viewport: IViewport): void;
-        private static getAxisShow(dataView);
-        private static getLabelsShow(dataView);
-        private static getLabelsColor(dataView);
-        private static getLabelsFontSize(dataView);
-        static selectLabels(filteredData: LabelEnabledDataPoint[], context: D3.Selection, isDonut?: boolean, forAnimation?: boolean): D3.UpdateSelection;
-        static drawDefaultLabelsForChordChart(data: any[], context: D3.Selection, layout: ILabelLayout, viewport: IViewport, radius: number, arc: D3.Svg.Arc, outerArc: D3.Svg.Arc): void;
-        static getChordChartLabelLayout(radius: number, outerArc: D3.Svg.Arc, viewport: IViewport, labelFontSize: number): ILabelLayout;
-        private static getDefaultDataPointColor(dataView, defaultValue?);
-        private static getShowAllDataPoints(dataView);
-        enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[];
-        static isInt(n: number): boolean;
-        static union_arrays(x: any[], y: any[]): any[];
+        enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumerationObject;
+        private calculateRadius();
+        private drawCategoryLabels();
+        private getDataLabelManager();
+        private render();
+        private clear();
+        private clearTicks();
+        private getChordTicksArcDescriptors();
+        private drawTicks();
+        private renderLabels(filteredData, layout, isDonut?, forAnimation?);
+        private renderLines(filteredData, arc, outerArc);
+        private getChordChartLabelLayout(outerArc);
+        private static union_arrays(x, y);
     }
 }
 
 declare module powerbi.visuals.samples {
     import ClassAndSelector = jsCommon.CssConstants.ClassAndSelector;
     import Lazy = jsCommon.Lazy;
+    import ISize = shapes.ISize;
     interface ElementProperty {
         [propertyName: string]: any;
     }
@@ -1501,7 +1608,7 @@ declare module powerbi.visuals.samples {
     interface EnhancedScatterChartDataPoint extends SelectableDataPoint, TooltipEnabledDataPoint {
         x: any;
         y: any;
-        size: any;
+        size: number | ISize;
         radius: RadiusData;
         fill: string;
         labelFill?: string;
@@ -1544,14 +1651,15 @@ declare module powerbi.visuals.samples {
         selectedIds: SelectionId[];
     }
     class EnhancedScatterChart implements IVisual {
-        private AxisGraphicsContextClassName;
-        static DefaultBubbleOpacity: number;
-        static DimmedBubbleOpacity: number;
+        private static AxisGraphicsContextClassName;
         private static ClassName;
         private static MainGraphicsContextClassName;
         private static LegendLabelFontSizeDefault;
         private static LabelDisplayUnitsDefault;
         private static AxisFontSize;
+        private static CrosshairTextMargin;
+        private static DataLabelXOffset;
+        private static DataLabelYOffset;
         private static DotClasses;
         private static ImageClasses;
         static CrosshairCanvasSelector: ClassAndSelector;
@@ -1559,7 +1667,10 @@ declare module powerbi.visuals.samples {
         static CrosshairVerticalLineSelector: ClassAndSelector;
         static CrosshairHorizontalLineSelector: ClassAndSelector;
         static CrosshairTextSelector: ClassAndSelector;
-        private static CrosshairTextMargin;
+        static MaxTranslateValue: number;
+        static MinTranslateValue: number;
+        static DefaultBubbleOpacity: number;
+        static DimmedBubbleOpacity: number;
         private legend;
         private svgScrollable;
         private axisGraphicsContext;
@@ -1647,6 +1758,7 @@ declare module powerbi.visuals.samples {
         private static getMetadata(categories, grouped, source);
         static createLazyFormattedCategory(formatter: IValueFormatter, value: string): Lazy<string>;
         private static createDataPoints(dataValues, metadata, categories, categoryValues, categoryFormatter, categoryIdentities, categoryObjects, colorPalette, hasDynamicSeries, labelSettings, defaultDataPointColor?, categoryQueryName?);
+        private static getNumberFromDataViewValueColumnById(dataViewValueColumn, index);
         private static getValueFromDataViewValueColumnById(dataViewValueColumn, index);
         private static getDefaultData();
         setData(dataViews: DataView[]): void;
@@ -1701,6 +1813,14 @@ declare module powerbi.visuals.samples {
         private drawScatterMarkers(scatterData, hasSelection, sizeRange, duration);
         calculateAxes(categoryAxisProperties: DataViewObject, valueAxisProperties: DataViewObject, textProperties: TextProperties, scrollbarVisible: boolean): IAxisProperties[];
         calculateAxesProperties(options: CalculateScaleAndDomainOptions): IAxisProperties[];
+        /**
+         * Public for testability.
+         */
+        optimizeTranslateValues(values: number[]): number[];
+        /**
+         * Public for testability.
+         */
+        optimizeTranslateValue(value: number): number;
         private enumerateDataPoints(enumeration);
         enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration;
         hasLegend(): boolean;
@@ -2209,70 +2329,104 @@ declare module powerbi.visuals.samples {
 }
 
 declare module powerbi.visuals.samples {
-    interface ForceGraphOptions {
-        showDataLabels: boolean;
-        labelColor: string;
-        fontSize: number;
-        showArrow: boolean;
-        showLabel: boolean;
-        colorLink: string;
-        thickenLink: boolean;
-        displayImage: boolean;
-        defaultImage: string;
-        imageUrl: string;
-        imageExt: string;
-        nameMaxLength: number;
-        highlightReachableLinks: boolean;
-        charge: number;
-        defaultLinkColor: string;
-        defaultLinkHighlightColor: string;
-        defaultLinkThickness: string;
+    enum LinkColorType {
+        ByWeight,
+        ByLinkType,
+        Interactive,
     }
-    var forceProps: {
-        general: {
-            formatString: DataViewObjectPropertyIdentifier;
+    class ForceGraphSettings {
+        static Default: ForceGraphSettings;
+        static parse(dataView: DataView, capabilities: VisualCapabilities): ForceGraphSettings;
+        static getProperties(capabilities: VisualCapabilities): {
+            [i: string]: {
+                [i: string]: DataViewObjectPropertyIdentifier;
+            };
         };
+        static createEnumTypeFromEnum(type: any): IEnumType;
+        private static getValueFnByType(type);
+        static enumerateObjectInstances(settings: any, options: EnumerateVisualObjectInstancesOptions, capabilities: VisualCapabilities): VisualObjectInstanceEnumeration;
         labels: {
-            show: DataViewObjectPropertyIdentifier;
-            color: DataViewObjectPropertyIdentifier;
-            fontSize: DataViewObjectPropertyIdentifier;
+            show: boolean;
+            color: string;
+            fontSize: number;
         };
         links: {
-            showArrow: DataViewObjectPropertyIdentifier;
-            showLabel: DataViewObjectPropertyIdentifier;
-            colorLink: DataViewObjectPropertyIdentifier;
-            thickenLink: DataViewObjectPropertyIdentifier;
+            showArrow: boolean;
+            showLabel: boolean;
+            colorLink: LinkColorType;
+            thickenLink: boolean;
+            displayUnits: number;
+            decimalPlaces: number;
         };
         nodes: {
-            displayImage: DataViewObjectPropertyIdentifier;
-            defaultImage: DataViewObjectPropertyIdentifier;
-            imageUrl: DataViewObjectPropertyIdentifier;
-            imageExt: DataViewObjectPropertyIdentifier;
-            nameMaxLength: DataViewObjectPropertyIdentifier;
-            highlightReachableLinks: DataViewObjectPropertyIdentifier;
+            displayImage: boolean;
+            defaultImage: string;
+            imageUrl: string;
+            imageExt: string;
+            nameMaxLength: number;
+            highlightReachableLinks: boolean;
         };
         size: {
-            charge: DataViewObjectPropertyIdentifier;
+            charge: number;
         };
-    };
+    }
+    class ForceGraphColumns<T> {
+        static Roles: ForceGraphColumns<string>;
+        static getMetadataColumns(dataView: DataView): ForceGraphColumns<DataViewMetadataColumn>;
+        static getTableValues(dataView: DataView): ForceGraphColumns<any[]>;
+        static getTableRows(dataView: DataView): ForceGraphColumns<any>[];
+        Source: T;
+        Target: T;
+        Weight: T;
+        LinkType: T;
+        SourceType: T;
+        TargetType: T;
+    }
+    interface ForceGraphLink {
+        source: ForceGraphNode;
+        target: ForceGraphNode;
+        weight: number;
+        formattedWeight: string;
+        type: string;
+        tooltipInfo: TooltipDataItem[];
+    }
+    interface ForceGraphNode {
+        name: string;
+        image: string;
+        adj: {
+            [i: string]: number;
+        };
+        x?: number;
+        y?: number;
+        isDrag?: boolean;
+        isOver?: boolean;
+    }
+    interface ForceGraphNodes {
+        [i: string]: ForceGraphNode;
+    }
     interface ForceGraphData {
-        nodes: {};
-        links: any[];
+        nodes: ForceGraphNodes;
+        links: ForceGraphLink[];
         minFiles: number;
         maxFiles: number;
         linkedByName: {};
         linkTypes: {};
+        settings: ForceGraphSettings;
     }
     class ForceGraph implements IVisual {
         static VisualClassName: string;
+        private static Count;
+        private static DefaultValues;
+        private static Href;
+        private data;
+        private settings;
         private root;
         private paths;
         private nodes;
         private forceLayout;
         private dataView;
         private colors;
-        private options;
-        private data;
+        private uniqieId;
         private marginValue;
         private margin;
         private viewportValue;
@@ -2282,22 +2436,17 @@ declare module powerbi.visuals.samples {
         private static substractMargin(viewport, margin);
         private scale1to10(d);
         private getLinkColor(d);
-        private getDefaultOptions();
-        private updateOptions(objects);
         static capabilities: VisualCapabilities;
         enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration;
-        private enumerateLabels(enumeration);
-        private enumerateLinks(enumeration);
-        private enumerateNodes(enumeration);
-        private enumerateSize(enumeration);
         static converter(dataView: DataView, colors: IDataColorPalette): ForceGraphData;
+        private static parseSettings(dataView);
         init(options: VisualInitOptions): void;
         update(options: VisualUpdateOptions): void;
         private updateNodes();
         private tick();
         private fadePath(opacity, highlight);
         private isReachable(a, b);
-        private fadeNode(opacity, highlight);
+        private fadeNode(node);
         destroy(): void;
     }
 }
@@ -2323,28 +2472,23 @@ declare module powerbi.visuals.samples {
         color: string;
         tooltipInfo: TooltipDataItem[];
     }
+    interface GroupedTask {
+        id: number;
+        name: string;
+        tasks: Task[];
+    }
     interface GanttChartFormatters {
         startDateFormatter: IValueFormatter;
         completionFormatter: IValueFormatter;
         durationFormatter: IValueFormatter;
     }
-    interface GanttChartData {
-        legendData: LegendData;
-        series: GanttSeries[];
-        showLegend: boolean;
-    }
     interface GanttViewModel {
-        taskLabelsShow: boolean;
-        taskLabelsColor: string;
-        taskLabelsFontSize: number;
-        taskLabelsWidth: number;
-        taskProgressColor: string;
-        taskResourceShow: boolean;
-        taskResourceColor: string;
-        taskResourceFontSize: number;
+        dataView: DataView;
+        settings: GanttSettings<any>;
+        tasks: Task[];
+        series: GanttSeries[];
         legendData: LegendData;
         taskTypes: TaskTypes;
-        dateType: string;
     }
     interface GanttDataPoint extends SelectableDataPoint {
         color: string;
@@ -2359,30 +2503,51 @@ declare module powerbi.visuals.samples {
         types: string[];
         typeName: string;
     }
+    interface GanttSettings<T> {
+        general: {
+            groupTasks: T;
+        };
+        legend: {
+            show: T;
+            position: T;
+            showTitle: T;
+            titleText: T;
+            labelColor: T;
+            fontSize: T;
+        };
+        taskLabels: {
+            show: T;
+            fill: T;
+            fontSize: T;
+            width: T;
+        };
+        taskCompletion: {
+            show: T;
+            fill: T;
+        };
+        taskResource: {
+            show: T;
+            fill: T;
+            fontSize: T;
+        };
+        dateType: {
+            type: T;
+        };
+    }
     class Gantt implements IVisual {
-        private data;
-        private dataView;
         private viewport;
         private colors;
         private legend;
-        private legendObjectProperties;
         private textProperties;
+        static DefaultSettings: GanttSettings<any>;
         static DefaultValues: {
             AxisTickSize: number;
-            LabelFontSize: number;
-            LegendFontSize: number;
-            LegendLabelColor: string;
             MaxTaskOpacity: number;
             MinTaskOpacity: number;
             ProgressBarHeight: number;
-            ProgressColor: string;
-            ResourceFontSize: number;
             ResourceWidth: number;
             TaskColor: string;
-            TaskLabelColor: string;
-            TaskLabelWidth: number;
             TaskLineWidth: number;
-            TaskResourceColor: string;
             DefaultDateType: string;
             DateFormatStrings: {
                 Day: string;
@@ -2393,7 +2558,8 @@ declare module powerbi.visuals.samples {
         };
         static capabilities: VisualCapabilities;
         private static Properties;
-        static getProperties(capabilities: VisualCapabilities): any;
+        private static getProperties(capabilities);
+        private static DefaultMargin;
         private margin;
         private style;
         private body;
@@ -2411,8 +2577,6 @@ declare module powerbi.visuals.samples {
         private interactivityService;
         private hostServices;
         private isInteractiveChart;
-        static getMaxTaskOpacity(): number;
-        static getMinTaskOpacity(): number;
         init(options: VisualInitOptions): void;
         /**
          * Create the vieport area of the gantt chart
@@ -2426,66 +2590,65 @@ declare module powerbi.visuals.samples {
          * Update div container size to the whole viewport area
          * @param viewport The vieport to change it size
          */
-        private updateChartSize(viewport);
-        /**
-       * Create the gantt tasks series based on all task types
-       * @param taskTypes All unique types from the tasks array.
-       */
-        private createSeries(objects, tasks);
-        /**
-        * Convert the dataView to view model
-        * @param dataView The data Model
-        */
-        static converter(dataView: DataView, colorPalette: IDataColorPalette): GanttViewModel;
-        /**
-         * Returns the chart formatters
-         * @param dataView The data Model
-         */
-        private parseSettings(dataView);
-        private isValidDate(date);
-        private convertToDecimal(number);
-        /**
-        * Create task objects dataView
-        * @param dataView The data Model.
-        * @param formatters task attributes represented format.
-        * @param series An array that holds the color data of different task groups.
-        */
-        private createTasks(dataView, formatters);
-        /**
-        * Gets all unique types from the tasks array
-        * @param dataView The data model.
-        */
-        private static getAllTasksTypes(dataView);
-        /**
-        * Get the tooltip info (data display names & formated values)
-        * @param task All task attributes.
-        * @param formatters Formatting options for gantt attributes.
-        */
-        private getTooltipInfo(task, formatters, timeInterval?);
+        private updateChartSize();
         /**
          * Get task property from the data view
          * @param columnSource
          * @param child
          * @param propertyName The property to get
          */
-        private getTaskProperty<T>(columnSource, child, propertyName);
+        private static getTaskProperty<T>(columnSource, child, propertyName);
         /**
          * Check if dataView has a given role
          * @param column The dataView headers
          * @param name The role to find
          */
-        private hasRole(column, name);
+        private static hasRole(column, name);
         /**
-         * Check if task has data for task
-         * @param dataView
+        * Get the tooltip info (data display names & formated values)
+        * @param task All task attributes.
+        * @param formatters Formatting options for gantt attributes.
+        */
+        private static getTooltipInfo(task, formatters, timeInterval?);
+        /**
+        * Check if task has data for task
+        * @param dataView
+        */
+        private static isChartHasTask(dataView);
+        /**
+         * Returns the chart formatters
+         * @param dataView The data Model
          */
-        private isChartHasTask(dataView);
+        private static getFormatters(dataView);
+        /**
+        * Create task objects dataView
+        * @param dataView The data Model.
+        * @param formatters task attributes represented format.
+        * @param series An array that holds the color data of different task groups.
+        */
+        private static createTasks(dataView, formatters, colors);
+        /**
+       * Create the gantt tasks series based on all task types
+       * @param taskTypes All unique types from the tasks array.
+       */
+        private static createSeries(objects, tasks, dataView, colors);
+        /**
+        * Convert the dataView to view model
+        * @param dataView The data Model
+        */
+        static converter(dataView: DataView, colors: IDataColorPalette): GanttViewModel;
+        private static parseSettings(dataView, colors);
+        private static isValidDate(date);
+        private static convertToDecimal(number);
+        /**
+        * Gets all unique types from the tasks array
+        * @param dataView The data model.
+        */
+        private static getAllTasksTypes(dataView);
         /**
          * Get legend data, calculate position and draw it
-         * @param ganttChartData Data for series and legend
          */
-        private renderLegend(legendData);
-        private parseLegendProperties(dataView);
+        private renderLegend();
         /**
         * Called on data change or resizing
         * @param options The visual option that contains the dataview and the viewport
@@ -2494,6 +2657,7 @@ declare module powerbi.visuals.samples {
         private getDateType();
         private calculateAxes(viewportIn, textProperties, startDate, endDate, axisLength, ticksCount, scrollbarVisible);
         private calculateAxesProperties(viewportIn, options, axisLength, metaDataColumn);
+        private groupTasks(tasks);
         private renderAxis(xAxisProperties, duration);
         /**
         * Update task labels and add its tooltips
@@ -2501,7 +2665,7 @@ declare module powerbi.visuals.samples {
         * @param width The task label width
         */
         private updateTaskLabels(tasks, width);
-        private renderTasks(tasks);
+        private renderTasks(groupedTasks);
         onClearSelection(): void;
         /**
          * Returns the matching Y coordinate for a given task index
@@ -2532,47 +2696,14 @@ declare module powerbi.visuals.samples {
         */
         private createMilestoneLine(tasks, milestoneTitle?, timestamp?);
         private updateElementsPositions(viewport, margin);
-        /**
-         * Returns the width of the now line based on num of tasks
-         * @param numOfTasks Number of tasks
-         */
         private getMilestoneLineLength(numOfTasks);
-        private getTaskLabelFontSize();
-        /**
-         * handle "Legend" card
-         * @param enumeration The instance to be pushed into "Legend" card
-         * @param objects Dataview objects
-         */
-        private enumerateLegendOptions(enumeration, objects);
-        /**
-        * handle "Data Colors" card
-        * @param enumeration The instance to be pushed into "Data Colors" card
-        * @param objects Dataview objects
-        */
-        private enumerateDataPoints(enumeration, objects);
-        /**
-        * handle "Task Completion" card
-        * @param enumeration The instance to be pushed into "Task Completion" card
-        * @param objects Dataview objects
-        */
-        private enumerateTaskCompletion(enumeration, objects);
-        /**
-        * handle "Labels" card
-        * @param enumeration The instance to be pushed into "Data Labels" card
-        * @param objects Dataview objects
-        */
-        private enumerateTaskLabels(enumeration, objects);
-        /**
-        * handle "Data Labels" card
-        * @param enumeration The instance to be pushed into "Task Resource" card
-        * @param objects Dataview objects
-        */
-        private enumerateDataLabels(enumeration, objects);
-        private enumerateDateType(enumeration, objects);
-        /**
-        * handle the property pane options
-        * @param objects Dataview enumerate objects
-        */
+        private enumerateGeneral(settings);
+        private enumerateLegend(settings);
+        private enumerateDataPoints(settings);
+        private enumerateTaskCompletion(settings);
+        private enumerateTaskLabels(settings);
+        private enumerateTaskResources(settings);
+        private enumerateDateType(settings);
         enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration;
     }
     interface GanttBehaviorOptions {
@@ -2938,7 +3069,7 @@ declare module powerbi.visuals.samples {
     }
     class Timeline implements IVisual {
         private requiresNoUpdate;
-        private foreignSelection;
+        private datasetsChangedState;
         private timelineProperties;
         private timelineFormat;
         private timelineData;
@@ -2982,11 +3113,16 @@ declare module powerbi.visuals.samples {
          */
         changeGranularity(granularity: GranularityType, startDate: Date, endDate: Date): void;
         init(options: VisualInitOptions): void;
+        private addWrappElements();
         private clear();
         private drawGranular(timelineProperties);
         redrawPeriod(granularity: GranularityType): void;
         private static setMeasures(labelFormat, granularityType, datePeriodsCount, viewport, timelineProperties, timelineMargins);
         private visualChangeOnly(options);
+        /**
+         * Note: Public for testability.
+         */
+        datasetsChanged(options: VisualUpdateOptions): boolean;
         private unavailableType(dataViewCategorical);
         private unavailableChildIdentityField(dataViewTree);
         private createTimelineOptions(dataView);
@@ -3118,6 +3254,414 @@ declare module powerbi.visuals.samples {
         private clearData();
         onClearSelection(): void;
         enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration;
+    }
+}
+
+declare module powerbi.visuals.samples {
+    interface PulseChartConstructorOptions {
+        animator?: IGenericAnimator;
+        svg?: D3.Selection;
+        behavior?: IInteractiveBehavior;
+    }
+    interface PulseBehaviorOptions {
+        layerOptions?: any[];
+        clearCatcher: D3.Selection;
+    }
+    interface TooltipSettings {
+        dataPointColor: string;
+        marginTop: number;
+        timeHeight: number;
+    }
+    interface PulseChartSeries extends LineChartSeries {
+        name?: string;
+        data: PulseChartDataPoint[];
+        color: string;
+        identity: SelectionId;
+        width: number;
+        xAxisProperties?: PulseChartXAxisProperties;
+        widthOfGap: number;
+    }
+    interface PulseChartTooltipData {
+        value: string;
+        title: string;
+        description: string;
+        offsetX?: number;
+    }
+    interface PulseChartAnimationPosition {
+        series: number;
+        index: number;
+    }
+    interface PulseChartPointXY {
+        x: number;
+        y: number;
+    }
+    interface PulseChartDataPoint extends LineChartDataPoint, PulseChartPointXY {
+        groupIndex: number;
+        popupInfo?: PulseChartTooltipData;
+        eventSize: number;
+        runnerCounterValue: any;
+        runnerCounterFormatString: any;
+    }
+    interface PulseChartLegend extends DataViewObject {
+        show?: boolean;
+        showTitle?: boolean;
+        titleText?: string;
+        position?: LegendPosition;
+    }
+    interface PulseChartPopupSettings {
+        show: boolean;
+        alwaysOnTop: boolean;
+        width: number;
+        height: number;
+        color: string;
+        fontSize: number;
+        fontColor: string;
+        showTime: boolean;
+        showTitle: boolean;
+        timeColor: string;
+        timeFill: string;
+    }
+    interface PulseChartDotsSettings {
+        color: string;
+        size: number;
+        minSize: number;
+        maxSize: number;
+        transparency: number;
+    }
+    function createEnumTypeFromEnum(type: any): IEnumType;
+    enum PulseChartXAxisDateFormat {
+        DateOnly,
+        TimeOnly,
+    }
+    enum XAxisPosition {
+        Center,
+        Bottom,
+    }
+    enum RunnerCounterPosition {
+        TopLeft,
+        TopRight,
+    }
+    interface PulseChartGapsSettings {
+        show: boolean;
+        visibleGapsPercentage: number;
+    }
+    interface PulseChartSeriesSetting {
+        fill: string;
+        width: number;
+    }
+    interface PulseChartPlaybackSettings {
+        pauseDuration: number;
+        playSpeed: number;
+        autoplay: boolean;
+        autoplayPauseDuration: number;
+        color: string;
+        position: PulseChartAnimationPosition;
+    }
+    interface PulseChartRunnerCounterSettings {
+        show: boolean;
+        label: string;
+        position: RunnerCounterPosition;
+        fontSize: number;
+        fontColor: string;
+    }
+    interface PulseChartAxisSettings {
+        formatterOptions?: ValueFormatterOptions;
+        fontColor: string;
+        color: string;
+        show: boolean;
+    }
+    interface PulseChartXAxisSettings extends PulseChartAxisSettings {
+        position: XAxisPosition;
+        dateFormat?: PulseChartXAxisDateFormat;
+        backgroundColor: string;
+    }
+    interface PulseChartYAxisSettings extends PulseChartAxisSettings {
+    }
+    interface PulseChartSettings {
+        formatStringProperty: DataViewObjectPropertyIdentifier;
+        displayName?: string;
+        dots: PulseChartDotsSettings;
+        fillColor?: string;
+        precision: number;
+        legend?: PulseChartLegend;
+        colors?: IColorPalette;
+        series: PulseChartSeriesSetting;
+        popup: PulseChartPopupSettings;
+        gaps: PulseChartGapsSettings;
+        xAxis: PulseChartXAxisSettings;
+        yAxis: PulseChartYAxisSettings;
+        runnerCounter: PulseChartRunnerCounterSettings;
+        playback: PulseChartPlaybackSettings;
+    }
+    interface PulseChartData {
+        settings: PulseChartSettings;
+        columns: PulseChartDataRoles<DataViewCategoricalColumn>;
+        categoryMetadata: DataViewMetadataColumn;
+        hasHighlights: boolean;
+        series: PulseChartSeries[];
+        isScalar?: boolean;
+        dataLabelsSettings: PointDataLabelsSettings;
+        axesLabels: ChartAxesLabels;
+        hasDynamicSeries?: boolean;
+        defaultSeriesColor?: string;
+        categoryData?: LineChartCategoriesData[];
+        categories: any[];
+        legendData?: LegendData;
+        grouped: DataViewValueColumnGroup[];
+        xScale?: D3.Scale.TimeScale | D3.Scale.LinearScale;
+        commonYScale?: D3.Scale.LinearScale;
+        yScales?: D3.Scale.LinearScale[];
+        yAxis?: D3.Svg.Axis;
+        widthOfXAxisLabel: number;
+        widthOfTooltipValueLabel: number;
+        heightOfTooltipDescriptionTextLine: number;
+        runnerCounterHeight: number;
+    }
+    interface PulseChartProperty {
+        [propertyName: string]: DataViewObjectPropertyIdentifier;
+    }
+    interface PulseChartProperties {
+        [objectName: string]: PulseChartProperty;
+    }
+    interface PulseChartXAxisProperties {
+        values: (Date | number)[];
+        scale: D3.Scale.TimeScale;
+        axis: D3.Svg.Axis;
+        rotate: boolean;
+    }
+    interface PulseChartPoint {
+        x: number;
+        value: Date | number;
+    }
+    interface PulseChartDataRoles<T> {
+        Timestamp?: T;
+        Category?: T;
+        Value?: T;
+        EventTitle?: T;
+        EventDescription?: T;
+        EventSize?: T;
+        RunnerCounter?: T;
+    }
+    interface PulseChartElementDimensions {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    }
+    class PulseChart implements IVisual {
+        static RoleDisplayNames: PulseChartDataRoles<string>;
+        static RoleNames: PulseChartDataRoles<string>;
+        static capabilities: VisualCapabilities;
+        private static Properties;
+        static getProperties(capabilities: VisualCapabilities): any;
+        private static DefaultMargin;
+        private static DefaultViewport;
+        private static PlaybackButtonsHeight;
+        private static PopupMinHeight;
+        private static PopupMinWidth;
+        private static PopupMaxHeight;
+        private static PopupMaxWidth;
+        private static MaxWidthOfYAxis;
+        private static PopupTextPadding;
+        private static XAxisTickSpace;
+        private static XAxisTickHeight;
+        private static MinimumTicksToRotate;
+        private static AxisTickRotateAngle;
+        private static GetPopupValueTextProperties(text?, fontSizeValue?);
+        private static GetPopupTitleTextProperties(text?, fontSizeValue?);
+        private static GetPopupDescriptionTextProperties(text?, fontSizeValue?);
+        static GetRunnerCounterTextProperties(text?: string, fontSizeValue?: number): TextProperties;
+        static ConvertTextPropertiesToStyle(textProperties: TextProperties): Object;
+        private static GetDateTimeFormatString(dateFormatType, dateFormat);
+        private static GetFullWidthOfDateFormat(dateFormat, textProperties);
+        static AddOnTouchClick(selection: D3.Selection, callback: (data: any, index: number) => any): D3.Selection;
+        private static DefaultSettings;
+        private static DefaultTooltipSettings;
+        private static MaxGapCount;
+        private static MinGapWidth;
+        private static Chart;
+        private static Line;
+        private static LineContainer;
+        private static LineNode;
+        private static XAxisNode;
+        private static Dot;
+        private static DotsContainer;
+        private static Tooltip;
+        private static TooltipRect;
+        private static TooltipTriangle;
+        private static Gaps;
+        private static Gap;
+        private static GapNode;
+        private static TooltipLine;
+        private static TooltipTime;
+        private static TooltipTimeRect;
+        private static TooltipTitle;
+        private static TooltipDescription;
+        private static TooltipContainer;
+        private static AnimationDot;
+        private static getCategoricalColumnOfRole(dataView, roleName);
+        static converter(dataView: DataView, colors: IDataColorPalette, interactivityService?: IInteractivityService): PulseChartData;
+        private static createAxisY(commonYScale, height, formatterOptions, show?);
+        private static createAxisX(isScalar, series, originalScale, formatterOptions, dateFormat, position, widthOfXAxisLabel);
+        private static getXAxisScales(series, isScalar, originalScale);
+        private static getXAxisValuesToDisplay(scale, rotate, isScalar, dateFormat, widthOfXAxisLabel);
+        private static getGroupIndex(index, grouped);
+        private static getGapWidths(values);
+        private static createScale(isScalar, domain, minX, maxX);
+        data: PulseChartData;
+        margin: IMargin;
+        viewport: IViewport;
+        size: IViewport;
+        handleSelectionTimeout: number;
+        host: IVisualHostServices;
+        private svg;
+        private chart;
+        private dots;
+        private yAxis;
+        private gaps;
+        private animationDot;
+        private lineX;
+        private selectionManager;
+        private animator;
+        private animationHandler;
+        private colors;
+        private rootSelection;
+        private animationSelection;
+        private lastSelectedPoint;
+        runnerCounterPlaybackButtonsHeight: number;
+        popupHeight: number;
+        constructor(options?: PulseChartConstructorOptions);
+        init(options: VisualInitOptions): void;
+        update(options: VisualUpdateOptions): void;
+        private updateData(data);
+        private getDataArrayToCompare(data);
+        private validateData(data);
+        private getChartWidth();
+        private getChartHeight(xAxisRotated);
+        private updateElements();
+        calculateXAxisProperties(width: number): void;
+        calculateYAxisProperties(height: number): void;
+        private getYAxisScales(height);
+        autoplayPauseDuration: number;
+        isAutoPlay: boolean;
+        render(suppressAnimations: boolean): CartesianVisualRenderResult;
+        private renderAxes(data, duration);
+        private renderXAxis(data, duration);
+        private renderYAxis(data, duration);
+        renderChart(): void;
+        private drawLinesStatic(limit, isAnimated);
+        private drawLinesStaticBeforeAnimation(limit);
+        private moveAnimationDot(d);
+        playAnimation(delay?: number): void;
+        pauseAnimation(): void;
+        stopAnimation(): void;
+        findNextPoint(position: PulseChartAnimationPosition): PulseChartAnimationPosition;
+        findPrevPoint(position: PulseChartAnimationPosition): PulseChartAnimationPosition;
+        isAnimationSeriesAndIndexLast(position: PulseChartAnimationPosition): boolean;
+        isAnimationSeriesLast(position: PulseChartAnimationPosition): boolean;
+        isAnimationIndexLast(position: PulseChartAnimationPosition): boolean;
+        private drawLines(data);
+        private showAnimationDot();
+        private hideAnimationDot();
+        private getInterpolation(data, start);
+        clearSelection(): void;
+        private handleSelection(position);
+        private animationDuration;
+        private pauseDuration;
+        private dotOpacity;
+        private drawDots(data);
+        private renderGaps(data, duration);
+        private setSelection(selectionIds?);
+        private isPopupShow(d, selectionIds?);
+        private drawTooltips(data, selectionIds?);
+        private isHigherMiddle(value, groupIndex);
+        private static getObjectsFromDataView(dataView);
+        private static parseSettings(dataView, colors, columns);
+        private static getPopupSettings(objects, colors);
+        private static getDotsSettings(objects, colors);
+        private static getSeriesSettings(objects, colors);
+        private static getGapsSettings(objects);
+        private static getAxisXSettings(objects, colors);
+        private static getAxisYSettings(objects, colors);
+        private static getPlaybackSettings(objects, colors);
+        private static getRunnerCounterSettings(objects, colors, columns);
+        private clearAll(hide);
+        clearChart(): void;
+        clearRedundant(position: PulseChartAnimationPosition): void;
+        enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration;
+        private getSettings(name);
+        private readGeneralInstance(enumeration);
+        private readPopupInstance(enumeration);
+        private readDotsInstance(enumeration);
+        private xAxisInstance(enumeration);
+        private yAxisInstance(enumeration);
+        private readSeriesInstance(enumeration);
+        private readGapsInstance(enumeration);
+        private readPlaybackInstance(enumeration);
+        private readRunnerCounterInstance(enumeration);
+        destroy(): void;
+    }
+    class PulseAnimator {
+        private chart;
+        private svg;
+        private animationPlay;
+        private animationPause;
+        private animationReset;
+        private animationToEnd;
+        private animationPrev;
+        private animationNext;
+        private runnerCounter;
+        private runnerCounterText;
+        private static AnimationPlay;
+        private static AnimationPause;
+        private static AnimationReset;
+        private static AnimationToEnd;
+        private static AnimationPrev;
+        private static AnimationNext;
+        private static RunnerCounter;
+        private animatorState;
+        static AnimationMinPosition: PulseChartAnimationPosition;
+        private static DimmedOpacity;
+        private static DefaultOpacity;
+        private static DefaultControlsColor;
+        private container;
+        animationPlayingIndex: number;
+        private runnerCounterValue;
+        private runnerCounterTopLeftPosition;
+        private runnerCounterPosition;
+        private maxTextWidthOfRunnerCounterValue;
+        private color;
+        private isAutoPlayed;
+        isAnimated: boolean;
+        isPlaying: boolean;
+        isPaused: boolean;
+        isStopped: boolean;
+        constructor(chart: PulseChart, svg: D3.Selection);
+        private setDefaultValues();
+        render(): void;
+        setControlsColor(color: string): void;
+        private renderControls();
+        private static setControlVisiblity(element, isVisible, isDisabled?);
+        private disableControls();
+        show(): void;
+        setRunnerCounterValue(index?: number): void;
+        private drawCounterValue();
+        play(delay?: number, renderDuringPlaying?: boolean): void;
+        playNext(): void;
+        pause(): void;
+        reset(): void;
+        private next();
+        private prev();
+        toEnd(): void;
+        stop(): void;
+        private positionValue;
+        position: PulseChartAnimationPosition;
+        flooredPosition: PulseChartAnimationPosition;
+        private isPositionWasSaved;
+        private autoPlayPosition;
+        savedPosition: PulseChartAnimationPosition;
+        clear(): void;
+        clearTimeouts(): void;
     }
 }
 
@@ -3675,20 +4219,9 @@ declare module powerbi.visuals.plugins {
     var forceGraph: IVisualPlugin;
     let gantt: IVisualPlugin;
     let streamGraph: IVisualPlugin;
+    let pulseChart: IVisualPlugin;
     var lineDotChart: IVisualPlugin;
     var boxWhiskerChart: IVisualPlugin;
     var forecastChart: IVisualPlugin;
     var hierarchySlicer: IVisualPlugin;
-}
-
-declare module powerbi.visuals.visualPluginFactory {
-    class CustomVisualPluginService extends VisualPluginService {
-        private customVisualPlugins;
-        constructor();
-        getVisuals(): IVisualPlugin[];
-        getPlugin(type: string): IVisualPlugin;
-        capabilities(type: string): VisualCapabilities;
-        private initCustomVisualPlugins();
-    }
-    function createCustomVisualPluginService(): IVisualPluginService;
 }

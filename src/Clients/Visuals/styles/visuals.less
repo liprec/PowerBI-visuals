@@ -105,7 +105,7 @@
                 justify-content: space-between;
                 -webkit-align-items: center;
                 width: ~"calc(100% - 10px)";
-                border: 1px solid;
+                border: 1px solid @neutralDarkColor;
                 height: 20px;
             }
 
@@ -114,6 +114,7 @@
                 margin: 0 4px;
                 flex: 0 0 auto;
                 -webkit-flex: 0 0 auto;
+                color: @neutralDarkColor;
             }
 
             input {
@@ -142,8 +143,14 @@
         cursor: pointer;
         font-size: 14px;
 
+        ul {
+            padding: 0;
+            margin: 0;
+        }
+
         .slicerItemContainer {
-            margin: 2px 0 0 0;
+            margin: 0;
+            padding: 2px 0 0 0;
             box-sizing: border-box;
             white-space: nowrap;
             cursor: pointer;
@@ -1107,14 +1114,7 @@
     }
 
     .labelGraphicsContext {
-        .label {
-            font-size: 12px;
-            text-anchor: middle;
-            font-family: @regularSecondaryFontFamily;
-            pointer-events: none;
-        }
-
-        .catagorylabel {
+        .label, .label-second-line, .catagorylabel {
             font-size: 12px;
             text-anchor: middle;
             font-family: @regularSecondaryFontFamily;
@@ -1172,6 +1172,7 @@
                 box-sizing: border-box;
                 position: relative;
                 vertical-align: top;
+                display: inline-block;
 
                 .caption {
                     color: @neutralPrimaryColor;
@@ -1394,6 +1395,11 @@ div.debugVisual-controlsContainer{
         color: white;
         cursor: pointer;
     }
+    
+    .controlBtn.active {
+        background: @themePrimaryColor;
+        color: @themeSecondaryColor;
+    }
 }
 
 // NOTE: this lives outside the visual and must not be scoped by the .visual selector.
@@ -1564,14 +1570,23 @@ div.ql-toolbar {
 .tooltip-container {
     .unselectable;
     position: absolute;
-    font-size: 11px;
-    background-color: @neutralPrimaryColor;
     pointer-events: none;
     z-index: @tooltip-z-index;
+    display: flex;
+
+    &.left {
+        flex-direction: row;
+    }
+    
+    &.right {
+        flex-direction: row-reverse;
+    }
 
     .tooltip-content-container {
         padding: 12px;
         max-width: 520px;
+        font-size: 11px;
+        background-color: @neutralPrimaryColor;
     }
 
     div.tooltip-header {
@@ -1619,29 +1634,28 @@ div.ql-toolbar {
         color: @whiteColor;
         letter-spacing: 1px;
     }
-
+    
     .arrow {
-        position: absolute;
         width: 0;
         height: 0;
 
         &.top {
-            top: 7px;
+            margin-top: 7px;
+            align-self: flex-start;
         }
 
         &.bottom {
-            bottom: 7px;
+            margin-bottom: 7px;
+            align-self: flex-end;
         }
 
         &.left {
-            left: -7px;
             border-top: 7px solid transparent;
             border-bottom: 7px solid transparent;
             border-right: 7px solid @neutralPrimaryColor;
         }
 
         &.right {
-            right: -7px;
             border-top: 7px solid transparent;
             border-bottom: 7px solid transparent;
             border-left: 7px solid @neutralPrimaryColor;

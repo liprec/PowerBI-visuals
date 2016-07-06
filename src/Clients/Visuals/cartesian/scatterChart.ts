@@ -540,19 +540,7 @@ module powerbi.visuals {
                         }
 
                         if (tooltipBucketEnabled) {
-                            let tooltipValues = reader.getAllValuesForRole("Tooltips", categoryIndex, seriesIndex);
-                            let tooltipMetadataColumns = reader.getAllValueMetadataColumnsForRole("Tooltips", seriesIndex);
-
-                            if (tooltipValues && tooltipMetadataColumns) {
-                                for (let j = 0; j < tooltipValues.length; j++) {
-                                    if (tooltipValues[j] != null) {
-                                        tooltipInfo.push({
-                                            displayName: tooltipMetadataColumns[j].displayName,
-                                            value: converterHelper.formatFromMetadataColumn(tooltipValues[j], tooltipMetadataColumns[j], formatStringProp),
-                                        });
-                                    }
-                                }
-                            }
+                            TooltipBuilder.addTooltipBucketItem(reader, tooltipInfo, categoryIndex, seriesIndex);
                         }
                     }
 
@@ -924,8 +912,9 @@ module powerbi.visuals {
             let data = this.data;
             if (!data)
                 return false;
-
-            return !this.hasSizeMeasure() && data.dataPointSeries.length > 0;
+            let dataView = this.dataView;
+            let reader = powerbi.data.createIDataViewCategoricalReader(dataView);
+            return !this.hasSizeMeasure() && data.dataPointSeries.length > 0 && reader.hasValues("X") && reader.hasValues("Y");
         }
 
         private static getExtents(data: ScatterChartData): CartesianExtents {

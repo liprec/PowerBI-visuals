@@ -2629,7 +2629,7 @@ module powerbitests {
 
     describe("Matrix capabilities", () => {
         it("Matrix registered capabilities", () => {
-            expect(powerbi.visuals.visualPluginFactory.create().getPlugin("matrix").capabilities).toBe(matrixCapabilities);
+            expect(powerbi.visuals.plugins.matrix.capabilities).toBe(matrixCapabilities);
         });
 
         it("Capabilities should include dataViewMappings", () => expect(matrixCapabilities.dataViewMappings).toBeDefined());
@@ -3595,7 +3595,7 @@ module powerbitests {
         let v: powerbi.IVisual;
 
         beforeEach(() => {
-            v = powerbi.visuals.visualPluginFactory.create().getPlugin("matrix").create();
+            v = powerbi.visuals.plugins.matrix.create();
             let element = powerbitests.helpers.testDom("500", "500");
             element["visible"] = () => { return true; };
             v.init({
@@ -3989,7 +3989,7 @@ module powerbitests {
         let v: powerbi.IVisual;
 
         beforeEach(() => {
-            v = powerbi.visuals.visualPluginFactory.create().getPlugin("matrix").create();
+            v = powerbi.visuals.plugins.matrix.create();
             let element = powerbitests.helpers.testDom("500", "500");
             element["visible"] = () => { return true; };
             v.init({
@@ -4369,7 +4369,7 @@ module powerbitests {
         beforeEach(() => {
             element = powerbitests.helpers.testDom("1500", "1500");
             element["visible"] = () => { return true; };
-            v = new Matrix({});
+            v = new Matrix();
             v.init({
                 element: element,
                 host: mocks.createVisualHostServices(),
@@ -5834,7 +5834,7 @@ module powerbitests {
         beforeEach(() => {
             element = powerbitests.helpers.testDom("700", "700");
             element["visible"] = () => { return true; };
-            v = new powerbi.visuals.Matrix({});
+            v = new powerbi.visuals.Matrix();
             v.init({
                 element: element,
                 host: mocks.createVisualHostServices(),

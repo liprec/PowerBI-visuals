@@ -194,7 +194,7 @@ module powerbitests {
         });
 
         it("MultiRowCard_registered_capabilities", () => {
-            expect(powerbi.visuals.visualPluginFactory.create().getPlugin("multiRowCard").capabilities).toBe(multiRowCardCapabilities);
+            expect(powerbi.visuals.plugins.multiRowCard.capabilities).toBe(multiRowCardCapabilities);
         });
 
         it("Capabilities should include dataViewMappings", () => {
@@ -239,7 +239,7 @@ module powerbitests {
 
             beforeEach(() => {
                 let element = helpers.testDom("200", "300");
-                visual = <MultiRowCard>powerbi.visuals.visualPluginFactory.create().getPlugin("multiRowCard").create();
+                visual = <MultiRowCard>powerbi.visuals.plugins.multiRowCard.create();
                 visual.init(getVisualInitOptions(element));
             });
 
@@ -322,7 +322,7 @@ module powerbitests {
             let visualInitOptions: powerbi.VisualInitOptions;
 
             beforeEach(() => {
-                v = <MultiRowCard>powerbi.visuals.visualPluginFactory.create().getPlugin("multiRowCard").create();
+                v = <MultiRowCard>powerbi.visuals.plugins.multiRowCard.create();
                 element = helpers.testDom("200", "300");
                 visualInitOptions = getVisualInitOptions(element);
                 v.init(visualInitOptions);
@@ -778,59 +778,6 @@ module powerbitests {
                     expect($(".card").length).toBe(4);
                     expect($(".card:first>*:visible").length).toBe(1);
                     expect($(".card:first>*:visible").text()).not.toEqual('');
-                });
-            });
-
-            it("Verify number of cards and card items in smallTile ", () => {
-                let options = getVisualInitOptions(helpers.testDom("150", "230"));
-
-                options.interactivity = { overflow: "hidden" };
-                v.init(options);
-
-                helpers.runWithImmediateAnimationFrames(() => {
-                    fireOnDataChanged(v, { dataViews: [tableDataViewHelper.getDataWithColumns(10, 10)] });
-
-                    expect($(".card")).toBeInDOM();
-                    expect($(".card .cardItemContainer")).toBeInDOM();
-
-                    expect($(".card").length).toBe(2);
-                    expect($(".card:first>*:visible").length).toBe(4);
-                });
-            });
-
-            it("Verify number of cards and card items in MediumTile ", () => {
-                let options = getVisualInitOptions(helpers.testDom("300", "470"));
-
-                options.interactivity = { overflow: "hidden" };
-                v.init(options);
-
-                helpers.runWithImmediateAnimationFrames(() => {
-                    fireOnDataChanged(v, { dataViews: [tableDataViewHelper.getDataWithColumns(10, 10)] });
-
-                    expect($(".card")).toBeInDOM();
-                    expect($(".card .cardItemContainer")).toBeInDOM();
-
-                    expect($(".card").length).toBe(4);
-                    expect($(".card:first>*:visible").length).toBe(6);
-                });
-            });
-
-            it("Verify number of cards and card items in LargeTile ", () => {
-                let options = getVisualInitOptions(helpers.testDom("450", "750"));
-
-                options.interactivity = { overflow: "hidden" };
-                v.init(options);
-
-                helpers.runWithImmediateAnimationFrames(() => {
-                    fireOnDataChanged(v, { dataViews: [tableDataViewHelper.getDataWithColumns(10, 10)] });
-
-                    expect($(".card")).toBeInDOM();
-                    expect($(".card .cardItemContainer")).toBeInDOM();
-
-                    expect($(".card").length).toBeGreaterThan(8);
-                    expect($(".card").length).toBeLessThan(11);
-                    expect($(".card:first>*:visible").length).toBe(6);
-
                 });
             });
 

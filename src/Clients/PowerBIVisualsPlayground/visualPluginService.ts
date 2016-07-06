@@ -27,15 +27,77 @@
 /// <reference path="./_references.ts"/>
 
 module powerbi.visuals {
+    
+    export interface MinervaVisualFeatureSwitches {
+        /**
+         * This feature switch enables the data-dot & column combo charts.
+         */
+        dataDotChartEnabled?: boolean;
 
-    import createPlugin = visualPluginFactory.createPlugin;
+        /**
+         * Visual should prefer to request a higher volume of data.
+         */
+        preferHigherDataVolume?: boolean;
 
+        sandboxVisualsEnabled?: boolean;
+
+        /**
+        * R visual is enabled for consumption.
+        * When turned on, R script will be executed against local R (for PBID) or AML (for PBI.com).
+        * When turned off, R script will not be executed and the visual is treated as a static image visual.
+        */
+        scriptVisualEnabled?: boolean;
+
+        /**
+        * R visual is enabled for authoring.
+        * When turned on, R visual will appear in the visual gallery.
+        */
+        scriptVisualAuthoringEnabled?: boolean;
+
+        isLabelInteractivityEnabled?: boolean;
+
+        sunburstVisualEnabled?: boolean;
+
+        filledMapDataLabelsEnabled?: boolean;
+
+        /**
+         * Enables button to center map to the current location
+         */
+        mapCurrentLocationEnabled?: boolean;
+        
+        tooltipBucketEnabled?: boolean;
+        
+        /**
+         * Load more data for Cartesian charts (column, bar, line, and combo). 
+         */
+        cartesianLoadMoreEnabled?: boolean;
+
+        /**
+         * Advanced logic for line chart labels
+         */
+        advancedLineLabelsEnabled?: boolean;
+    }
+    
+    function createPlugin(
+        visualPlugins: jsCommon.IStringDictionary<IVisualPlugin>,
+        base: IVisualPlugin,
+        create: IVisualFactoryMethod,
+        modifyPluginFn?: (plugin: IVisualPlugin) => void): void {
+
+        let visualPlugin = Prototype.inherit(base);
+        visualPlugin.create = create;
+        if (modifyPluginFn) {
+            modifyPluginFn(visualPlugin);
+        }
+        visualPlugins[base.name] = visualPlugin;
+    }
+    
     function createMinervaPlugins(plugins: jsCommon.IStringDictionary<IVisualPlugin>, featureSwitches?: MinervaVisualFeatureSwitches) {
         let scriptVisualEnabled: boolean = featureSwitches ? featureSwitches.scriptVisualEnabled : false;
         let scriptVisualAuthoringEnabled: boolean = featureSwitches ? featureSwitches.scriptVisualAuthoringEnabled : false;
         let isLabelInteractivityEnabled: boolean = featureSwitches ? featureSwitches.isLabelInteractivityEnabled : false;
         let fillMapDataLabelsEnabled: boolean = featureSwitches ? featureSwitches.filledMapDataLabelsEnabled : false;
-        let lineChartLabelDensityEnabled: boolean = featureSwitches ? featureSwitches.lineChartLabelDensityEnabled : false;
+        let advancedLineLabelsEnabled: boolean = featureSwitches ? featureSwitches.advancedLineLabelsEnabled : false;
 
         // Bar Chart
         createPlugin(plugins, powerbi.visuals.plugins.barChart, () => new CartesianChart({
@@ -139,7 +201,7 @@ module powerbi.visuals {
             animator: new BaseAnimator(),
             behavior: new CartesianChartBehavior([new LineChartWebBehavior()]),
             isLabelInteractivityEnabled: isLabelInteractivityEnabled,
-            lineChartLabelDensityEnabled: lineChartLabelDensityEnabled,
+            advancedLineLabelsEnabled: advancedLineLabelsEnabled,
         }));
         // Area Chart
         createPlugin(plugins, powerbi.visuals.plugins.areaChart, () => new CartesianChart({
@@ -149,7 +211,7 @@ module powerbi.visuals {
             animator: new BaseAnimator(),
             behavior: new CartesianChartBehavior([new LineChartWebBehavior()]),
             isLabelInteractivityEnabled: isLabelInteractivityEnabled,
-            lineChartLabelDensityEnabled: lineChartLabelDensityEnabled,
+            advancedLineLabelsEnabled: advancedLineLabelsEnabled,
         }));
         // Stacked Area Chart
         createPlugin(plugins, powerbi.visuals.plugins.stackedAreaChart, () => new CartesianChart({
@@ -158,7 +220,6 @@ module powerbi.visuals {
             tooltipsEnabled: true,
             animator: new BaseAnimator(),
             behavior: new CartesianChartBehavior([new LineChartWebBehavior()]),
-            lineChartLabelDensityEnabled: lineChartLabelDensityEnabled,
         }));
         // Line Clustered Combo Chart
         createPlugin(plugins, powerbi.visuals.plugins.lineClusteredColumnComboChart, () => new CartesianChart({
@@ -168,6 +229,7 @@ module powerbi.visuals {
             animator: new WebColumnChartAnimator(),
             behavior: new CartesianChartBehavior([new ColumnChartWebBehavior(), new LineChartWebBehavior()]),
             isLabelInteractivityEnabled: isLabelInteractivityEnabled,
+            advancedLineLabelsEnabled: advancedLineLabelsEnabled,
         }));
         // Line Stacked Combo Chart
         createPlugin(plugins, powerbi.visuals.plugins.lineStackedColumnComboChart, () => new CartesianChart({
@@ -177,6 +239,7 @@ module powerbi.visuals {
             animator: new WebColumnChartAnimator(),
             behavior: new CartesianChartBehavior([new ColumnChartWebBehavior(), new LineChartWebBehavior()]),
             isLabelInteractivityEnabled: isLabelInteractivityEnabled,
+            advancedLineLabelsEnabled: advancedLineLabelsEnabled,
         }));
         // Pie Chart
         createPlugin(plugins, powerbi.visuals.plugins.pieChart, () => new DonutChart({
@@ -229,11 +292,9 @@ module powerbi.visuals {
             behavior: new SlicerWebBehavior(),
         }));
         // Matrix
-        createPlugin(plugins, powerbi.visuals.plugins.matrix, () => new Matrix({
-        }));
+        createPlugin(plugins, powerbi.visuals.plugins.matrix, () => new Matrix());
         // Table
-        createPlugin(plugins, powerbi.visuals.plugins.table, () => new Table({
-        }));;
+        createPlugin(plugins, powerbi.visuals.plugins.table, () => new Table());
 
         if (scriptVisualEnabled && scriptVisualAuthoringEnabled) {
             // R visual
@@ -405,13 +466,9 @@ module powerbi.visuals {
                     smallViewPortProperties: this.smallViewPortProperties.DonutSmallViewPortProperties
                 }));
             createPlugin(this.visualPlugins, powerbi.visuals.plugins.matrix,
-                () => new Matrix({
-                    isTouchEnabled: true
-                }));
+                () => new Matrix());
             createPlugin(this.visualPlugins, powerbi.visuals.plugins.table,
-                () => new Table({
-                    isTouchEnabled: true
-                }));
+                () => new Table());
             createPlugin(this.visualPlugins, powerbi.visuals.plugins.map,
                 () => new Map({
                     viewChangeThrottleInterval: mapThrottleInterval,
@@ -429,10 +486,6 @@ module powerbi.visuals {
                 return this.visualPlugins[type];
 
             return powerbi.visuals.plugins[type];
-        }
-
-        public requireSandbox(plugin: IVisualPlugin): boolean {
-            return !plugin || plugin.custom;
         }
 
         // Windows phone webView chokes when zooming on heavy maps,

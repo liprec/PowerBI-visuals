@@ -58,6 +58,18 @@ module powerbi.data {
             variationName: string,
             hierarchyName: string): ConceptualHierarchy {
 
+            let targetEntity = this.findTargetEntityOfVariation(variationEntityName, variationColumnName, variationName);
+            if (!targetEntity || _.isEmpty(targetEntity.hierarchies))
+                return;
+
+            return targetEntity.hierarchies.withName(hierarchyName);
+        }
+
+        public findTargetEntityOfVariation(
+            variationEntityName: string,
+            variationColumnName: string,
+            variationName: string): ConceptualEntity {
+
             let variationEntity = this.entities.withName(variationEntityName);
             if (!variationEntity || _.isEmpty(variationEntity.properties))
                 return;
@@ -71,13 +83,8 @@ module powerbi.data {
                 return;
 
             let variation = variationColumn.variations.withName(variationName);
-            if (variation) {
-                let targetEntity = variation.navigationProperty ? variation.navigationProperty.targetEntity : variationEntity;
-                if (!targetEntity || _.isEmpty(targetEntity.hierarchies))
-                    return;
-
-                return targetEntity.hierarchies.withName(hierarchyName);
-            }
+            if (variation)
+                return variation.navigationProperty ? variation.navigationProperty.targetEntity : variationEntity;
         }
 
         /**
@@ -177,6 +184,20 @@ module powerbi.data {
         defaultValue?: SQConstantExpr;
         variations?: ArrayNamedItems<ConceptualVariationSource>;
         aggregateBehavior?: ConceptualAggregateBehavior;
+        groupingDefinition?: ConceptualGroupingDefinition;
+    }
+        
+    export interface ConceptualGroupingDefinition {
+        binningDefinition?: ConceptualBinningDefinition;
+    }
+
+    export interface ConceptualBinningDefinition {
+        binSize?: ConceptualBinSize;
+    }
+
+    export interface ConceptualBinSize {
+        value: number;
+        unit: ConceptualBinUnit;
     }
 
     export interface ConceptualMeasure {
@@ -201,6 +222,18 @@ module powerbi.data {
     export const enum ConceptualQueryableState {
         Queryable = 0,
         Error = 1,
+    }
+
+    export const enum ConceptualBinUnit {
+        Number = 0,
+        Percent = 1,
+        Log = 2,
+        Percentile = 3,
+        Year = 4,
+        Quarter = 5,
+        Month = 6,
+        Week = 7,
+        Day = 8,
     }
 
     export const enum ConceptualMultiplicity {

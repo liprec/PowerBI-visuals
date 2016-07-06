@@ -147,13 +147,17 @@ module powerbi.visuals {
             if (slicerSearch.empty())
                 return;
 
-            slicerSearch.on(DOMConstants.mouseDownEventName, () => {
-                d3.event.stopPropagation();
-            }).on(DOMConstants.keyDownEventName, () => {
+            slicerSearch.on(DOMConstants.keyDownEventName, () => {
                 if (d3.event.ctrlKey && KeyUtils.isCtrlDefaultKey(d3.event.keyCode))
                     d3.event.stopPropagation();
-                else if (KeyUtils.isArrowKey(d3.event.keyCode))
+                else if (KeyUtils.isArrowKey(d3.event.keyCode) || d3.event.keyCode === DOMConstants.deleteKeyCode)
                     d3.event.stopPropagation();
+                else if (d3.event.keyCode === DOMConstants.escKeyCode) {
+
+                    // Clear search when ESC key is pressed
+                    selectionHandler.persistSelfFilter(slicerProps.selfFilterPropertyIdentifier, null);
+                    d3.event.stopPropagation();
+                }
                 else if (d3.event.keyCode === DOMConstants.enterKeyCode) {
                     SlicerWebBehavior.startSearch(slicerSearch, selectionHandler, slicerValueHandler);
                     d3.event.stopPropagation();
@@ -166,7 +170,7 @@ module powerbi.visuals {
         private static startSearch(slicerSearch: D3.Selection, selectionHandler: ISelectionHandler, slicerValueHandler: SlicerValueHandler): void {
             let element: HTMLInputElement = <HTMLInputElement>slicerSearch.node();
             let searchKey: string = element && element.value;
-
+            searchKey = _.trim(searchKey);
             // When searchKey is cleared.
             if (_.isEmpty(searchKey)) {
                 selectionHandler.persistSelfFilter(slicerProps.selfFilterPropertyIdentifier, null);

@@ -711,19 +711,7 @@ module powerbi.visuals {
                         }
 
                         if (tooltipBucketEnabled) {
-                            let tooltipValues = reader.getAllValuesForRole("Tooltips", categoryIndex, hasDynamicSeries ? seriesIndex : undefined);
-                            let tooltipMetadataColumns = reader.getAllValueMetadataColumnsForRole("Tooltips", hasDynamicSeries ? seriesIndex : undefined);
-
-                            if (tooltipValues && tooltipMetadataColumns) {
-                                for (let j = 0; j < tooltipValues.length; j++) {
-                                    if (tooltipValues[j] != null) {
-                                        tooltipInfo.push({
-                                            displayName: tooltipMetadataColumns[j].displayName,
-                                            value: converterHelper.formatFromMetadataColumn(tooltipValues[j], tooltipMetadataColumns[j], formatStringProp),
-                                        });
-                                    }
-                                }
-                            }
+                            TooltipBuilder.addTooltipBucketItem(reader, tooltipInfo, categoryIndex, hasDynamicSeries ? seriesIndex : undefined);
                         }
                     }
 
@@ -1347,8 +1335,10 @@ module powerbi.visuals {
         }
 
         public supportsTrendLine(): boolean {
+            let dataView = this.dataView;
+            let reader = powerbi.data.createIDataViewCategoricalReader(dataView);
             let isScalar = this.data ? this.data.scalarCategoryAxis : false;
-            return this.chartType === ColumnChartType.clusteredColumn && isScalar;
+            return this.chartType === ColumnChartType.clusteredColumn && isScalar && reader.hasValues("Y");
         }
 
         public static isBar(chartType: ColumnChartType): boolean {

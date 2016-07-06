@@ -28,8 +28,8 @@ declare module _ {
         * The non-chainable wrapper functions are:
         * clone, cloneDeep, contains, escape, every, find, findIndex, findKey, findLast, 
         * findLastIndex, findLastKey, has, identity, indexOf, isArguments, isArray, isBoolean, 
-        * isDate, isElement, isEmpty, isEqual, isFinite, isFunction, isNaN, isNull, isNumber, 
-        * isObject, isPlainObject, isRegExp, isString, isUndefined, join, lastIndexOf, mixin, 
+        * isDate, isElement, isEmpty, isEqual, isFinite, isFunction, isNaN, isNumber, 
+        * isObject, isPlainObject, isRegExp, isString, join, lastIndexOf, mixin, 
         * noConflict, parseInt, pop, random, reduce, reduceRight, result, shift, size, some, 
         * sortedIndex, runInContext, template, unescape, uniqueId, and value
         *
@@ -5415,6 +5415,72 @@ declare module _ {
             whereValue: W): string;
     }
 
+    //_.forOwn
+    interface LoDashStatic {
+        /**
+        * Iterates over own enumerable properties of an object, executing the callback for each 
+        * property. The callback is bound to thisArg and invoked with three arguments; (value, key, 
+        * object). Callbacks may exit iteration early by explicitly returning false.
+        * @param object The object to iterate over.
+        * @param callback The function called per iteration.
+        * @param thisArg The this binding of callback.
+        * @return object
+        **/
+        forOwn<T extends {}>(
+            object: Dictionary<T>,
+            callback?: ObjectIterator<T, void>,
+            thisArg?: any): Dictionary<T>;
+
+        /**
+        * @see _.forOwn
+        **/
+        forOwn<T extends {}>(
+            object: T,
+            callback?: ObjectIterator<any, void>,
+            thisArg?: any): T;
+    }
+
+    interface LoDashObjectWrapper<T> {
+        /**
+        * @see _.forOwn
+        **/
+        forOwn<T extends {}>(
+            callback: ObjectIterator<T, void>,
+            thisArg?: any): _.LoDashObjectWrapper<T>;
+    }
+
+    //_.forOwnRight
+    interface LoDashStatic {
+        /**
+        * This method is like _.forOwn except that it iterates over elements of a collection in the 
+        * opposite order.
+        * @param object The object to iterate over.
+        * @param callback The function called per iteration.
+        * @param thisArg The this binding of callback.
+        * @return object
+        **/
+        forOwnRight<T extends {}>(
+            object: Dictionary<T>,
+            callback?: ObjectIterator<T, void>,
+            thisArg?: any): Dictionary<T>;
+        /**
+        * @see _.forOwnRight
+        **/
+        forOwnRight<T extends {}>(
+            object: T,
+            callback?: ObjectIterator<any, void>,
+            thisArg?: any): T;
+    }
+
+    interface LoDashObjectWrapper<T> {
+        /**
+        * @see _.forOwnRight
+        **/
+        forOwnRight<T extends {}>(
+            callback: ObjectIterator<T, void>,
+            thisArg?: any): _.LoDashObjectWrapper<T>;
+    }
+
     //_.functions
     interface LoDashStatic {
         /**
@@ -5597,16 +5663,6 @@ declare module _ {
         isNaN(value: any): boolean;
     }
 
-    //_.isNull
-    interface LoDashStatic {
-        /**
-        * Checks if value is null.
-        * @param value The value to check.
-        * @return True if the value is null, else false.
-        **/
-        isNull(value: any): boolean;
-    }
-
     //_.isNumber
     interface LoDashStatic {
         /**
@@ -5658,16 +5714,6 @@ declare module _ {
         * @return True if the value is a string, else false.
         **/
         isString(value: any): boolean;
-    }
-
-    //_.isUndefined
-    interface LoDashStatic {
-        /**
-        * Checks if value is undefined.
-        * @param value The value to check.
-        * @return True if the value is undefined, else false.
-        **/
-        isUndefined(value: any): boolean;
     }
 
     //_.keys

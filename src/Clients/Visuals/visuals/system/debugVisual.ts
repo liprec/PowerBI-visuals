@@ -36,30 +36,6 @@ module powerbi.visuals.system {
         type: string;
     }
 
-    /**
-     * Makes a copy of an object and flattens prototype chain
-     */
-    function flattenPrototype(obj: any): any {
-        if (obj !== null && typeof obj === 'object') {
-            if (obj instanceof Array) {
-                return obj.map(i => flattenPrototype(i));
-            } else {
-                let output = {};
-                for (let o = obj; o != null; o = Object.getPrototypeOf(o)) {
-                    let oKeys = Object.getOwnPropertyNames(o);
-                    for (let i = 0; i < oKeys.length; i++) {
-                        let key = oKeys[i];
-                        if (typeof output[key] !== 'undefined') continue;
-                        output[key] = flattenPrototype(obj[key]);
-                    }
-                }
-                return output;
-            }
-        } else {
-            return obj;
-        }
-    }
-
     export class DebugVisual implements IVisual {
         public static capabilities: VisualCapabilities = {};
 
@@ -86,16 +62,25 @@ module powerbi.visuals.system {
         private host: IVisualHostServices;
         private autoRefreshBtn: JQuery;
         private refreshBtn: JQuery;
+        private dataBtn: JQuery;
         private lastUpdateOptions: VisualUpdateOptions;
         private lastUpdateStatus: string;
         private visualGuid: string;
         private autoReloadInterval: number;
         private statusLoading: boolean;
+        private dataViewShowing: boolean;
 
         private reloadAdapter(auto: boolean = false): void {
-            let developerMode = localStorageService.getData('DEVELOPER_MODE_ENABLED');
+            if (this.dataViewShowing) {
+                if (auto) {
+                    return;
+                }
+                this.toggleDataview(false);
+            }
 
+            let developerMode = localStorageService.getData('DEVELOPER_MODE_ENABLED');
             if (!developerMode) {
+                this.toggleAutoReload(false);
                 let errorMessage = this.buildErrorMessage({
                     message: this.host.getLocalizedString('DebugVisual_Enabled_Error_Message'),
                     moreMessage: this.host.getLocalizedString('DebugVisual_Enabled_Error_Learn_More'),
@@ -104,6 +89,7 @@ module powerbi.visuals.system {
                     type: 'blockedsite'
                 });
                 this.container.html(errorMessage);
+                this.setCapabilities({});
                 return;
             }
 
@@ -118,6 +104,11 @@ module powerbi.visuals.system {
                     return;
                 }
 
+                if (auto && this.lastUpdateStatus === status) {
+                    return;
+                }
+                this.lastUpdateStatus = status;
+
                 if (status === 'error') {
                     let errorMessage = this.buildErrorMessage({
                         message: this.host.getLocalizedString('DebugVisual_Compile_Error_Message'),
@@ -127,13 +118,9 @@ module powerbi.visuals.system {
                         type: 'repair'
                     });
                     this.container.html(errorMessage);
+                    this.setCapabilities({});
                     return;
                 }
-
-                if (auto && this.lastUpdateStatus === status) {
-                    return;
-                }
-                this.lastUpdateStatus = status;
 
                 $.getJSON(baseUrl + 'pbiviz.json').done((pbivizJson) => {
                     debug.assertValue(pbivizJson.capabilities, "DebugVisual - pbiviz capabilities missing");
@@ -145,7 +132,6 @@ module powerbi.visuals.system {
                     //update guid if needed
                     if (this.visualGuid !== pbivizJson.visual.guid) {
                         this.visualGuid = pbivizJson.visual.guid;
-                        this.visualContainer.attr('class', 'visual-' + this.visualGuid);
                     }
 
                     //loaded separately for sourcemap support
@@ -164,25 +150,16 @@ module powerbi.visuals.system {
                                 id: 'css-DEBUG',
                                 html: data,
                             }).appendTo($('head'));
-                            this.visualContainer.empty();
-                            this.container.empty().append(this.visualContainer);
-                            let adapter = this.adapter = extensibility.createVisualAdapter(powerbi.visuals.plugins[this.visualGuid]);
-                            if (adapter.init) {
-                                adapter.init(this.optionsForVisual);
-                            }
-                            if (adapter.update && this.lastUpdateOptions) {
-                                adapter.update(this.lastUpdateOptions);
-                            }
+                            
+                            this.loadVisual(this.visualGuid);
+                            
                             //override debugVisual capabilities with user's
-                            powerbi.visuals.plugins.debugVisual.capabilities = powerbi.visuals.plugins[this.visualGuid].capabilities;
-                            this.host.visualCapabilitiesChanged();
+                            this.setCapabilities(powerbi.visuals.plugins[this.visualGuid].capabilities);
                         });
                     });
                 });
-            }).fail((a, b, c) => {
-                if (this.autoReloadInterval) {
-                    this.toggleAutoReload(false);
-                }
+            }).fail(() => {
+                this.toggleAutoReload(false);
                 let errorMessage = this.buildErrorMessage({
                     message: this.host.getLocalizedString('DebugVisual_Server_Error_Message'),
                     moreMessage: this.host.getLocalizedString('DebugVisual_Server_Error_Learn_More'),
@@ -191,16 +168,32 @@ module powerbi.visuals.system {
                     type: 'error'
                 });
                 this.container.html(errorMessage);
+                this.setCapabilities({});
             }).always(() => {
                 this.statusLoading = false;
             });
+        }
+        
+        private loadVisual(guid: string) {
+            this.visualContainer.attr('class', 'visual-' + guid);
+            this.visualContainer.empty();
+            this.container.empty().append(this.visualContainer);
+            let adapter = this.adapter = extensibility.createVisualAdapter(powerbi.visuals.plugins[guid]);
+            if (adapter.init) {
+                adapter.init(this.optionsForVisual);
+            }
+            if (adapter.update && this.lastUpdateOptions) {
+                let lastUpdateOptions = Prototype.inherit(this.lastUpdateOptions);
+                lastUpdateOptions.type = VisualUpdateType.All;
+                adapter.update(lastUpdateOptions);
+            }                 
         }
 
         /**
          * Toggles auto reload
          * if value is set it sets it to true = on / false = off 
          */
-        private toggleAutoReload(value?): void {
+        private toggleAutoReload(value?: boolean): void {
             if (this.autoReloadInterval && value !== true) {
                 this.autoRefreshBtn.addClass('pbi-glyph-play');
                 this.autoRefreshBtn.removeClass('pbi-glyph-stop');
@@ -215,9 +208,20 @@ module powerbi.visuals.system {
             }
         }
 
-        private showDataview(): void {
-            let dataview = this.lastUpdateOptions ? flattenPrototype(this.lastUpdateOptions.dataViews) : undefined;
-            window.console.log(dataview);
+        /**
+         * Toggles dataViewer
+         * if value is set it sets it to true = on / false = off
+         */
+        private toggleDataview(value?: boolean): void {
+            if (this.dataViewShowing && value !== true) {
+                this.dataViewShowing = false;
+                this.dataBtn.toggleClass('active', false);
+                this.reloadAdapter();
+            } else if (!this.dataViewShowing && value !== false) {
+                this.dataViewShowing = true;
+                this.dataBtn.toggleClass('active', true);
+                this.loadVisual('dataViewer');
+            }
         }
 
         private createRefreshBtn(): JQuery {
@@ -236,8 +240,8 @@ module powerbi.visuals.system {
 
         private createDataBtn(): JQuery {
             let label = this.host.getLocalizedString('DebugVisual_Show_Dataview_Button_Title');
-            let dataBtn = $(`<i title="${label}" class="controlBtn glyphicon pbi-glyph-seedata"></i>`);
-            dataBtn.on('click', () => this.showDataview());
+            let dataBtn = this.dataBtn = $(`<i title="${label}" class="controlBtn glyphicon pbi-glyph-seedata"></i>`);
+            dataBtn.on('click', () => this.toggleDataview());
             return dataBtn;
         }
 
@@ -270,10 +274,16 @@ module powerbi.visuals.system {
             return _.template(DebugVisual.errorMessageTemplate)(options);
         }
 
+        private setCapabilities(capabilities: VisualCapabilities): void {
+            powerbi.visuals.plugins.debugVisual.capabilities = capabilities;
+            this.host.visualCapabilitiesChanged();
+        }
+
         public init(options: VisualInitOptions): void {
             this.host = options.host;
             let container = this.container = $('<div class="debugVisualContainer"></div>');
             let visualContainer = this.visualContainer = $('<div class="visual"></div>');
+            this.dataViewShowing = false;
             container.append(visualContainer);
             options.element.append(container);
 

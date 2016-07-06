@@ -269,6 +269,43 @@
 .chicletSlicer .slicerHeader {
   margin-bottom: 5px;
 }
+.chicletSlicer .searchHeader {
+  overflow: hidden;
+}
+.chicletSlicer .searchHeader.collapsed {
+  display: none;
+}
+.chicletSlicer .searchHeader.show {
+  display: -webkit-box;
+  display: flex;
+  justify-content: space-between;
+  -webkit-align-items: center;
+  width: calc(100% - 10px);
+  border: 1px solid #212121;
+  height: 20px;
+}
+.chicletSlicer .searchHeader .search {
+  cursor: pointer;
+  margin: 1px 4px;
+  color: #212121;
+  width: 17px;
+  height: 17px;
+  background-size: cover;
+  background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsQAAA7EAZUrDhsAAAEjSURBVDhPpZIhc4MwFMffpipx4FLH3OpWx1wtjjkkErmPUJmPMEkdneocyLlsirriOpc46t6SJex6NKR39HcHl8fL/UKSP6ATjk25xjR6QgKAIB8/TJBWR9PXjEs6hnRFMMoLZLzrP+KRFZhHBFeUyUozIjlgkRBMioOph+h+tuN/lVXSVa9I8up/JSu8xPSRIpPDe7nPC/ZfHxDHS5iZ2or3DC/LGvYtgFVyOn1DMHMqJB5483dof0YkQRBBK4SpxhAg5F8orJL5IobPTS2nORA1bLYZLB7kWJ/SEI677Prt9H3nFRNymRNucpK8Na6cnK/SJzZEXyXWDzFK11g2Oh89A8m1kNk5k0wTKIxkukAhJbcJFMBoeJNAcadeOj1TAfgFYPT85BI1AkcAAAAASUVORK5CYII=');
+}
+.chicletSlicer .searchHeader input {
+  color: #333333;
+  cursor: auto;
+  align-self: center;
+  flex: 1 1 0px;
+  -webkit-flex: 1 1 0px;
+  border-style: none;
+  min-width: 0px;
+  padding: 0;
+}
+.chicletSlicer .searchHeader input:focus {
+  outline-width: 0;
+}
 /*
  *  Power BI Visualizations
  *
@@ -1543,6 +1580,75 @@ template {
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
+/*
+ *  Power BI Visualizations
+ *
+ *  Copyright (c) Microsoft Corporation
+ *  All rights reserved.
+ *  MIT License
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the ""Software""), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in
+ *  all copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ *  THE SOFTWARE.
+ */
+.pulseChart {
+  font-family: 'Segoe UI', 'wf_segoe-ui_normal', helvetica, arial, sans-serif;
+}
+.pulseChart .axisGraphicsContext {
+  font-family: 'Segoe UI', 'wf_segoe-ui_normal', helvetica, arial, sans-serif;
+  font-size: 11px;
+}
+.pulseChart .axis path,
+.pulseChart .axis line {
+  fill: none;
+  stroke: #777777;
+  shape-rendering: crispEdges;
+}
+.pulseChart .line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 2px;
+}
+.pulseChart .xAxisNode {
+  font-size: 11px;
+}
+.pulseChart .xAxisNode line {
+  display: none;
+}
+.pulseChart .xAxisNode text {
+  fill: white;
+}
+.pulseChart .y {
+  font-size: 11px;
+}
+.pulseChart .y g.tick line {
+  opacity: 0.2;
+}
+.pulseChart .gaps .gap .gapNode {
+  fill: dimgrey;
+}
+.pulseChart .animationPlay,
+.pulseChart .animationPause,
+.pulseChart .animationReset,
+.pulseChart .animationPrev,
+.pulseChart .animationNext,
+.pulseChart .animationToEnd {
+  cursor: pointer;
+}
 /*
  *  Power BI Visualizations
  *

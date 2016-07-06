@@ -254,13 +254,32 @@ module powerbi.visuals {
 
         private setPosition(clickedArea: TouchUtils.Rectangle): void {
             let clickedScreenArea: ScreenArea = this.getClickedScreenArea(clickedArea);
-            let tooltipPosition: TouchUtils.Point = this.getTooltipPosition(clickedArea, clickedScreenArea);
 
+            let tooltipPosition: TouchUtils.Point = this.getTooltipPosition(clickedArea, clickedScreenArea);
+            this.setTooltipContainerClass(clickedScreenArea);
             this.tooltipContainer.style({ "left": tooltipPosition.x + "px", "top": tooltipPosition.y + "px" });
-            this.setArrowPosition(clickedArea, clickedScreenArea);
+
+            this.setArrowPosition(clickedScreenArea);
         }
 
-        private setArrowPosition(clickedArea: TouchUtils.Rectangle, clickedScreenArea: ScreenArea): void {
+        private setTooltipContainerClass(clickedScreenArea: ScreenArea): void {
+            let tooltipContainerClassName: string;
+            switch (clickedScreenArea) {
+                case ScreenArea.TopLeft:
+                case ScreenArea.BottomLeft:
+                    tooltipContainerClassName = 'left';
+                    break;
+                case ScreenArea.TopRight:
+                case ScreenArea.BottomRight:
+                    tooltipContainerClassName = 'right';
+                    break;
+            }
+            this.tooltipContainer
+                .attr('class', ContainerClassName.class) // Reset all classes
+                .classed(tooltipContainerClassName, true);
+        }
+
+        private setArrowPosition(clickedScreenArea: ScreenArea): void {
             let arrow: D3.Selection = this.getArrowElement();
             let arrowClassName: string;
 
@@ -273,7 +292,7 @@ module powerbi.visuals {
             else if (clickedScreenArea === ScreenArea.BottomLeft) {
                 arrowClassName = "bottom left";
             }
-            else if (clickedScreenArea === ScreenArea.BottomRight) {
+            else {
                 arrowClassName = "bottom right";
             }
 
@@ -706,13 +725,13 @@ module powerbi.visuals {
             return items;
         }
 
-        export function addTooltipBucketItem(reader: data.IDataViewCategoricalReader, tooltipInfo: TooltipDataItem[], categoryIndex: number, seriesIndex?: number): TooltipDataItem[]{
+        export function addTooltipBucketItem(reader: data.IDataViewCategoricalReader, tooltipInfo: TooltipDataItem[], categoryIndex: number, seriesIndex?: number): void{
             let tooltipValues = reader.getAllValuesForRole("Tooltips", categoryIndex, seriesIndex);
             let tooltipMetadataColumns = reader.getAllValueMetadataColumnsForRole("Tooltips", seriesIndex);
 
-            if (tooltipValues) {
+            if (tooltipValues && tooltipMetadataColumns) {
                 for (let j = 0; j < tooltipValues.length; j++) {
-                    if (tooltipValues[j] != null) {
+                    if (tooltipValues[j] != null && tooltipMetadataColumns[j]) {
                         tooltipInfo.push({
                             displayName: tooltipMetadataColumns[j].displayName,
                             value: converterHelper.formatFromMetadataColumn(tooltipValues[j], tooltipMetadataColumns[j], Gauge.formatStringProp),
@@ -720,8 +739,6 @@ module powerbi.visuals {
                     }
                 }
             }
-
-            return tooltipInfo;
         }
         
         function getFormattedValue(column: DataViewMetadataColumn, formatStringProp: DataViewObjectPropertyIdentifier, value: any) {

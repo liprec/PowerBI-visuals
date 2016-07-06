@@ -60,6 +60,8 @@ module powerbi.visuals {
         preferHigherDataVolume?: boolean;
 
         sandboxVisualsEnabled?: boolean;
+        
+        dateSlicerVisualEnabled?: boolean;
 
         /**
         * R visual is enabled for consumption.
