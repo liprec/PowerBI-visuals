@@ -202,6 +202,7 @@
         private slicerItemInputs: D3.Selection;
         private dataPoints: HierarchySlicerDataPoint[];
         private interactivityService: IInteractivityService;
+        private selectionHandler: ISelectionHandler;
         private settings: HierarchySlicerSettings;
         private levels: number;
 
@@ -212,6 +213,7 @@
             this.slicerItemInputs = options.slicerItemInputs;
             this.dataPoints = options.dataPoints;
             this.interactivityService = options.interactivityService;
+            this.selectionHandler = selectionHandler;
             this.settings = options.slicerSettings;
             this.hostServices = options.hostServices;
             this.levels = options.levels;
@@ -220,6 +222,8 @@
             var slicerClear = options.slicerClear;
             var slicerExpand = options.slicerExpand;
             var slicerCollapse = options.slicerCollapse;
+
+            this.applyFilter();
 
             expanders.on("click", (d: HierarchySlicerDataPoint, i:number) => {
                 d.isExpand = !d.isExpand;
@@ -321,54 +325,11 @@
                     }
                 }
 
-                var selectNrValues: number = 0
-                var filter: powerbi.data.SemanticFilter;
-                var rootLevels = this.dataPoints.filter((d) => d.level === 0 && d.selected);
-
-                if (!rootLevels || (rootLevels.length === 0)) {
-                    selectionHandler.handleClearSelection();
-                    this.persistFilter(null);
-                }
-                else {
-                    selectNrValues++;
-                    var children = this.getChildFilters(this.dataPoints, rootLevels[0].ownId, 1);
-                    var rootFilters = [];
-                    if (children) {
-                        rootFilters.push(powerbi.data.SQExprBuilder.and(rootLevels[0].id, children.filters));
-                        selectNrValues += children.memberCount;
-                    } else {
-                        rootFilters.push(rootLevels[0].id);
-                    }
-
-                    if (rootLevels.length > 1) {
-                        for (var i = 1; i < rootLevels.length; i++) {
-                            selectNrValues++;
-                            children = this.getChildFilters(this.dataPoints, rootLevels[i].ownId, 1);
-                            if (children) {
-                                rootFilters.push(powerbi.data.SQExprBuilder.and(rootLevels[i].id, children.filters));
-                                selectNrValues += children.memberCount;
-                            } else {
-                                rootFilters.push(rootLevels[i].id);
-                            }
-                        }
-                    }
-
-                    var rootFilter: powerbi.data.SQExpr = rootFilters[0];     
-                    for (var i = 1; i < rootFilters.length; i++) {
-                        rootFilter = powerbi.data.SQExprBuilder.or(rootFilter, rootFilters[i]);
-                    }
-
-                    if (selectNrValues > 120) {
-
-                    }
-                    
-                    filter = powerbi.data.SemanticFilter.fromSQExpr(rootFilter);
-                    this.persistFilter(filter);
-                }
+                this.applyFilter();
             });
 
             slicerClear.on("click", (d: HierarchySlicerDataPoint) => {
-                selectionHandler.handleClearSelection();
+                this.selectionHandler.handleClearSelection();
                 this.persistFilter(null);
             });
         }
@@ -420,6 +381,56 @@
                 else
                     slicerItem.classList.remove('selected');
             });
+        }
+
+        public applyFilter() {
+            if (this.dataPoints.length === 0) { // Called without data
+                return;
+            }
+            var selectNrValues: number = 0
+            var filter: powerbi.data.SemanticFilter;
+            var rootLevels = this.dataPoints.filter((d) => d.level === 0 && d.selected);
+
+            if (!rootLevels || (rootLevels.length === 0)) {
+                this.selectionHandler.handleClearSelection();
+                this.persistFilter(null);
+            }
+            else {
+                selectNrValues++;
+                var children = this.getChildFilters(this.dataPoints, rootLevels[0].ownId, 1);
+                var rootFilters = [];
+                if (children) {
+                    rootFilters.push(powerbi.data.SQExprBuilder.and(rootLevels[0].id, children.filters));
+                    selectNrValues += children.memberCount;
+                } else {
+                    rootFilters.push(rootLevels[0].id);
+                }
+
+                if (rootLevels.length > 1) {
+                    for (var i = 1; i < rootLevels.length; i++) {
+                        selectNrValues++;
+                        children = this.getChildFilters(this.dataPoints, rootLevels[i].ownId, 1);
+                        if (children) {
+                            rootFilters.push(powerbi.data.SQExprBuilder.and(rootLevels[i].id, children.filters));
+                            selectNrValues += children.memberCount;
+                        } else {
+                            rootFilters.push(rootLevels[i].id);
+                        }
+                    }
+                }
+
+                var rootFilter: powerbi.data.SQExpr = rootFilters[0];
+                for (var i = 1; i < rootFilters.length; i++) {
+                    rootFilter = powerbi.data.SQExprBuilder.or(rootFilter, rootFilters[i]);
+                }
+
+                if (selectNrValues > 120) {
+
+                }
+
+                filter = powerbi.data.SemanticFilter.fromSQExpr(rootFilter);
+                this.persistFilter(filter);
+            }
         }
 
         private getParentDataPoints(dataPoints: HierarchySlicerDataPoint[], parentId: string): HierarchySlicerDataPoint[] {
@@ -1132,7 +1143,7 @@
 
             this.settings = this.data.settings;
             this.updateSettings();
-
+            
             this.treeView
                 .viewport(this.getBodyViewport(this.viewport))
                 .rowHeight(this.settings.slicerText.height)
@@ -1424,7 +1435,7 @@
                         selector: null,
                         properties: {
                             updates: false,
-                            version: "0.7.2",
+                            version: "0.7.3",
                         }
                     };
                     instances.push(privacy);
