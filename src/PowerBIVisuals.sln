@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.24720.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "PowerBI", "Clients\PowerBI\", "{128051AF-7A0C-45B1-90CF-D576FB369ADF}"
 	ProjectSection(WebsiteProperties) = preProject
@@ -178,7 +178,7 @@ Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "PowerBIVisualsPlayground", 
 		SlnRelativePath = "Clients\PowerBIVisualsPlayground\"
 	EndProjectSection
 EndProject
-Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "CustomVisuals", "Clients\CustomVisuals\", "{F8C34CEF-BE01-4D7E-B833-7B40D22919A1}"
+Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "CustomVisuals(1)", "Clients\CustomVisuals\", "{F8C34CEF-BE01-4D7E-B833-7B40D22919A1}"
 	ProjectSection(WebsiteProperties) = preProject
 		TargetFrameworkMoniker = ".NETFramework,Version%3Dv4.0"
 		Debug.AspNetCompiler.VirtualPath = "/localhost_62497"
@@ -199,7 +199,7 @@ Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "CustomVisuals", "Clients\Cu
 		SlnRelativePath = "Clients\CustomVisuals\"
 	EndProjectSection
 EndProject
-Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "VisualsExtensibility", "Clients\VisualsExtensibility\", "{35466DB2-AEC7-4BB5-B06E-10012DE63812}"
+Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "VisualsExtensibility(1)", "Clients\VisualsExtensibility\", "{35466DB2-AEC7-4BB5-B06E-10012DE63812}"
 	ProjectSection(WebsiteProperties) = preProject
 		TargetFrameworkMoniker = ".NETFramework,Version%3Dv4.0"
 		Debug.AspNetCompiler.VirtualPath = "/localhost_2262"
