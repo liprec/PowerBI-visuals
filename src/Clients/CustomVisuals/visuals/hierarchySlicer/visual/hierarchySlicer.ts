@@ -223,7 +223,9 @@
             var slicerExpand = options.slicerExpand;
             var slicerCollapse = options.slicerCollapse;
 
-            this.applyFilter();
+            if (this.dataPoints.filter((d) => d.selected).length > 0) {
+                this.applyFilter();
+            }
 
             expanders.on("click", (d: HierarchySlicerDataPoint, i:number) => {
                 d.isExpand = !d.isExpand;
@@ -676,7 +678,7 @@
                     rows: {
                         for: { in: 'Fields' },
                         dataReductionAlgorithm: { bottom: { count: 4000 } }
-                    }
+                    }, 
                 }
             }],
             objects: {
@@ -773,9 +775,7 @@
             sorting: {
                 default: {},
             },
-            drilldown: {
-                roles: ['Category']
-            },            
+                    
         };
 
         public static formatStringProp: DataViewObjectPropertyIdentifier = {
@@ -1097,7 +1097,7 @@
 
         public update(options: VisualUpdateOptions): void {
             this.viewport = options.viewport;
-            this.dataView = options.dataViews[0];
+            this.dataView = options.dataViews ? options.dataViews[0] : undefined;
 
             if (options.viewport.height === this.viewport.height
                 && options.viewport.width === this.viewport.width) {
@@ -1428,18 +1428,18 @@
                     }
                     instances.push(items);
                     break;
-                case "privacy":
-                    var privacy: VisualObjectInstance = {
-                        objectName: "privacy",
-                        displayName: "Privacy",
-                        selector: null,
-                        properties: {
-                            updates: false,
-                            version: "0.7.3",
-                        }
-                    };
-                    instances.push(privacy);
-                    break;
+                //case "privacy":
+                //    var privacy: VisualObjectInstance = {
+                //        objectName: "privacy",
+                //        displayName: "Privacy",
+                //        selector: null,
+                //        properties: {
+                //            updates: false,
+                //            version: "0.7.4",
+                //        }
+                //    };
+                //    instances.push(privacy);
+                //    break;
             }
 
             return instances;
