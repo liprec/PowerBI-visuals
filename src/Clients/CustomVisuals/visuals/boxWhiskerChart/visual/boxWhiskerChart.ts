@@ -313,6 +313,9 @@ module powerbi.visuals.samples {
         private dataView: DataView;
         private data: BoxWhiskerChartData;
 
+        private defaultFontFamily = "Segoe UI,wf_segoe-ui_normal,helvetica,arial,sans-serif";
+        private staticColor: string = "#707070";
+
         private static DefaultMargin: IMargin = {
             top: 5,
             bottom: 5,
@@ -321,7 +324,10 @@ module powerbi.visuals.samples {
         };
 
         private margin: IMargin;
-        private format: string;
+        private defaultFormatY: string = "#,0";
+        private formatY: IValueFormatter;
+        private formatX: IValueFormatter;
+        private dataType: ValueType;
 
         private AxisSizeY: number = 40;
         private AxisSizeX: number = 20;
@@ -331,7 +337,8 @@ module powerbi.visuals.samples {
                 !dataView.matrix ||
                 !dataView.matrix.columns ||
                 !dataView.matrix.columns.root.children ||
-                !(dataView.matrix.columns.root.children.length > 1) ||
+                !(dataView.matrix.columns.root.children.length > 0) ||
+                !(dataView.matrix.columns.root.children[0].levelValues) ||
                 !dataView.matrix.valueSources ||
                 !dataView.matrix.valueSources[0]) {
                 return {
@@ -348,8 +355,31 @@ module powerbi.visuals.samples {
                 fontSize: 8.25,
                 dataPoints: [],
             };
+
+            if (dataView.matrix.rows.levels.length > 0) {
+                this.formatX = valueFormatter.create({
+                    format: dataView.matrix.rows.levels[0].sources[0].format,
+                    value: categories[0].value,
+                    value2: categories[categories.length - 1].value,
+                });
+            } else {
+                this.formatX = valueFormatter.createDefaultFormatter(null);
+            }
+
+            this.formatY = valueFormatter.create({
+                format: dataView.matrix.valueSources[0].format
+                    ? dataView.matrix.valueSources[0].format
+                    : this.defaultFormatY,
+                value: d3.max(dataView.matrix.rows.root.children, (c) => d3.max([c.values])),
+                value2: d3.min(dataView.matrix.rows.root.children, (c) => d3.min([c.values])),
+                precision: 3,
+            });
             
-            for (var i = 0, iLen = categories.length; i < iLen; i++) {
+            this.dataType = ValueType.fromDescriptor(dataView.matrix.valueSources[0].type);
+            var hasStaticColor = categories.length > 15;
+            var staticColor = this.getStaticColor(this.dataView);
+            
+            for (var i = 0, iLen = categories.length; i < iLen && i < 100; i++) {
                 var values = this.getValueArray(dataView.matrix.rows.root.children[i].values)
                                     .filter((value) => { return value != null; });
 
@@ -365,15 +395,6 @@ module powerbi.visuals.samples {
                     selector = { data: [categories[i].identity], };
                     id = new SelectionId(selector, false);
                 }
-                var colorHelper = new ColorHelper(this.colors, BoxWhiskerChart.properties.fill, this.colors.getColorByIndex(i).value);
-
-                legendData.dataPoints.push({
-                    label: categories[0].value === undefined ? dataView.matrix.valueSources[0].displayName : categories[i].value,
-                    color: colorHelper.getColorForSeriesValue(categories[i].objects, dataView.matrix.rows.root.childIdentityFields, categories[i].name),
-                    icon: LegendIcon.Box,
-                    selected: false,
-                    identity: id
-                });
 
                 var sortedValue = values.sort((n1, n2) => n1 - n2);
 
@@ -426,6 +447,12 @@ module powerbi.visuals.samples {
                         minValueLabel = "Q1 - 1.5 x IQR";
                         maxValueLabel = "Q3 + 1.5 x IQR";
                         break;
+                    default:
+                        minValue = sortedValue[0];
+                        maxValue = sortedValue[sortedValue.length - 1];
+                        minValueLabel = "Minimum";
+                        maxValueLabel = "Maximum";
+                        break;
                 }
 
                 var ttl: number = 0;
@@ -434,12 +461,16 @@ module powerbi.visuals.samples {
 
                 dataPoints.push([]);
 
-                this.format = dataView.matrix.valueSources[0].format ? dataView.matrix.valueSources[0].format : "#,0.00";
                 var outliers = this.getShowOutliers(this.dataView) ?
                     sortedValue
                         .filter((value) => value < minValue || value > maxValue) // Filter outliers 
                         .filter((value, index, self) => self.indexOf(value) === index) // Make unique
                     : [];
+
+                var colorHelper;
+                if (!hasStaticColor) {
+                    colorHelper = new ColorHelper(this.colors, BoxWhiskerChart.properties.fill, this.colors.getColorByIndex(i).value);
+                }
 
                 dataPoints[i].push({
                     min: minValue,
@@ -458,13 +489,17 @@ module powerbi.visuals.samples {
                             .map((dataPoint) => { return { value: dataPoint, x: 0, y: 0 }; })
                             .concat(outliers.map((outlier) => { return { value: outlier, x: 0, y: 0 }; }))
                         : [],
-                    label: categories[0].value === undefined ? dataView.matrix.valueSources[0].displayName : categories[i].value,
+                    label: categories[0].value === undefined
+                        ? dataView.matrix.valueSources[0].displayName
+                        : this.formatX.format(categories[i].value),
                     identity: id,
-                    color: colorHelper.getColorForSeriesValue(categories[i].objects, dataView.matrix.rows.root.childIdentityFields, categories[i].name),
+                    color: hasStaticColor ? staticColor : colorHelper.getColorForSeriesValue(categories[i].objects, dataView.matrix.rows.root.childIdentityFields, categories[i].name),
                     tooltipInfo: [
                         {
                             displayName: 'Group',
-                            value: categories[0].value === undefined ? dataView.matrix.valueSources[0].displayName : categories[i].value,
+                            value: categories[0].value === undefined
+                                ? dataView.matrix.valueSources[0].displayName
+                                : this.formatX.format(categories[i].value),
                         },
                         {
                             displayName: '# Samples',
@@ -472,27 +507,27 @@ module powerbi.visuals.samples {
                         },
                         {
                             displayName: maxValueLabel,
-                            value: valueFormatter.format(maxValue, this.format, true),
+                            value: this.formatY.format(maxValue),
                         },
                         {
                             displayName: 'Quartile 3',
-                            value: valueFormatter.format(quartile3, this.format, true),
+                            value: this.formatY.format(quartile3),
                         },
                         {
                             displayName: 'Median',
-                            value: valueFormatter.format(median, this.format, true),
+                            value: this.formatY.format(median),
                         },
                         {
                             displayName: 'Average',
-                            value: valueFormatter.format(avgvalue, this.format, true),
+                            value: this.formatY.format(avgvalue),
                         },
                         {
                             displayName: 'Quartile 1',
-                            value: valueFormatter.format(quartile1, this.format, true),
+                            value: this.formatY.format(quartile1),
                         },
                         {
                             displayName: minValueLabel,
-                            value: valueFormatter.format(minValue, this.format, true),
+                            value: this.formatY.format(minValue),
                         }]
                 });
             }
@@ -584,52 +619,6 @@ module powerbi.visuals.samples {
                     'width': this.viewport.width
                 });
 
-            // calculate AxisSizeX, AxisSizeY
-            this.AxisSizeX = TextMeasurementService.measureSvgTextHeight({
-                text: "XXXX",
-                fontFamily: "sans-serif",
-                fontSize: PixelConverter.fromPoint(this.getXAxisFontSize(this.dataView)),
-            });
-
-            this.AxisSizeY = TextMeasurementService.measureSvgTextWidth({
-                text: "XXXX",
-                fontFamily: "sans-serif",
-                fontSize: PixelConverter.fromPoint(this.getYAxisFontSize(this.dataView)),
-            });
-
-            this.margin.top = TextMeasurementService.measureSvgTextHeight({
-                    text: "XXXX",
-                    fontFamily: "sans-serif",
-                    fontSize: PixelConverter.fromPoint(this.getYAxisFontSize(this.dataView)),
-                }) / 2.;
-
-            var mainGroup = this.chart;
-            mainGroup.attr('transform', 'scale(1, -1)' + SVGUtil.translate(0, -(this.viewport.height - this.AxisSizeX)));
-
-            // calculate scalefactor
-            var stack = d3.layout.stack();
-            var layers = stack(dataPoints);
-
-            this.axisOptions = this.getAxisOptions(
-                d3.min(layers, (layer) => {
-                    return d3.min(layer, (point) => {
-                        return d3.min([point.min, d3.min(point.outliers)]);
-                    });
-                }),
-                d3.max(layers, (layer) => {
-                    return d3.max(layer, (point) => {
-                        return d3.max([point.max, d3.max(point.outliers)]);
-                    });
-                }));
-
-            var yScale = d3.scale.linear()
-                .domain([this.axisOptions.min, this.axisOptions.max])
-                .range([this.margin.bottom, this.viewport.height - this.AxisSizeX - this.margin.top]);
-
-            var xScale = d3.scale.linear()
-                .domain([1, dataPoints.length + 1])
-                .range([this.margin.left + this.AxisSizeY, this.viewport.width - this.margin.right]);
-
             if (dataPoints.length === 0) {
                 this.chart.selectAll(BoxWhiskerChart.ChartNode.selector).remove();
                 this.axis.selectAll(BoxWhiskerChart.AxisX.selector).remove();
@@ -654,6 +643,60 @@ module powerbi.visuals.samples {
 
                 return;
             }
+
+            // calculate AxisSizeX, AxisSizeY
+            this.AxisSizeX = TextMeasurementService.estimateSvgTextHeight({
+                text: "XXXX",
+                fontFamily: this.defaultFontFamily,
+                fontSize: PixelConverter.fromPoint(this.getXAxisFontSize(this.dataView)),
+            });
+
+            var mainGroup = this.chart;
+            mainGroup.attr('transform', 'scale(1, -1)' + SVGUtil.translate(0, -(this.viewport.height - this.AxisSizeX)));
+
+            // calculate scalefactor
+            var stack = d3.layout.stack();
+            var layers = stack(dataPoints);
+
+            this.axisOptions = this.getAxisOptions(
+                d3.min(layers, (layer) => {
+                    return d3.min(layer, (point) => {
+                        return d3.min([point.min, d3.min(point.outliers)]);
+                    });
+                }),
+                d3.max(layers, (layer) => {
+                    return d3.max(layer, (point) => {
+                        return d3.max([point.max, d3.max(point.outliers)]);
+                    });
+                }));
+
+            this.AxisSizeY = TextMeasurementService.measureSvgTextWidth({
+                text: this.formatY.format(this.axisOptions.max),
+                fontFamily: this.defaultFontFamily,
+                fontSize: PixelConverter.fromPoint(this.getYAxisFontSize(this.dataView)),
+            });
+
+            this.margin.top = TextMeasurementService.measureSvgTextHeight({
+                text: this.formatY.format(this.axisOptions.max),
+                fontFamily: this.defaultFontFamily,
+                fontSize: PixelConverter.fromPoint(this.getYAxisFontSize(this.dataView)),
+            }) / 2.;
+
+            if (this.getDataLabelShow(this.dataView) && this.data.dataPoints.length > 0) {
+                var dataLabelTop = TextMeasurementService.measureSvgTextHeight({
+                    text: this.formatY.format(this.data.dataPoints[0][0].dataLabels[0].value),
+                    fontFamily: this.defaultFontFamily,
+                    fontSize: PixelConverter.fromPoint(this.getYAxisFontSize(this.dataView)),
+                }) / 2.;
+            }
+
+            var yScale = d3.scale.linear()
+                .domain([this.axisOptions.min, this.axisOptions.max])
+                .range([this.margin.bottom, this.viewport.height - this.AxisSizeX - this.margin.top]);
+
+            var xScale = d3.scale.linear()
+                .domain([1, dataPoints.length + 1])
+                .range([this.margin.left + this.AxisSizeY, this.viewport.width - this.margin.right]);
 
             this.drawChart(dataPoints, xScale, yScale, duration);
             this.drawAxis(dataPoints, yScale, duration);
@@ -681,30 +724,63 @@ module powerbi.visuals.samples {
                     .classed(BoxWhiskerChart.AxisY.class, true);
             }
 
-            var yFormat = d3.format("s");
-            if (this.format.indexOf('%') > 0) {
-                yFormat = d3.format("%");
-            }
+            var textHelperX = this.axisX.append("text")
+                .classed("helperX", true)
+                .style("visibility", "hidden")
+                .style("font-size", this.getXAxisFontSize(this.dataView) + "px")
+                .text(dataPoints[0][0].label);
 
-            var totalXAxisWidth = dataPoints.map((d) =>
-                TextMeasurementService.measureSvgTextWidth({
-                    text: d[0].label,
-                    fontFamily: "sans-serif",
-                    fontSize: PixelConverter.fromPoint(this.getXAxisFontSize(this.dataView)),
-                })).reduce((d1, d2) => d1 + d2);
+            var textHelperY = this.axisY.append("text")
+                .classed("helperY", true)
+                .style("visibility", "hidden")
+                .style("font-size", this.getYAxisFontSize(this.dataView) + "px")
+                .text(this.formatY.format(this.axisOptions.max));
 
-            var overSampling = totalXAxisWidth /
-                (this.viewport.width - this.margin.right - this.margin.left - this.AxisSizeY);
-
-            overSampling = overSampling < 1 ? 1 : Math.ceil(overSampling);
+            var yAxisLabelHeight = textHelperY.node().getBBox().height;
+            var xAxisLabelWidth = textHelperX.node().getBBox().width;
 
             var xs = d3.scale.ordinal();
-            xs.domain(dataPoints.map((values, index) => { return (index % overSampling === 0) ? values[0].label : null; })
-                .filter((d) => d !== null )
+            // Can we draw at least one X-axis label?
+            if (xAxisLabelWidth < (this.viewport.width - this.margin.right - this.margin.left - this.AxisSizeY)) {
+                var overSamplingX = 1;
+                var visibleDataPoints = dataPoints.filter((d, i) => i % overSamplingX === 0);
+                var totalXAxisWidth = d3.max(visibleDataPoints
+                        .map((d) =>
+                            textHelperX.text(d[0].label).node().getBBox().width + 2 //margin
+                        )) * visibleDataPoints.length;
+
+                while (totalXAxisWidth > (this.viewport.width - this.margin.right - this.margin.left - this.AxisSizeY)) {
+                    overSamplingX += 1;
+                    visibleDataPoints = dataPoints.filter((d, i) => i % overSamplingX === 0);
+                    var totalXAxisWidth = d3.max(visibleDataPoints
+                        .map((d) =>
+                            textHelperX.text(d[0].label).node().getBBox().width + 2 //margin
+                        )) * visibleDataPoints.length;
+                }
+
+                xs.domain(dataPoints.map((values, index) => { return (index % overSamplingX === 0) ? values[0].label : null; })
+                    .filter((d) => d !== null)
                 )
-                .rangeBands([this.margin.left + this.AxisSizeY, this.viewport.width - this.margin.right]);
+                    .rangeBands([this.margin.left + this.AxisSizeY, this.viewport.width - this.margin.right]);
+            } else {
+                xs.domain([])
+                    .rangeBands([this.margin.left + this.AxisSizeY, this.viewport.width - this.margin.right]);
+            }
 
             var ys = yScale.range([this.viewport.height - this.AxisSizeX - this.margin.bottom, this.margin.top]);
+            var yAxisTicks = this.axisOptions.ticks;
+
+            if (yAxisLabelHeight < (this.viewport.height - this.AxisSizeX - this.margin.bottom - this.margin.top)) {
+                var totalYAxisHeight = yAxisTicks * yAxisLabelHeight;
+
+                // Calculate minimal ticks that fits the height
+                while (totalYAxisHeight > this.viewport.height - this.AxisSizeX - this.margin.bottom - this.margin.top) {
+                    yAxisTicks/=2;
+                    totalYAxisHeight = yAxisTicks * yAxisLabelHeight;
+                }
+            } else {
+                yAxisTicks = 0;
+            }
 
             var xAxisTransform =
                 this.axisOptions.min > 0 ?
@@ -719,11 +795,13 @@ module powerbi.visuals.samples {
                 .tickSize(0)
                 .innerTickSize(8 + ((this.viewport.height - this.margin.top - this.AxisSizeX) - xAxisTransform));
 
+            var getValueFn: (index: number, type: ValueType) => any;
+            getValueFn = data => data;
             var yAxis = d3.svg.axis()
                 .scale(ys)
                 .orient("left")
-                .tickFormat(yFormat)
-                .ticks(this.axisOptions.ticks);
+                .tickFormat(d => this.formatY.format(getValueFn(d, this.dataType)))
+                .ticks(yAxisTicks);
 
             this.axisX
                 .attr("transform", "translate(0, " + xAxisTransform + ")")
@@ -732,7 +810,7 @@ module powerbi.visuals.samples {
                 .call(xAxis);
 
             this.axisY
-                .attr("transform", "translate(" + this.AxisSizeY + ", 0)")
+                .attr("transform", "translate(" + (this.AxisSizeY + this.margin.left) + ", 0)")
                 .transition()
                 .duration(duration)
                 .call(yAxis);
@@ -749,12 +827,12 @@ module powerbi.visuals.samples {
                 var yMajorGrid = d3.svg.axis()
                     .scale(ys)
                     .orient("left")
-                    .ticks(this.axisOptions.ticks)
+                    .ticks(yAxisTicks)
                     .outerTickSize(0)
-                    .innerTickSize(-(this.viewport.width - this.AxisSizeY - this.margin.right));
+                    .innerTickSize(-(this.viewport.width - this.AxisSizeY - this.margin.right - this.margin.left));
  
                 this.axisMajorGrid
-                    .attr("transform", "translate(" + this.AxisSizeY + ", 0)")
+                    .attr("transform", "translate(" + (this.AxisSizeY + this.margin.left) + ", 0)")
                     .attr("opacity", 1)
                     .transition()
                     .duration(duration)
@@ -769,12 +847,12 @@ module powerbi.visuals.samples {
                     var yMinorGrid = d3.svg.axis()
                         .scale(ys)
                         .orient("left")
-                        .ticks(this.axisOptions.ticks * 5)
+                        .ticks(yAxisTicks * 5)
                         .outerTickSize(0)
-                        .innerTickSize(-(this.viewport.width - this.AxisSizeY - this.margin.left));
+                        .innerTickSize(-(this.viewport.width - this.AxisSizeY - this.margin.right + this.margin.left));
 
                     this.axisMinorGrid
-                        .attr("transform", "translate(" + this.AxisSizeY + ", 0)")
+                        .attr("transform", "translate(" + (this.AxisSizeY + this.margin.left) + ", 0)")
                         .attr("opacity", 1)
                         .transition()
                         .duration(duration)
@@ -794,11 +872,15 @@ module powerbi.visuals.samples {
                 this.axisMajorGrid.attr("opacity", 0);
                 this.axisMinorGrid.attr("opacity", 0);
             }
+
+            //Cleanup labelhelpers
+            this.axisX.selectAll(".helperX").remove();
+            this.axisY.selectAll(".helperY").remove();
         }
 
         private drawChart(dataPoints: BoxWhiskerChartDatapoint[][], xScale: D3.Scale.QuantitativeScale, yScale: D3.Scale.Scale, duration: number): void {
             var dotRadius: number = 4,
-                leftBoxMargin: number = 0.05;
+                leftBoxMargin: number = 0.1;
             if (!this.getDataLabelShow(this.dataView)) {
                 switch (this.getMarginType(this.dataView)) {
                     case BoxWhiskerTypeOptions.MarginType.Small:
@@ -809,6 +891,9 @@ module powerbi.visuals.samples {
                         break;
                     case BoxWhiskerTypeOptions.MarginType.Large:
                         leftBoxMargin = 0.2;
+                        break;
+                    default :
+                        leftBoxMargin = 0.1;
                         break;
                 }
             }
@@ -833,6 +918,7 @@ module powerbi.visuals.samples {
             this.svg.on('click', () => this.selectionManager.clear().then(() => quartile.style('opacity', 1)));
 
             var fontSize = this.getDataLabelFontSize(this.dataView) + "px";
+            var dataLabelsShow = this.getDataLabelShow(this.dataView);
 
             var dataLabelwidth = xScale.invert(xScale(0) +
                 (Math.ceil(
@@ -840,22 +926,21 @@ module powerbi.visuals.samples {
                         return d3.max(value, (point) => {
                             return d3.max((point.dataLabels), (dataLabel) => {
                                 return TextMeasurementService.measureSvgTextWidth({
-                                    text: valueFormatter.format(dataLabel.value, this.format, true),
-                                    fontFamily: "sans-serif",
+                                    text: this.formatY.format(dataLabel.value),
+                                    fontFamily: this.defaultFontFamily,
                                     fontSize: PixelConverter.fromPoint(this.getDataLabelFontSize(this.dataView)),
                                 });
                             });
                         });
                     })
                     * 10) / 10.));
-
-            if (dataLabelwidth > 0.9) {
-                dataLabelwidth = 0.9;
-                fontSize = "11px";
+            
+            if (dataLabelwidth > 0.8) {
+                dataLabelsShow = false;
             }
 
-            var rightBoxMargin = 1. - (this.getDataLabelShow(this.dataView) ? dataLabelwidth : leftBoxMargin);
-            var boxMiddle = this.getDataLabelShow(this.dataView) ? leftBoxMargin + ((rightBoxMargin - leftBoxMargin) / 2.) : 0.5;
+            var rightBoxMargin = 1. - (dataLabelsShow && (dataLabelwidth > leftBoxMargin) ? dataLabelwidth : leftBoxMargin); 
+            var boxMiddle = dataLabelsShow ? leftBoxMargin + ((rightBoxMargin - leftBoxMargin) / 2.) : 0.5;
 
             var quartileData = (points) => {
                 return points.map((value) => {
@@ -994,24 +1079,24 @@ module powerbi.visuals.samples {
             outliers.exit().remove();
 
             var dataLabels = selection.selectAll(BoxWhiskerChart.ChartDataLabel.selector).data(d => {
-                if (d[0].dataLabels && d[0].dataLabels.length > 0) {
+                if (d[0].dataLabels && d[0].dataLabels.length > 0 && dataLabelsShow) {
                     var topLabels = d[0].dataLabels
                         .filter((dataLabel) => dataLabel.value >= d[0].median) // Higher half of data labels
                         .sort((dataLabel1, dataLabel2) => dataLabel1.value - dataLabel2.value); // Sort: median index 0
                     var lowerLabels = d[0].dataLabels
                         .filter((dataLabel) => dataLabel.value <= d[0].median) // Lower half of data labels
                         .sort((dataLabel1, dataLabel2) => dataLabel2.value - dataLabel1.value); // Sort: median index 0
-                    var x = xScale(d[0].category + rightBoxMargin + 0.05);
+                    var x = xScale(d[0].category + rightBoxMargin + 0.02);
 
                     topLabels[0].y = yScale(d[0].median) - 4;
-                    topLabels[0].x = xScale(d[0].category + rightBoxMargin + 0.05);
+                    topLabels[0].x = xScale(d[0].category + rightBoxMargin + 0.02);
                     lowerLabels[0].y = yScale(d[0].median) - 4;
-                    lowerLabels[0].x = xScale(d[0].category + rightBoxMargin + 0.05);
+                    lowerLabels[0].x = xScale(d[0].category + rightBoxMargin + 0.02);
 
                     var adjustment = 0;
                     var textHeight = (TextMeasurementService.measureSvgTextHeight({
                         text: "XXXX",
-                        fontFamily: "sans-serif",
+                        fontFamily: this.defaultFontFamily,
                         fontSize: PixelConverter.fromPoint(this.getDataLabelFontSize(this.dataView)),
                     }) / 2) + 1;
 
@@ -1060,17 +1145,17 @@ module powerbi.visuals.samples {
                 .attr("transform", dataLabel => `translate(0 ${y0}) scale(1, -1)`)
                 .transition()
                 .duration(duration)
-                .text(dataLabel => valueFormatter.format(dataLabel.value, this.format, true))
+                .text(dataLabel => this.formatY.format(dataLabel.value))
                 .attr("x", dataLabel => dataLabel.x)
                 .attr("y", dataLabel => y0 - dataLabel.y)
                 .attr("fill", "black");
-            
+
             this.chart
                 .selectAll("text")
                 .style("font-size", fontSize);
 
             dataLabels.exit().remove();
-
+            
             TooltipManager.addTooltip(quartile, (tooltipEvent: TooltipEvent) => {
                 return tooltipEvent.data[0].tooltipInfo;
             }, true);
@@ -1146,6 +1231,10 @@ module powerbi.visuals.samples {
             return dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, BoxWhiskerChart.properties.showOutliers, false);
         }
 
+        private getStaticColor(dataView: DataView): string {
+            return DataViewObjects.getFillColor(dataView.metadata.objects, BoxWhiskerChart.properties.fill, "#01b8aa");
+        }
+
         private getXAxisFontSize(dataView: DataView): number {
             return DataViewObjects.getValue(dataView.metadata.objects, BoxWhiskerChart.properties.fontSizeXAxis, 11);
         }
@@ -1205,16 +1294,28 @@ module powerbi.visuals.samples {
                     break;
                 case "dataPoint":
                     var categories = this.dataView.matrix.rows.root.children;
-                    for (var i = 0; i < categories.length; i++) {
+                    if (categories.length > 25) {
                         var dataPoint: VisualObjectInstance = {
                             objectName: "dataPoint",
-                            displayName: this.data.dataPoints[i][0].label,
-                            selector: ColorHelper.normalizeSelector(this.data.dataPoints[i][0].identity.getSelector(), true),
+                            displayName: "Fill color",
+                            selector: null,
                             properties: {
-                                fill: { solid: { color: this.data.dataPoints[i][0].color } }
+                                fill: { solid: { color: this.getStaticColor(this.dataView) } }
                             }
                         };
                         instances.push(dataPoint);
+                    } else {
+                        for (var i = 0; i < categories.length; i++) {
+                            var dataPoint: VisualObjectInstance = {
+                                objectName: "dataPoint",
+                                displayName: this.data.dataPoints[i][0].label,
+                                selector: ColorHelper.normalizeSelector(this.data.dataPoints[i][0].identity.getSelector(), true),
+                                properties: {
+                                    fill: { solid: { color: this.data.dataPoints[i][0].color } }
+                                }
+                            };
+                            instances.push(dataPoint);
+                        }
                     }
                     break;
                 case "xAxis":
@@ -1267,18 +1368,18 @@ module powerbi.visuals.samples {
                     };
                     instances.push(labels);
                     break;
-                case "privacy":
-                    var privacy: VisualObjectInstance = {
-                        objectName: "privacy",
-                        displayName: "Privacy",
-                        selector: null,
-                        properties: {
-                            updates: false,
-                            version: "0.12.02",
-                        }
-                    };
-                    instances.push(privacy);
-                    break;
+                //case "privacy":
+                //    var privacy: VisualObjectInstance = {
+                //        objectName: "privacy",
+                //        displayName: "Privacy",
+                //        selector: null,
+                //        properties: {
+                //            updates: false,
+                //            version: "0.12.03",
+                //        }
+                //    };
+                //    instances.push(privacy);
+                //    break;
             }
 
             return instances;
