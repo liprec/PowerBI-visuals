@@ -205,6 +205,11 @@
         private selectionHandler: ISelectionHandler;
         private settings: HierarchySlicerSettings;
         private levels: number;
+        private initFilter: boolean = false;
+
+        public HierarchySlicerWebBehavior() {
+            this.initFilter = true;
+        }
 
         public bindEvents(options: HierarchySlicerBehaviorOptions, selectionHandler: ISelectionHandler): void {
             var expanders = this.expanders = options.expanders;
@@ -223,7 +228,8 @@
             var slicerExpand = options.slicerExpand;
             var slicerCollapse = options.slicerCollapse;
 
-            if (this.dataPoints.filter((d) => d.selected).length > 0) {
+            if ((this.dataPoints.filter((d) => d.selected).length > 0) && this.initFilter) {
+                this.initFilter = false;
                 this.applyFilter();
             }
 
