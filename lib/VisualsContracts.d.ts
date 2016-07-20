@@ -1,6 +1,55 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 declare module powerbi {
     enum VisualDataRoleKind {
         /** Indicates that the role should be bound to something that evaluates to a grouping of values. */
@@ -56,6 +105,18 @@ declare module powerbi {
     const enum PromiseResultType {
         Success = 0,
         Failure = 1,
+    }
+    /**
+     * Defines actions to be taken by the visual in response to a selection.
+     *
+     * An undefined/null VisualInteractivityAction should be treated as Selection,
+     * as that is the default action.
+     */
+    const enum VisualInteractivityAction {
+        /** Normal selection behavior which should call onSelect */
+        Selection = 0,
+        /** No additional action or feedback from the visual is needed */
+        None = 1,
     }
 }
 /*
@@ -1311,8 +1372,10 @@ declare module powerbi {
     }
 
     /** Defines the acceptable values of a number. */
-    export interface NumberRange extends ValueRange<number> {
-    }
+    export type NumberRange = ValueRange<number>;
+
+    /** Defines the PrimitiveValue range. */
+    export type PrimitiveValueRange = ValueRange<PrimitiveValue>;
 
     export interface DataViewMappingScriptDefinition {
         source: DataViewObjectPropertyIdentifier;
@@ -2315,6 +2378,7 @@ declare module powerbi {
     export interface TemporalTypeDescriptor {
         year?: boolean;
         month?: boolean;
+        paddedDateTableDate?: boolean;
     }
 
     export interface GeographyTypeDescriptor {
@@ -2408,6 +2472,9 @@ declare module powerbi {
         negative?: IColorInfo;
         separator?: IColorInfo;
         selection?: IColorInfo;
+
+        /** Color of outlines for Table/Matrix that surround Headers, Values, or Totals */
+        tableAccent?: IColorInfo;
 
         dataColors: IDataColorPalette;
     }
@@ -2558,11 +2625,6 @@ declare module powerbi {
          * Visual should prefer to request a higher volume of data.
          */
         preferHigherDataVolume?: boolean;
-        
-        /**
-         * Whether the load more data feature (paging of data) for Cartesian charts should be enabled.
-         */
-        cartesianLoadMoreEnabled?: boolean;
     }
 
     /** Parameters available to a sortable visual candidate */
@@ -2824,11 +2886,23 @@ declare module powerbi {
         /** User-defined repetition selection. */
         id?: string;
     }
-
-    // TODO: Consolidate these two into one object and add a method to transform SelectorsByColumn[] into Selector[] for components that need that structure
+    
+    export interface SelectingEventArgs {
+        visualObjects: VisualObject[];
+        action?: VisualInteractivityAction;
+    }
+    
     export interface SelectEventArgs {
-        data: Selector[];
-        data2?: SelectorsByColumn[];
+        visualObjects: VisualObject[];
+        selectors?: Selector[]; // An array of selectors used in place of visualObjects for certain backwards compatibility cases
+    }
+
+    export interface VisualObject {
+        /** The name of the object (as defined in object descriptors). */
+        objectName: string;
+
+        /** Data-bound repitition selection */
+        selectorsByColumn: SelectorsByColumn;
     }
 
     export interface ContextMenuArgs {
@@ -2886,17 +2960,17 @@ declare module powerbi {
         /** Gets a value indicating whether the given selection is valid. */
         canSelect(args: SelectEventArgs): boolean;
 
-        /** Notifies of a data point being selected. */
-        onSelect(args: SelectEventArgs): void;  // TODO: Revisit onSelect vs. onSelectObject.
+        /** Notifies of the execution of a select event. */
+        onSelecting(args: SelectingEventArgs): void;
+
+        /** Notifies of the selection state changing. */
+        onSelect(args: SelectEventArgs): void;
 
         /** Notifies of a request for a context menu. */
         onContextMenu(args: ContextMenuArgs): void;
 
         /** Check if selection is sticky or otherwise. */
         shouldRetainSelection(): boolean;
-
-        /** Notifies of a visual object being selected. */
-        onSelectObject?(args: SelectObjectEventArgs): void;  // TODO: make this mandatory, not optional.
 
         /** Notifies that properties of the IVisual have changed. */
         persistProperties(changes: VisualObjectInstance[]): void;
@@ -3121,6 +3195,12 @@ declare module powerbi {
 
 declare module powerbi {
 
+    export interface IVisualPluginContent {
+        js: string;
+        css: string;
+        iconBase64: string;
+    }        
+
     export interface IVisualPlugin {
         /** The name of the plugin.  Must match the property name in powerbi.visuals. */
         name: string;
@@ -3160,6 +3240,12 @@ declare module powerbi {
         
         /** Human readable plugin name displayed to users */
         displayName?: string;
+
+        /** The version of the visual */
+        version?: string;
+
+        /** Stores visual implementation */
+        content?: IVisualPluginContent;
     }
 
     /** Method for gathering addition information from the visual for telemetry. */

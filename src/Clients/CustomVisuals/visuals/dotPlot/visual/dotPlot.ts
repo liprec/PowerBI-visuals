@@ -2,7 +2,7 @@
  *  Power BI Visualizations
  *
  *  Copyright (c) Microsoft Corporation
- *  All rights reserved.
+ *  All rights reserved. 
  *  MIT License
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -12,36 +12,87 @@
  *  copies of the Software, and to permit persons to whom the Software is
  *  furnished to do so, subject to the following conditions:
  *
- *  The above copyright notice and this permission notice shall be included in
+ *  The above copyright notice and this permission notice shall be included in 
  *  all copies or substantial portions of the Software.
  *
- *  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
  *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-
-/// <reference path="../../../_references.ts"/>
-
+ /// <reference path="../../../_references.ts"/>
 module powerbi.visuals.samples {
-    import ClassAndSelector = jsCommon.CssConstants.ClassAndSelector;
-    import getAnimationDuration = AnimatorCommon.GetAnimationDuration;
+import ClassAndSelector = jsCommon.CssConstants.ClassAndSelector;
+    import getAnimationDuration = powerbi.visuals.AnimatorCommon.GetAnimationDuration;
     import CreateClassAndSelector = jsCommon.CssConstants.createClassAndSelector;
     import AxisScale = powerbi.visuals.axisScale;
     import PixelConverter = jsCommon.PixelConverter;
+    import IEnumType = powerbi.IEnumType;
+    import createEnumType = powerbi.createEnumType;
+    import DataViewObjectPropertyIdentifier = powerbi.DataViewObjectPropertyIdentifier;
+    import SelectionId = powerbi.visuals.SelectionId;
+    import IGenericAnimator = powerbi.visuals.IGenericAnimator;
+    import IMargin = powerbi.visuals.IMargin;
+    import TooltipDataItem = powerbi.visuals.TooltipDataItem;
+    import VisualDataLabelsSettings = powerbi.visuals.VisualDataLabelsSettings;
+    import IValueFormatter = powerbi.visuals.IValueFormatter;
+    import Fill = powerbi.Fill;
+    import SelectableDataPoint = powerbi.visuals.SelectableDataPoint;
+    import IVisual = powerbi.IVisual;
+    import IViewport = powerbi.IViewport;
+    import VisualCapabilities = powerbi.VisualCapabilities;
+    import VisualDataRoleKind = powerbi.VisualDataRoleKind;
+    import IInteractiveBehavior = powerbi.visuals.IInteractiveBehavior;
+    import IDataColorPalette = powerbi.IDataColorPalette;
+    import IInteractivityService = powerbi.visuals.IInteractivityService;
+    import TextProperties = powerbi.TextProperties;
+    import dataLabelUtils = powerbi.visuals.dataLabelUtils;
+    import LegendData = powerbi.visuals.LegendData;
+    import DataView = powerbi.DataView;
+    import DataViewObjects = powerbi.DataViewObjects;
+    import DataViewValueColumns = powerbi.DataViewValueColumns;
+    import SelectionIdBuilder = powerbi.visuals.SelectionIdBuilder;
+    import VisualInitOptions = powerbi.VisualInitOptions;
+    import createInteractivityService = powerbi.visuals.createInteractivityService;
+    import appendClearCatcher = powerbi.visuals.appendClearCatcher;
+    import VisualUpdateOptions = powerbi.VisualUpdateOptions;
+    import SVGUtil = powerbi.visuals.SVGUtil;
+    import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
+    import VisualObjectInstanceEnumeration = powerbi.VisualObjectInstanceEnumeration;
+    import ObjectEnumerationBuilder = powerbi.visuals.ObjectEnumerationBuilder;
+    import DataViewObject = powerbi.DataViewObject;
+    import valueFormatter = powerbi.visuals.valueFormatter;
+    import ILabelLayout = powerbi.visuals.ILabelLayout;
+    import TooltipManager = powerbi.visuals.TooltipManager;
+    import TooltipEvent = powerbi.visuals.TooltipEvent;
+    import IAxisProperties = powerbi.visuals.IAxisProperties;
+    import NumberRange = powerbi.NumberRange;
+    import AxisHelper = powerbi.visuals.AxisHelper;
+    import TextMeasurementService = powerbi.TextMeasurementService;
+    import DataViewMetadataColumn = powerbi.DataViewMetadataColumn;
+    import ISelectionHandler = powerbi.visuals.ISelectionHandler;
 
-    const MaxXAxisHeight: number = 40;
-    const LabelMargin: number = 15;
-    const DefaultRadius: number = 5;
-    const DefaultStrokeWidth: number = 1;
-    const DefaultDataPointColor = "#00B8AA";
-    const MinPrecision: number = 0;
-    const MaxPrecision: number = 17;
-
-    export const DotPlotProperties: any = {
+    var MaxXAxisHeight: number = 40;
+    var LabelMargin: number = 15;
+    var DefaultRadius: number = 5;
+    var DefaultStrokeWidth: number = 1;
+    var DefaultDataPointColor = "#00B8AA";
+    var MinPrecision: number = 0;
+    var MaxPrecision: number = 17;
+    export module DotPlotLabelsOrientation {
+        export enum Orientation {
+            Horizontal,
+            Vertical,
+        };
+        export var type: IEnumType = createEnumType([
+            { value: Orientation[0], displayName: "Horizontal" },
+            { value: Orientation[1], displayName: "Vertical" }
+       ]);
+    }
+    export var DotPlotProperties: any = {
         general: {
             formatString: <DataViewObjectPropertyIdentifier>{
                 objectName: "general",
@@ -68,6 +119,10 @@ module powerbi.visuals.samples {
             labelColor: <DataViewObjectPropertyIdentifier>{
                 objectName: "labels",
                 propertyName: "color"
+            },
+            orientation: <DataViewObjectPropertyIdentifier>{
+                objectName: "labels",
+                propertyName: "orientation"
             }
         },
         dataPoint: {
@@ -106,6 +161,26 @@ module powerbi.visuals.samples {
         }
     };
 
+    export interface DotPlotCalculateScaleAndDomainOptions {
+        viewport: IViewport;
+        margin: IMargin;
+        showCategoryAxisLabel: boolean;
+        showValueAxisLabel: boolean;
+        forceMerge: boolean;
+        categoryAxisScaleType: string;
+        valueAxisScaleType: string;
+        trimOrdinalDataOnOverflow: boolean;
+        forcedTickCount?: number;
+        forcedYDomain?: any[];
+        forcedXDomain?: any[];
+        ensureXDomain?: NumberRange;
+        ensureYDomain?: NumberRange;
+        categoryAxisDisplayUnits?: number;
+        categoryAxisPrecision?: number;
+        valueAxisDisplayUnits?: number;
+        valueAxisPrecision?: number;
+    }
+
     export interface DotPlotSelectors {
         svgPlotSelector: ClassAndSelector;
         plotSelector: ClassAndSelector;
@@ -118,6 +193,7 @@ module powerbi.visuals.samples {
     export interface DotPlotChartCategory {
         value: string;
         selectionId: SelectionId;
+        textWidth:number;
     }
 
     export interface DotPlotConstructorOptions {
@@ -141,6 +217,9 @@ module powerbi.visuals.samples {
         categorySettings?: DotPlotCategorySettings;
         defaultDataPointColor?: string;
         categoryAxisSettings?: DotPlotCategoryAxisSettings;
+        labelOrientation?:DotPlotLabelsOrientation.Orientation;
+        labelTextMaxSize:number;
+        xAxisLabelTexMaxSize:number;
     }
 
     export interface DotPlotCategoryAxisSettings {
@@ -177,16 +256,18 @@ module powerbi.visuals.samples {
         private viewportIn: IViewport;
 
         public static capabilities: VisualCapabilities = {
-            dataRoles: [{
+            dataRoles: [
+            {
                 name: 'Category',
                 kind: powerbi.VisualDataRoleKind.Grouping,
                 displayName: 'Category'
             },
-                {
+            {
                     name: "Values",
                     kind: VisualDataRoleKind.Measure,
                     displayName: 'Values'
-                }],
+            }
+            ],
             dataViewMappings: [{
                 conditions: [
                     { 'Category': { max: 1 }, 'Values': { max: 1 } },
@@ -279,6 +360,10 @@ module powerbi.visuals.samples {
                             displayName: 'Text Size',
                             type: { formatting: { fontSize: true } }
                         },
+                         orientation: {
+                            displayName: "Orientation",
+                            type: { enumeration: DotPlotLabelsOrientation.type }
+                        }
                     }
                 }
             }
@@ -339,7 +424,10 @@ module powerbi.visuals.samples {
                 show: true,
                 showAxisTitle: true,
                 labelColor: { solid: { color: dataLabelUtils.defaultLabelColor } }
-            }
+            },
+            labelOrientation: DotPlotLabelsOrientation.Orientation.Horizontal,
+            labelTextMaxSize:0,
+            xAxisLabelTexMaxSize:0
         };
 
         private static getTooltipData(value: number): TooltipDataItem[] {
@@ -350,57 +438,88 @@ module powerbi.visuals.samples {
         }
 
         public static converter(dataView: DataView, objects: DataViewObjects, scale: D3.Scale.OrdinalScale, defaultMargin: IMargin, defaultSetting: DotPlotSettings, colors: IDataColorPalette, viewport: IViewport, radius: number): DotPlotDataView {
-            let values: DataViewValueColumns = dataView.categorical.values,
+            var values: DataViewValueColumns = dataView.categorical.values,
                 dataPointsGroup: DotPlotDataGroup[] = [],
                 displayName: string = dataView.categorical.categories[0].source.displayName,
                 settings: DotPlotSettings,
                 defaultColor = DataViewObjects.getFillColor(objects, DotPlotProperties.dataPoint.fill, colors.getColorByIndex(0).value);
 
-            let categories: DotPlotChartCategory[] = dataView.categorical.categories[0].values.map((x, i) => <DotPlotChartCategory>{
+            var categories: DotPlotChartCategory[] = dataView.categorical.categories[0].values.map((x, i) => <DotPlotChartCategory>{
                 value: x,
                 selectionId: SelectionId.createWithId(dataView.categorical.categories[0].identity[i])
             });
-
-            settings = {
+             settings = {
                 categorySettings: this.getCategorySettings(objects, defaultSetting),
                 defaultDataPointColor: defaultColor,
                 labelSettings: this.parseSettings(objects, defaultSetting),
-                categoryAxisSettings: this.parseCategoryAxisSettings(objects, defaultSetting)
+                categoryAxisSettings: this.parseCategoryAxisSettings(objects, defaultSetting),
+                labelOrientation: ((DataViewObjects.getValue<DotPlotLabelsOrientation.Orientation>(objects, DotPlotProperties.labels.orientation , DotPlotLabelsOrientation.Orientation.Horizontal)+'') === 'Vertical' ?DotPlotLabelsOrientation.Orientation.Vertical:DotPlotLabelsOrientation.Orientation.Horizontal),
+                labelTextMaxSize: 0,
+				xAxisLabelTexMaxSize:0
+				
+                 };
+                 
+            var textPropertiesCat: powerbi.TextProperties = {
+                text: "W",
+                fontFamily: "Segoe UI" ,
+                fontSize: settings.labelSettings.fontSize + "px"
             };
+            
+            var maxValue = 0;                
+            for (var valueId in values) {
+                var value = values[valueId];
+                var max = _.max(value.values);
+                maxValue = max > maxValue? max: maxValue;
+            }
+			
+			var maxXAxisLabelValue = 0;
+            if(settings.labelOrientation === DotPlotLabelsOrientation.Orientation.Vertical) 
+            for (var catId in categories) {
+                var category = categories[catId];
+                category.textWidth = powerbi.TextMeasurementService.measureSvgTextWidth(textPropertiesCat) *  category.value.length;
+                maxXAxisLabelValue = category.value.length > maxXAxisLabelValue? category.value.length: maxXAxisLabelValue;
+            }
+                             
+            settings.labelTextMaxSize = powerbi.TextMeasurementService.measureSvgTextWidth(textPropertiesCat) *  (maxValue + ' ').length;
+            settings.xAxisLabelTexMaxSize = powerbi.TextMeasurementService.measureSvgTextWidth(textPropertiesCat) *  maxXAxisLabelValue;
+            if(settings.labelOrientation === DotPlotLabelsOrientation.Orientation.Vertical) 
+            MaxXAxisHeight = settings.xAxisLabelTexMaxSize;
+            
+            var categoryColumn = dataView.categorical.categories[0];
+            var diameter: number = 2 * radius + 1;
+            var dotsTotalHeight: number = viewport.height - radius - MaxXAxisHeight - ( settings.labelOrientation  === DotPlotLabelsOrientation.Orientation.Vertical? settings.labelTextMaxSize:0);
+            var maxDots: number = Math.floor((dotsTotalHeight - defaultMargin.top) / diameter) - 1;
+            var fontSizeInPx: string = PixelConverter.fromPoint(settings.labelSettings.fontSize);
 
-            let categoryColumn = dataView.categorical.categories[0];
-            let diameter: number = 2 * radius + 1;
-            let dotsTotalHeight: number = viewport.height - radius - MaxXAxisHeight;
-            let maxDots: number = Math.floor((dotsTotalHeight - defaultMargin.top) / diameter) - 1;
-            let fontSizeInPx: string = PixelConverter.fromPoint(settings.labelSettings.fontSize);
-
-            let yScale: D3.Scale.LinearScale = d3.scale.linear()
+            var yScale: D3.Scale.LinearScale = d3.scale.linear()
                 .domain([0, maxDots])
                 .range([dotsTotalHeight - defaultMargin.bottom, defaultMargin.top + defaultMargin.bottom]);
+            
+                
+            for (var valueId in values) {
+                var value = values[valueId];
+                
+                var min = _.min(value.values);
+                var max = _.max(value.values);
+                var color = DataViewObjects.getFillColor(objects, DotPlotProperties.dataPoint.fill, colors.getColorByIndex(0).value);
+                var length = value && value.values ? value.values.length : 0;
+                var minDots = min / (max / maxDots);
+                var dotsScale = d3.scale.log().domain([min < 0 ? 1 : min, max]).range([minDots <= 0 ? 1 : minDots, maxDots]).clamp(true);
 
-            for (let value of values) {
-                let min = _.min(value.values);
-                let max = _.max(value.values);
+                for (var k = 0; k < length; k++) {
+                    var y = dotsScale(value.values[k]);
+                    var dataPoints: DotPlotDataPoint[] = [];
 
-                let color = DataViewObjects.getFillColor(objects, DotPlotProperties.dataPoint.fill, colors.getColorByIndex(0).value);
-                let length = value && value.values ? value.values.length : 0;
-                let minDots = min / (max / maxDots);
-                let dotsScale = d3.scale.log().domain([min < 0 ? 1 : min, max]).range([minDots <= 0 ? 1 : minDots, maxDots]).clamp(true);
-
-                for (let k = 0; k < length; k++) {
-                    let y = dotsScale(value.values[k]);
-                    let dataPoints: DotPlotDataPoint[] = [];
-
-                    for (let level = 0; level < y; level++) {
+                    for (var level = 0; level < y; level++) {
                         dataPoints.push({
                             x: scale(categories[k].value) + scale.rangeBand() / 2,
-                            y: yScale(level),
+                            y: yScale(level) + ( settings.labelOrientation  === DotPlotLabelsOrientation.Orientation.Vertical? settings.labelTextMaxSize:0),
                             tooltipInfo: DotPlot.getTooltipData(value.values[k].toFixed(settings.labelSettings.precision))
                         });
                     }
 
-                    let categorySelectionId = SelectionIdBuilder.builder().withCategory(categoryColumn, k).createSelectionId();
-                    let tooltipInfo = DotPlot.getTooltipData(value.values[k].toFixed(settings.labelSettings.precision));
+                    var categorySelectionId = SelectionIdBuilder.builder().withCategory(categoryColumn, k).createSelectionId();
+                    var tooltipInfo = DotPlot.getTooltipData(value.values[k].toFixed(settings.labelSettings.precision));
 
                     dataPointsGroup.push({
                         selected: false,
@@ -439,7 +558,7 @@ module powerbi.visuals.samples {
         }
 
         public init(options: VisualInitOptions): void {
-            let element = options.element;
+            var element = options.element;
             this.behavior = new DotplotBehavior();
 
             this.interactivityService = createInteractivityService(options.host);
@@ -447,10 +566,10 @@ module powerbi.visuals.samples {
             this.strokeWidth = DefaultStrokeWidth;
             this.colors = options.style.colorPalette.dataColors;
 
-            this.svg = d3.select(element.get(0)).append('svg').classed(this.dotPlotSelectors.svgPlotSelector.class, true).style('position', 'absolute');
+            this.svg = d3.select(element.get(0)).append('svg').classed(this.dotPlotSelectors.svgPlotSelector.class, true).style('position', 'absolute').style('left', '5px');
             this.clearCatcher = appendClearCatcher(this.svg);
 
-            let axisGraphicsContext = this.svg.append('g').classed(this.dotPlotSelectors.axisSelector.class, true);
+            var axisGraphicsContext = this.svg.append('g').classed(this.dotPlotSelectors.axisSelector.class, true);
             this.dotPlot = this.svg.append('g').classed(this.dotPlotSelectors.plotSelector.class, true);
             this.xAxis = axisGraphicsContext.append("g").classed(this.dotPlotSelectors.xAxisSelector.class, true);
         }
@@ -459,8 +578,8 @@ module powerbi.visuals.samples {
             if (!options.dataViews || !options.dataViews[0]) return;
 
             this.durationAnimations = getAnimationDuration(this.animator, options.suppressAnimations);
-            let dataView = this.dataView = options.dataViews[0];
-            let viewport = options.viewport;
+            var dataView = this.dataView = options.dataViews[0];
+            var viewport = options.viewport;
 
             if (!dataView ||
                 !dataView.categorical ||
@@ -473,7 +592,7 @@ module powerbi.visuals.samples {
                 return;
             }
 
-            let viewportIn: IViewport =
+            var viewportIn: IViewport =
                 {
                     height: (viewport.height - this.DefaultMargin.top),
                     width: (viewport.width - this.DefaultMargin.left)
@@ -485,14 +604,14 @@ module powerbi.visuals.samples {
                 width: PixelConverter.toString(viewport.width)
             });
 
-            let objects = DotPlot.getObjectsFromDataView(dataView);
-            let categoryAxisSettings = DotPlot.parseCategoryAxisSettings(objects, this.DefaultDotPlotSettings);
+            var objects = DotPlot.getObjectsFromDataView(dataView);
+            var categoryAxisSettings = DotPlot.parseCategoryAxisSettings(objects, this.DefaultDotPlotSettings);
 
-            let xAxisProperties = this.calculateAxes(viewportIn, categoryAxisSettings, this.textProperties, objects, false);
-            let data = DotPlot.converter(dataView, objects, <D3.Scale.OrdinalScale>xAxisProperties.scale, this.DefaultMargin, this.DefaultDotPlotSettings, this.colors, viewport, this.radius);
+            var xAxisProperties = this.calculateAxes(viewportIn, categoryAxisSettings, this.textProperties, objects, false);
+            var data = DotPlot.converter(dataView, objects, <D3.Scale.OrdinalScale>xAxisProperties.scale, this.DefaultMargin, this.DefaultDotPlotSettings, this.colors, viewport, this.radius);
 
             this.dotPlotDataView = data;
-            let dataPoints = data.dataPoints;
+            var dataPoints = data.dataPoints;
 
             if (this.interactivityService)
                 this.interactivityService.applySelectionStateToData(dataPoints);
@@ -500,12 +619,17 @@ module powerbi.visuals.samples {
             this.renderAxis(viewportIn.height - MaxXAxisHeight, viewportIn, xAxisProperties, categoryAxisSettings, data, this.durationAnimations);
             this.drawDotPlot(dataPoints, data.settings);
 
-            let dataLabelsSettings = data.settings.labelSettings;
+            var dataLabelsSettings = data.settings.labelSettings;
             if (dataLabelsSettings.show) {
-                let layout = this.getEnhanchedDotplotLayout(dataLabelsSettings, viewportIn);
-				let labels: D3.UpdateSelection = dataLabelUtils.drawDefaultLabelsForDataPointChart(dataPoints, this.svg, layout, viewportIn, !options.suppressAnimations, this.durationAnimations);
-				if (labels)
-					labels.attr('transform', (d) => SVGUtil.translate(5 + d.size.width / 2, 5 + d.size.height / 2));
+                var layout = this.getEnhanchedDotplotLayout(dataLabelsSettings, viewportIn);
+                var labels: D3.UpdateSelection = dataLabelUtils.drawDefaultLabelsForDataPointChart(dataPoints, this.svg, layout, viewportIn, !options.suppressAnimations, this.durationAnimations);
+                if (labels)
+                    labels.attr('transform', (d) => {
+                        if(data.settings.labelOrientation === DotPlotLabelsOrientation.Orientation.Vertical) 
+                        return SVGUtil.translateAndRotate(d.size.height/2, 0 - d.size.width/2, d.anchorPoint.x, d.anchorPoint.y, -90);
+                        else
+                        return SVGUtil.translate(0, 0);
+                    });
             }
             else {
                 dataLabelUtils.cleanDataLabels(this.svg);
@@ -513,7 +637,7 @@ module powerbi.visuals.samples {
         }
 
         public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
-            let enumeration = new ObjectEnumerationBuilder();
+            var enumeration = new ObjectEnumerationBuilder();
 
             switch (options.objectName) {
                 case 'dataPoint':
@@ -534,7 +658,7 @@ module powerbi.visuals.samples {
         }
 
         private enumerateCategoryAxisValues(enumeration: ObjectEnumerationBuilder, dataView: DataView): void {
-            let objects = dataView && dataView.metadata ? dataView.metadata.objects : undefined;
+            var objects = dataView && dataView.metadata ? dataView.metadata.objects : undefined;
             enumeration.pushInstance({
                 objectName: "categoryAxis",
                 displayName: "Category Axis",
@@ -561,7 +685,7 @@ module powerbi.visuals.samples {
         }
 
         private static parseSettings(objects: DataViewObjects, defaultDotPlotSettings: DotPlotSettings): VisualDataLabelsSettings {
-            let precision = this.getPrecision(objects, defaultDotPlotSettings);
+            var precision = this.getPrecision(objects, defaultDotPlotSettings);
 
             return {
                 show: DataViewObjects.getValue(objects, DotPlotProperties.labels.show, defaultDotPlotSettings.labelSettings.show),
@@ -590,7 +714,7 @@ module powerbi.visuals.samples {
         }
 
         private static getPrecision(objects: DataViewObjects, defaultDotPlotSettings: DotPlotSettings): number {
-            let precision: number = DataViewObjects.getValue<number>(objects, DotPlotProperties.labels.labelPrecision, defaultDotPlotSettings.labelSettings.precision);
+            var precision: number = DataViewObjects.getValue<number>(objects, DotPlotProperties.labels.labelPrecision, defaultDotPlotSettings.labelSettings.precision);
 
             if (precision <= MinPrecision)
                 return MinPrecision;
@@ -602,8 +726,8 @@ module powerbi.visuals.samples {
         }
 
         private drawDotPlot(data: DotPlotDataGroup[], setting: DotPlotSettings): void {
-            let selection: D3.UpdateSelection = this.dotPlot.selectAll(this.dotPlotSelectors.plotGroupSelector.selector).data(data);
-            let hasSelection = this.interactivityService && this.interactivityService.hasSelection();
+            var selection: D3.UpdateSelection = this.dotPlot.selectAll(this.dotPlotSelectors.plotGroupSelector.selector).data(data);
+            var hasSelection = this.interactivityService && this.interactivityService.hasSelection();
 
             selection
                 .enter()
@@ -616,7 +740,7 @@ module powerbi.visuals.samples {
                 style("fill-opacity", (item: DotPlotDataGroup) => ColumnUtil.getFillOpacity(item.selected, item.highlight, hasSelection, false)).
                 classed(this.dotPlotSelectors.plotGroupSelector.class, true);
 
-            let circleSelection = selection.selectAll(this.dotPlotSelectors.circleSeletor.selector).data((d: DotPlotDataGroup) => { return d.dataPoints; });
+            var circleSelection = selection.selectAll(this.dotPlotSelectors.circleSeletor.selector).data((d: DotPlotDataGroup) => { return d.dataPoints; });
             circleSelection.enter().append('circle')
                 .classed(this.dotPlotSelectors.circleSeletor.class, true);
 
@@ -632,11 +756,11 @@ module powerbi.visuals.samples {
             circleSelection.exit().remove();
             selection.exit().remove();
 
-            let interactivityService = this.interactivityService;
+            var interactivityService = this.interactivityService;
             if (interactivityService) {
                 interactivityService.applySelectionStateToData(data);
 
-                let behaviorOptions: DotplotBehaviorOptions = {
+                var behaviorOptions: DotplotBehaviorOptions = {
                     columns: selection,
                     clearCatcher: this.clearCatcher,
                     interactivityService: this.interactivityService,
@@ -646,9 +770,9 @@ module powerbi.visuals.samples {
         }
 
         private getEnhanchedDotplotLayout(labelSettings: VisualDataLabelsSettings, viewport: IViewport): ILabelLayout {
-            let fontSizeInPx = jsCommon.PixelConverter.fromPoint(labelSettings.fontSize);
+            var fontSizeInPx = jsCommon.PixelConverter.fromPoint(labelSettings.fontSize);
 
-            let formatter: IValueFormatter = valueFormatter.create({
+            var formatter: IValueFormatter = valueFormatter.create({
                 format: valueFormatter.getFormatString(this.dataView.categorical.categories[0].source, DotPlotProperties.general.formatString),
                 precision: labelSettings.precision,
                 value: labelSettings.displayUnits
@@ -667,7 +791,7 @@ module powerbi.visuals.samples {
                     y: (d: DotPlotDataGroup) => d.dataPoints[d.dataPoints.length - 1].y - LabelMargin - 5
                 },
                 filter: function (d) {
-					return (d && d.dataPoints && d.dataPoints[d.dataPoints.length - 1]);
+                    return (d && d.dataPoints && d.dataPoints[d.dataPoints.length - 1]);
                 },
                 style: {
                     'fill': labelSettings.labelColor,
@@ -677,7 +801,7 @@ module powerbi.visuals.samples {
         }
 
         private enumerateDataLabels(enumeration: ObjectEnumerationBuilder, dataView: DataView): void {
-            let objects = dataView && dataView.metadata ? dataView.metadata.objects : undefined;
+            var objects = dataView && dataView.metadata ? dataView.metadata.objects : undefined;
             enumeration.pushInstance({
                 objectName: "labels",
                 displayName: "Labels",
@@ -687,14 +811,15 @@ module powerbi.visuals.samples {
                     fontSize: DataViewObjects.getValue<number>(objects, DotPlotProperties.labels.fontSize, this.DefaultDotPlotSettings.labelSettings.fontSize),
                     labelPrecision: DataViewObjects.getValue<number>(objects, DotPlotProperties.labels.labelPrecision, this.DefaultDotPlotSettings.labelSettings.precision),
                     labelDisplayUnits: DataViewObjects.getValue<number>(objects, DotPlotProperties.labels.labelDisplayUnits, this.DefaultDotPlotSettings.labelSettings.displayUnits),
-                    color: DataViewObjects.getFillColor(objects, DotPlotProperties.labels.labelColor, this.DefaultDotPlotSettings.labelSettings.labelColor)
+                    color: DataViewObjects.getFillColor(objects, DotPlotProperties.labels.labelColor, this.DefaultDotPlotSettings.labelSettings.labelColor),
+                    orientation: DataViewObjects.getValue<DotPlotLabelsOrientation.Orientation>(objects, DotPlotProperties.labels.orientation , DotPlotLabelsOrientation.Orientation.Horizontal)
                 }
             });
         }
 
         private enumerateDataPoints(enumeration: ObjectEnumerationBuilder, dataView: DataView): void {
-            let objects = dataView && dataView.metadata ? dataView.metadata.objects : undefined;
-            let dataPointColor = DataViewObjects.getFillColor(objects, DotPlotProperties.dataPoint.fill, this.DefaultDotPlotSettings.defaultDataPointColor);
+            var objects = dataView && dataView.metadata ? dataView.metadata.objects : undefined;
+            var dataPointColor = DataViewObjects.getFillColor(objects, DotPlotProperties.dataPoint.fill, this.DefaultDotPlotSettings.defaultDataPointColor);
             enumeration.pushInstance({
                 objectName: "dataPoint",
                 displayName: "Data Points",
@@ -706,8 +831,8 @@ module powerbi.visuals.samples {
         }
 
         private enumerateCategories(enumeration: ObjectEnumerationBuilder, dataView: DataView): void {
-            let objects = dataView && dataView.metadata ? dataView.metadata.objects : undefined;
-            let categoriesSettings = DotPlot.getCategorySettings(objects, this.DefaultDotPlotSettings);
+            var objects = dataView && dataView.metadata ? dataView.metadata.objects : undefined;
+            var categoriesSettings = DotPlot.getCategorySettings(objects, this.DefaultDotPlotSettings);
             enumeration.pushInstance({
                 objectName: "categories",
                 displayName: "Categories",
@@ -738,7 +863,7 @@ module powerbi.visuals.samples {
             objects: DataViewObjects,
             scrollbarVisible: boolean): IAxisProperties {
 
-            let category = this.dataView.categorical.categories && this.dataView.categorical.categories.length > 0
+            var category = this.dataView.categorical.categories && this.dataView.categorical.categories.length > 0
                 ? this.dataView.categorical.categories[0]
                 : {
                     source: undefined,
@@ -746,7 +871,7 @@ module powerbi.visuals.samples {
                     identity: undefined,
                 };
 
-            let visualOptions: CalculateScaleAndDomainOptions = {
+            var visualOptions: CalculateScaleAndDomainOptions = {
                 viewport: viewportIn,
                 margin: this.DefaultMargin,
                 forcedXDomain: this.dataView.categorical.categories[0].values,
@@ -760,25 +885,30 @@ module powerbi.visuals.samples {
                 trimOrdinalDataOnOverflow: false,
             };
 
-            let width = viewportIn.width;
-            let axes = this.calculateAxesProperties(viewportIn, categoryAxisSettings, visualOptions, category.source, objects);
+            var width = viewportIn.width;
+            var axes = this.calculateAxesProperties(viewportIn, categoryAxisSettings, visualOptions, category.source, objects);
             axes.willLabelsFit = AxisHelper.LabelLayoutStrategy.willLabelsFit(
                 axes,
                 width,
                 TextMeasurementService.measureSvgTextWidth,
                 textProperties);
 
+             var orientation =   ((DataViewObjects.getValue<DotPlotLabelsOrientation.Orientation>(objects, DotPlotProperties.labels.orientation , DotPlotLabelsOrientation.Orientation.Horizontal)+'') === 'Vertical' ?DotPlotLabelsOrientation.Orientation.Vertical:DotPlotLabelsOrientation.Orientation.Horizontal);
+
             // If labels do not fit and we are not scrolling, try word breaking
+            if(orientation !== DotPlotLabelsOrientation.Orientation.Vertical)
             axes.willLabelsWordBreak = (!axes.willLabelsFit && !scrollbarVisible) && AxisHelper.LabelLayoutStrategy.willLabelsWordBreak(
                 axes, this.DefaultMargin, width, TextMeasurementService.measureSvgTextWidth,
                 TextMeasurementService.estimateSvgTextHeight, TextMeasurementService.getTailoredTextOrDefault,
                 textProperties);
+                else
+                 axes.willLabelsWordBreak = false;
 
             return axes;
         }
 
         private calculateAxesProperties(viewportIn: IViewport, categoryAxisSettings: DotPlotCategoryAxisSettings, options: CalculateScaleAndDomainOptions, metaDataColumn: DataViewMetadataColumn, objects: DataViewObjects): IAxisProperties {
-            let xAxisProperties = AxisHelper.createAxis({
+            var xAxisProperties = AxisHelper.createAxis({
                 pixelSpan: viewportIn.width,
                 dataDomain: options.forcedXDomain,
                 metaDataColumn: metaDataColumn,
@@ -806,7 +936,7 @@ module powerbi.visuals.samples {
                     transform: SVGUtil.translate(0, height)
                 });
 
-            let xAxis = xAxisProperties.axis;
+            var xAxis = xAxisProperties.axis;
             xAxis.orient('bottom');
 
             this.xAxis
@@ -814,13 +944,21 @@ module powerbi.visuals.samples {
                 .duration(duration)
                 .call(xAxis)
                 .call(DotPlot.setAxisLabelColor, categoryAxisSettings.labelColor);
-
-            let xAxisTicks: D3.Selection = this.xAxis.selectAll('.tick text');
+                         
+            var xAxisTicks: D3.Selection = this.xAxis.selectAll('.tick text');
             xAxisTicks.data(xAxisProperties.values);
+            if(data.settings.labelOrientation !== DotPlotLabelsOrientation.Orientation.Vertical) 
             xAxisTicks.call(AxisHelper.LabelLayoutStrategy.clip,
                 xAxisProperties.xLabelMaxWidth,
                 TextMeasurementService.svgEllipsis);
+                if(data.settings.labelOrientation === DotPlotLabelsOrientation.Orientation.Vertical) 
+                xAxisTicks.attr('transform', (d) => {
+                    var textHeight = 12;
+                    var textWidth = powerbi.TextMeasurementService.measureSvgTextWidth(d);
 
+                        return SVGUtil.translateAndRotate(textHeight/2-2*textHeight, textWidth+20, 0, 0, -90);
+                    });
+                
             xAxisTicks.append('title').text((d) => d);
 
             this.xAxis.selectAll('line').style('opacity', data.settings.categoryAxisSettings.show ? 1 : 0);
@@ -832,7 +970,7 @@ module powerbi.visuals.samples {
                     .style("text-anchor", "middle")
                     .attr('class', 'xAxisLabel')
                     .style('fill', categoryAxisSettings.labelColor.solid.color)
-                    .attr('transform', 'translate(' + (viewportIn.width / 2) + ',40)');
+                    .attr('transform', 'translate(' + (viewportIn.width / 2) + ','+ (data.settings.xAxisLabelTexMaxSize>0?data.settings.xAxisLabelTexMaxSize: 40) +')');
             }
         }
 
@@ -866,9 +1004,25 @@ module powerbi.visuals.samples {
             });
         }
 
-        public renderSelection(hasSelection: boolean) {
-            let hasHighlights = this.interactivityService.hasSelection();
-            this.columns.style("fill-opacity", (d: DotPlotDataGroup) => ColumnUtil.getFillOpacity(d.selected, d.highlight, !d.highlight && hasSelection, !d.selected && hasHighlights));
+      public renderSelection(hasSelection: boolean) {
+            var hasHighlights = this.interactivityService.hasSelection();
+
+            this.columns.style("fill-opacity", (d: DotPlotDataGroup) => {
+                return dotPlotUtils.getFillOpacity(d.selected, d.highlight, !d.highlight && hasSelection, !d.selected && hasHighlights);
+            });
+        }
+    }
+
+    export module dotPlotUtils {
+        export var DimmedOpacity: number = 0.4;
+        export var DefaultOpacity: number = 1.0;
+
+        export function getFillOpacity(selected: boolean, highlight: boolean, hasSelection: boolean, hasPartialHighlights: boolean): number {
+            if ((hasPartialHighlights && !highlight) || (hasSelection && !selected)) {
+                return DimmedOpacity;
+            }
+
+            return DefaultOpacity;
         }
     }
 }

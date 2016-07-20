@@ -3,6 +3,96 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 declare module powerbi.data {
     /** Allows generic traversal and type discovery for a SQExpr tree. */
     interface ISQExprVisitorWithArg<T, TArg> {
@@ -141,6 +231,10 @@ declare module powerbi {
             patternKind?: SQExpr;
             color?: SQExpr;
         };
+    }
+    module FillDefinitionHelpers {
+        function createSolidFillDefinition(color: string): FillDefinition;
+        function createSolidFillSQExpr(color: string): SQExpr | StructuralObjectDefinition;
     }
     module FillSolidColorTypeDescriptor {
         /** Gets a value indicating whether the descriptor is nullable or not. */
@@ -283,6 +377,7 @@ declare module powerbi {
         constructor(type: ExtendedType);
         year: boolean;
         month: boolean;
+        paddedDateTableDate: boolean;
     }
     class GeographyType implements GeographyTypeDescriptor {
         private underlyingType;
@@ -354,16 +449,17 @@ declare module powerbi {
         Duration = 10,
         Binary = 11,
         None = 12,
-        Year = 66048,
-        Year_Text = 66049,
-        Year_Integer = 66308,
-        Year_Date = 66054,
-        Year_DateTime = 66055,
-        Month = 131584,
-        Month_Text = 131585,
-        Month_Integer = 131844,
-        Month_Date = 131590,
-        Month_DateTime = 131591,
+        Years = 66048,
+        Years_Text = 66049,
+        Years_Integer = 66308,
+        Years_Date = 66054,
+        Years_DateTime = 66055,
+        Months = 131584,
+        Months_Text = 131585,
+        Months_Integer = 131844,
+        Months_Date = 131590,
+        Months_DateTime = 131591,
+        PaddedDateTableDates = 197127,
         Address = 6554625,
         City = 6620161,
         Continent = 6685697,
@@ -538,6 +634,7 @@ declare module powerbi.data {
         function containsWildcard(selector: Selector): boolean;
         function hasRoleWildcard(selector: Selector): boolean;
         function isRoleWildcard(dataItem: DataRepetitionSelector): dataItem is DataViewRoleWildcard;
+        function convertSelectorsByColumnToSelector(selectorsByColumn: SelectorsByColumn): Selector;
     }
 }
 
@@ -1242,6 +1339,138 @@ declare module powerbi.visuals {
     }
 }
 
+declare module powerbi.data {
+    module DataViewMatrixUtils {
+        const enum DepthFirstTraversalCallbackResult {
+            stop = 0,
+            continueToChildNodes = 1,
+            skipDescendantNodes = 2,
+        }
+        function isLeafNode(node: DataViewMatrixNode): boolean;
+        /**
+         * Invokes the specified callback once per node in the node tree starting from the specified rootNodes in depth-first order.
+         *
+         * If rootNodes is null or undefined or empty, the specified callback will not get invoked.
+         *
+         * The traversalPath parameter in the callback is an ordered set of nodes that form the path from the specified
+         * rootNodes down to the callback node argument itself.  If callback node is one of the specified rootNodes,
+         * then traversalPath will be an array of length 1 containing that very node.
+         *
+         * IMPORTANT: The traversalPath array passed to the callback will be modified after the callback function returns!
+         * If your callback needs to retain a copy of the traversalPath, please clone the array before returning.
+         */
+        function forEachNodeDepthFirst(rootNodes: DataViewMatrixNode | DataViewMatrixNode[], callback: (node: DataViewMatrixNode, traversalPath?: DataViewMatrixNode[]) => DepthFirstTraversalCallbackResult): void;
+        /**
+         * Invokes the specified callback once per leaf node (including root-level leaves and descendent leaves) of the
+         * specified rootNodes, with an optional index parameter in the callback that is the 0-based index of the
+         * particular leaf node in the context of this forEachLeafNode(...) invocation.
+         *
+         * If rootNodes is null or undefined or empty, the specified callback will not get invoked.
+         *
+         * The traversalPath parameter in the callback is an ordered set of nodes that form the path from the specified
+         * rootNodes down to the leafNode argument itself.  If callback leafNode is one of the specified rootNodes,
+         * then traversalPath will be an array of length 1 containing that very node.
+         *
+         * IMPORTANT: The traversalPath array passed to the callback will be modified after the callback function returns!
+         * If your callback needs to retain a copy of the traversalPath, please clone the array before returning.
+         */
+        function forEachLeafNode(rootNodes: DataViewMatrixNode | DataViewMatrixNode[], callback: (leafNode: DataViewMatrixNode, index?: number, traversalPath?: DataViewMatrixNode[]) => void): void;
+        /**
+         * Invokes the specified callback once for each node at the specified targetLevel in the node tree.
+         *
+         * Note: Be aware that in a matrix with multiple column grouping fields and multiple value fields, the DataViewMatrixNode
+         * for the Grand Total column in the column hierarchy can have children nodes where level > (parent.level + 1):
+         *  {
+         *      "level": 0,
+         *      "isSubtotal": true,
+         *      "children": [
+         *          { "level": 2, "isSubtotal": true },
+         *          { "level": 2, "levelSourceIndex": 1, "isSubtotal": true }
+         *      ]
+         *  }
+         */
+        function forEachNodeAtLevel(node: DataViewMatrixNode, targetLevel: number, callback: (node: DataViewMatrixNode) => void): void;
+        /**
+         * Returned an object tree where each node and its children property are inherited from the specified node
+         * hierarchy, from the root down to the nodes at the specified deepestLevelToInherit, inclusively.
+         *
+         * The inherited nodes at level === deepestLevelToInherit will NOT get an inherited version of children array
+         * property, i.e. its children property is the same array object referenced in the input node's object tree.
+         *
+         * @param node The input node with the hierarchy object tree.
+         * @param deepestLevelToInherit The highest level for a node to get inherited. See DataViewMatrixNode.level property.
+         * @param useInheritSingle If true, then a node will get inherited in the returned object tree only if it is
+         * not already an inherited object. Same goes for the node's children property.  This is useful for creating
+         * "visual DataView" objects from "query DataView" objects, as object inheritance is the mechanism for
+         * "visual DataView" to override properties in "query DataView", and that "query DataView" never contains
+         * inherited objects.
+         */
+        function inheritMatrixNodeHierarchy(node: DataViewMatrixNode, deepestLevelToInherit: number, useInheritSingle: boolean): DataViewMatrixNode;
+        /**
+         * Returns true if the specified matrixOrHierarchy contains any composite grouping, i.e. a grouping on multiple columns.
+         * An example of composite grouping is one on [Year, Quarter, Month], where a particular group instance can have
+         * Year === 2016, Quarter === 'Qtr 1', Month === 1.
+         *
+         * Returns false if the specified matrixOrHierarchy does not contain any composite group,
+         * or if matrixOrHierarchy is null or undefined.
+         */
+        function containsCompositeGroup(matrixOrHierarchy: DataViewMatrix | DataViewHierarchy): boolean;
+    }
+}
+
+declare module powerbi.data {
+    module DataViewMetadataColumnUtils {
+        interface MetadataColumnAndProjectionIndex {
+            /**
+            * A metadata column taken from a source collection, e.g. DataViewHierarchyLevel.sources, DataViewMatrix.valueSources...
+            */
+            metadataColumn: DataViewMetadataColumn;
+            /**
+             * The index of this.metadataColumn in its sources collection.
+             *
+             * E.g.1 This can be the value of the property DataViewMatrixGroupValue.levelSourceIndex which is the index of this.metadataColumn in DataViewHierarchyLevel.sources.
+             * E.g.2 This can be the value of the property DataViewMatrixNodeValue.valueSourceIndex which refer to columns in DataViewMatrix.valueSources.
+             */
+            sourceIndex: number;
+            /**
+            * The index of this.metadataColumn in the projection ordering of a given role.
+            * This property is undefined if the column is not projected.
+            */
+            projectionOrderIndex?: number;
+        }
+        /**
+         * Returns true iff the specified metadataColumn is assigned to the specified targetRole.
+         */
+        function isForRole(metadataColumn: DataViewMetadataColumn, targetRole: string): boolean;
+        /**
+         * Returns true iff the specified metadataColumn is assigned to any one of the specified targetRoles.
+         */
+        function isForAnyRole(metadataColumn: DataViewMetadataColumn, targetRoles: string[]): boolean;
+        /**
+         * Left-joins each metadata column of the specified target roles in the specified columnSources
+         * with projection ordering index into a wrapper object.
+         *
+         * If a metadata column is for one of the target roles but its select index is not projected, the projectionOrderIndex property
+         * in that MetadataColumnAndProjectionIndex object will be undefined.
+         *
+         * If a metadata column is for one of the target roles and its select index is projected more than once, that metadata column
+         * will be included in multiple MetadataColumnAndProjectionIndex objects, once per occurrence in projection.
+         *
+         * If the specified projectionOrdering does not contain duplicate values, then the returned objects will be in the same order
+         * as their corresponding metadata column object appears in the specified columnSources.
+         *
+         * Note: In order for this function to reliably calculate the "source index" of a particular column, the
+         * specified columnSources must be a non-filtered array of column sources from the DataView, such as
+         * the DataViewHierarchyLevel.sources and DataViewMatrix.valueSources array properties.
+         *
+         * @param columnSources E.g. DataViewHierarchyLevel.sources, DataViewMatrix.valueSources...
+         * @param projectionOrdering The select indices in projection ordering.  It should be the ordering for the specified target roles.
+         * @param roles The roles for filtering out the irrevalent columns in columnSources.
+         */
+        function leftJoinMetadataColumnsAndProjectionOrder(columnSources: DataViewMetadataColumn[], projectionOrdering: number[], roles: string[]): MetadataColumnAndProjectionIndex[];
+    }
+}
+
 declare module powerbi {
     interface IColorAllocator {
         /** Computes the color corresponding to the provided value. */
@@ -1354,9 +1583,18 @@ declare module powerbi.data {
 
 declare module powerbi.data {
     module DataViewConcatenateCategoricalColumns {
-        function detectAndApply(dataView: DataView, objectDescriptors: DataViewObjectDescriptors, roleMappings: DataViewMapping[], projectionOrdering: DataViewProjectionOrdering, selects: DataViewSelectTransform[], projectionActiveItems: DataViewProjectionActiveItems): DataView;
+        function detectAndApply(dataView: DataView, objectDescriptors: DataViewObjectDescriptors, applicableRoleMappings: DataViewMapping[], projectionOrdering: DataViewProjectionOrdering, projectionActiveItems: DataViewProjectionActiveItems): DataView;
         /** For applying concatenation to the DataViewCategorical that is the data for one of the frames in a play chart. */
         function applyToPlayChartCategorical(metadata: DataViewMetadata, objectDescriptors: DataViewObjectDescriptors, categoryRoleName: string, categorical: DataViewCategorical): DataView;
+    }
+}
+
+declare module powerbi {
+    module DataViewMapping {
+        /**
+         * Returns dataViewMapping.usage.regression if defined.  Else, returns undefined.
+         */
+        function getRegressionUsage(dataViewMapping: DataViewMapping): _.Dictionary<DataViewObjectPropertyIdentifier>;
     }
 }
 
@@ -1385,12 +1623,6 @@ declare module powerbi {
         function visitTreeNodes(mapping: DataViewRoleForMappingWithReduction, visitor: IDataViewMappingVisitor): void;
         function visitTreeValues(mapping: DataViewRoleForMapping, visitor: IDataViewMappingVisitor): void;
         function visitGrouped(mapping: DataViewGroupedRoleMapping, visitor: IDataViewMappingVisitor): void;
-    }
-}
-declare module powerbi.data {
-    import DataViewMatrix = powerbi.DataViewMatrix;
-    module DataViewMatrixProjectionOrder {
-        function apply(prototype: DataViewMatrix, matrixMapping: DataViewMatrixMapping, projectionOrdering: DataViewProjectionOrdering, context: MatrixTransformationContext): DataViewMatrix;
     }
 }
 
@@ -1470,10 +1702,55 @@ declare module powerbi.data {
     module DataViewObjectDefinitions {
         /** Creates or reuses a DataViewObjectDefinition for matching the given objectName and selector within the defns. */
         function ensure(defns: DataViewObjectDefinitions, objectName: string, selector: Selector): DataViewObjectDefinition;
+        /**
+         * Removes every property defined in targetDefns from sourceDefns if exists.
+         * Properties are matches using ObjectName, Selector, and PropertyName.
+         * @param {DataViewObjectDefinition} targetDefns Defenitions to remove properties from
+         * @param {DataViewObjectDefinition} sourceDefns Defenitions to match properties against
+         */
+        function deleteProperties(targetDefns: DataViewObjectDefinitions, sourceDefns: DataViewObjectDefinitions): void;
+        /**
+         * Fills in missing properties with default ones, mutating the first definitions.
+         * Properties are matched agains defaultDefns using ObjectName, Selector, and PropertyName.
+         * It just fills missing properties, it doesn't overwrite existing ones.
+         * Any property already in targetDefns will not change.
+         * Any property in defaultDefns but not in targetDefns will be added by reference.
+         * @param {DataViewObjectDefinitions} targetDefns Default definitions. Will be mutated. Expected to be defined
+         * @param {DataViewObjectDefinitions} defaultDefns Definitions to fill inside targetDefns
+         */
+        function extend(targetDefns: DataViewObjectDefinitions, defaultDefns: DataViewObjectDefinitions): void;
+        /**
+         * Delete the first matching property from the Defns if it matches objName + selector + propertyName
+         * @param {DataViewObjectDefinitions} defns
+         * @param {string} objectName
+         * @param {Selector} selector
+         * @param {string} propertyName
+         */
         function deleteProperty(defns: DataViewObjectDefinitions, objectName: string, selector: Selector, propertyName: string): void;
+        /**
+         *
+         * @param {DataViewObjectDefinitions} defns
+         * @param {DataViewObjectPropertyIdentifier} propertyId
+         * @param {Selector} selector
+         * @param {DataViewObjectPropertyDefinition} value
+         */
         function setValue(defns: DataViewObjectDefinitions, propertyId: DataViewObjectPropertyIdentifier, selector: Selector, value: DataViewObjectPropertyDefinition): void;
+        /**
+         *
+         * @param {DataViewObjectDefinitions} defns
+         * @param {DataViewObjectPropertyIdentifier} propertyId
+         * @param {Selector} selector
+         * @returns
+         */
         function getValue(defns: DataViewObjectDefinitions, propertyId: DataViewObjectPropertyIdentifier, selector: Selector): DataViewObjectPropertyDefinition;
         function getPropertyContainer(defns: DataViewObjectDefinitions, propertyId: DataViewObjectPropertyIdentifier, selector: Selector): DataViewObjectPropertyDefinitions;
+        /**
+         * Get the first DataViewObjectDefinition that match selector and objectName
+         * @param {DataViewObjectDefinitions} defns DataViewObjectDefinitions to search
+         * @param {string} objectName objectName to match
+         * @param {Selector} selector selector to match
+         * @returns The first match, if any. If no match, returns undefined
+         */
         function getObjectDefinition(defns: DataViewObjectDefinitions, objectName: string, selector: Selector): DataViewObjectDefinition;
         function propertiesAreEqual(a: DataViewObjectPropertyDefinition, b: DataViewObjectPropertyDefinition): boolean;
         function allPropertiesAreEqual(a: DataViewObjectPropertyDefinitions, b: DataViewObjectPropertyDefinitions): boolean;
@@ -1541,6 +1818,12 @@ declare module powerbi.data {
         function apply(categorical: DataViewCategorical): void;
     }
 }
+declare module powerbi.data {
+    import DataViewMatrix = powerbi.DataViewMatrix;
+    module DataViewMatrixProjectionOrder {
+        function apply(prototype: DataViewMatrix, matrixMapping: DataViewMatrixMapping, projectionOrdering: DataViewProjectionOrdering, context: MatrixTransformationContext): DataViewMatrix;
+    }
+}
 
 declare module powerbi.data {
     module DataViewPivotCategorical {
@@ -1579,7 +1862,7 @@ declare module powerbi.data {
          * pivot the secondary before the primary.
          */
         function pivotBinding(binding: DataShapeBinding, allMappings: CompiledDataViewMapping[], finalMapping: CompiledDataViewMapping, defaultDataVolume: number): void;
-        function unpivotResult(oldDataView: DataView, selects: DataViewSelectTransform[], dataViewMappings: DataViewMapping[], projectionActiveItems: DataViewProjectionActiveItems): DataView;
+        function unpivotResult(oldDataView: DataView, selects: DataViewSelectTransform[], roleKindByQueryRef: DataViewAnalysis.RoleKindByQueryRef, queryProjectionsByRole: QueryProjectionsByRole, applicableRoleMappings: DataViewMapping[]): DataView;
     }
 }
 declare module powerbi.data {
@@ -1587,6 +1870,128 @@ declare module powerbi.data {
     /** Responsible for removing selects from the DataView. */
     module DataViewRemoveSelects {
         function apply(dataView: DataView, targetDataViewKinds: StandardDataViewKinds, selectsToInclude: INumberDictionary<boolean>): void;
+    }
+}
+declare module powerbi.data {
+    import RoleKindByQueryRef = powerbi.DataViewAnalysis.RoleKindByQueryRef;
+    /**
+     * A property bag containing information about a DataViewTransform session, including input arguments and some values derived from the input arguments.
+     *
+     * This interface is part of the internal implementation of DataViewTransform and is subject to frequent changes.
+     *
+     * All properties in this context interface are agnostic to any specific "split" in the transform.
+     * E.g. DataViewTransformContext.transforms.splits has the select indices in each split, but an instance of this context is not tied to a particular split.
+     *
+     * Also, DataViewTransformContext does not include a property for the dataView object(s) in transformation, because almost all of the existing DataViewTransform functions
+     * handles one dataView at a time, and DataViewTransformContext should not have a property containing the dataView for a specific split.
+     *
+     * And to avoid confusion, this DataViewTransformContext does not include a property for the visual dataView, because almost all functions in DataViewTransform
+     * are chained together by taking the output DataView from one function and use it as the input of the next.  It never needs to get back to the very original prototype.
+     *
+     * ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+     * 2016/06/29 Notes about visualCapabilitiesRoleMappings/visualCapabilitiesDataViewKinds vs. applicableRoleMappings/applicableDataViewKinds:
+     *
+     * - Short version -
+     * For the time being, use visualCapabilitiesRoleMappings/visualCapabilitiesDataViewKinds for the essential transforms that would otherwise
+     * crash the visuals code if not performed (such as DataViewTransform.transformSelects()).
+     *
+     * Use applicableRoleMappings/applicableDataViewKinds for the more advanced transforms that procude the correct visual dataView (such as categorical concatentation).
+     *
+     * - Long version -
+     * visualCapabilitiesRoleMappings is the full list of role mappings as specified in Visual Capabilities, whereas applicableRoleMappings is the
+     * actual applicable one(s) based on the select fields in each of the role buckets.
+     *
+     * There is a bug (VSTS 7427800) in DataViewTransformActionsSerializer such that some DataViewTransformActions converted from VisualElements will contain incorrect values.
+     *
+     * With incorrect DataViewTransformActions input, DataViewAnalysis cannot possibly compute the correct applicableRoleMappings, and hence the
+     * visual dataView from DataViewTransform will be incorrect.  This is why sometimes when you open a report in PBI Portal, the initial rendering of some visuals
+     * are incorrect (most frequently on combo chart).
+     *
+     * However, no one has fixed or complained about it yet because the visuals will automatically re-render correctly within a couple seconds, thanks to the
+     * automatic query re-generation and re-execution that always follow after the initial rendering.  The DataViewTransformActions from this re-generated query
+     * will be correct and the visuals will then render with the correctly transformed visual dataView.
+     *
+     * Because of the above, the existing DataViewTransform code thus far has never relied on applicableRoleMappings for deciding whether to perform the very essential transforms
+     * such as DataViewTransform.transformSelects(), because without which the dataView will be missing some important properties and will lead to crashes in visuals code.
+     * As long as the relevant dataView kind is in visualCapabilitiesDataViewKinds, those transform operations will get carried out, even if it is not in applicableDataViewKinds.
+     *
+     * Unfortunately, there are also some transform operations that requires applicableRoleMappings, and hence DataViewTransformContext has both sets of properties for now.
+     *
+     * When the bug in DataViewTransformActionsSerializer gets fixed and DataViewTransformActions is always correct,
+     * then visualCapabilitiesRoleMappings/visualCapabilitiesDataViewKinds can be completely replaced by applicableRoleMappings/applicableDataViewKinds in DataViewTransform.
+     */
+    interface DataViewTransformContext {
+        /**
+         * The metadata property of the query DataView.
+         */
+        queryDataViewMetadata: DataViewMetadata;
+        /**
+         * From Visual Capabilities.  Can be undefined.
+         */
+        objectDescriptors?: DataViewObjectDescriptors;
+        /**
+         * From Visual Capabilities.  Can be undefined.
+         */
+        dataRoles?: VisualDataRole[];
+        transforms: DataViewTransformActions;
+        colorAllocatorFactory: IColorAllocatorFactory;
+        /**
+         * The select transforms for this DataViewTransform session.
+         * This property contains the same object as this.transforms.selects.
+         *
+         * Can be undefined or empty.  Can contain undefined elements.
+         */
+        selectTransforms?: DataViewSelectTransform[];
+        /** This property contains the same object as this.transforms.roles.ordering.  Can be undefined. */
+        projectionOrdering?: DataViewProjectionOrdering;
+        /** This property contains the same object as this.transforms.roles.activeItems.  Can be undefined. */
+        projectionActiveItems?: DataViewProjectionActiveItems;
+        /** The mapping from queryRef to VisualDataRoleKind value (Grouping, Measure, etc), computed from query DataView's metadata. */
+        roleKindByQueryRef: RoleKindByQueryRef;
+        /** The mapping from role name to query projection. */
+        queryProjectionsByRole: QueryProjectionsByRole;
+        /**
+         * The full list of possible target dataView kinds in this DataViewTransform session, as specified in Visual Capabilities role mappings.
+         *
+         * Can be undefined.
+         *
+         * Note: When applicableRoleMappings becomes reliable, all usages of this property should use applicableRoleMappings instead.
+         */
+        visualCapabilitiesRoleMappings?: DataViewMapping[];
+        /**
+         * All possible target dataView kinds in this DataViewTransform session, which is taken from all possible dataView kinds listed in visual capabilities role mapping.
+         *
+         * Note: When applicableDataViewKinds becomes reliable, all usages of this property should use applicableDataViewKinds instead.
+         */
+        visualCapabilitiesDataViewKinds: StandardDataViewKinds;
+        /**
+         * The applicable DataViewMappings for this transform, as computed by DataViewAnalysis.
+         * This property is undefined if there is no supported DataViewMappings for the other specified inputs.
+         *
+         * Note: There is currently a bug in DataViewTransformActionsSerializer that leads to incorrect DataViewTransformActions.
+         * As a result, this property can contain incorrect value until the query is regenerated and this property recomputed.
+         */
+        applicableRoleMappings?: DataViewMapping[];
+        /**
+         * The applicable dataView kinds of this DataViewTransform session, as computed from applicableRoleMappings.
+         *
+         * Note: There is currently a bug in DataViewTransformActionsSerializer that leads to incorrect DataViewTransformActions.
+         * As a result, this property can contain incorrect value until the query is regenerated and this property recomputed.
+         */
+        applicableDataViewKinds: StandardDataViewKinds;
+    }
+    module DataViewTransformContext {
+        /**
+         * Creates an object that all properties in the DataViewTransformContext interface.
+         *
+         * @param queryDataViewMetadata The metadata property of the query DataView.
+         * @param objectDescriptors From Visual Capabilities.  Can be undefined.
+         * @param dataViewMappings From Visual Capabilities.  Can be undefined.
+         * @param dataRoles From Visual Capabilities.  Can be undefined.
+         * @param transforms
+         * @param colorAllocatorFactory
+         */
+        function create(queryDataViewMetadata: DataViewMetadata, objectDescriptors: DataViewObjectDescriptors, dataViewMappings: DataViewMapping[], dataRoles: VisualDataRole[], transforms: DataViewTransformActions, colorAllocatorFactory: IColorAllocatorFactory): DataViewTransformContext;
     }
 }
 declare module powerbi.data {
@@ -1710,6 +2115,7 @@ declare module powerbi.data {
         queryName: string;
         selector: Selector;
         aggregates?: ProjectionAggregates;
+        joinPredicate?: JoinPredicateBehavior;
     }
     interface ProjectionAggregates {
         min?: boolean;
@@ -2061,16 +2467,18 @@ declare module powerbi.data {
 }
 
 declare module powerbi.data {
+    import DataViewMapping = powerbi.DataViewMapping;
+    import RoleKindByQueryRef = DataViewAnalysis.RoleKindByQueryRef;
     interface DataViewRegressionRunOptions {
-        dataViewMappings: DataViewMapping[];
         visualDataViews: DataView[];
         dataRoles: VisualDataRole[];
         objectDescriptors: DataViewObjectDescriptors;
         objectDefinitions: DataViewObjectDefinitions;
         colorAllocatorFactory: IColorAllocatorFactory;
         transformSelects: DataViewSelectTransform[];
-        metadata: DataViewMetadata;
-        projectionActiveItems: DataViewProjectionActiveItems;
+        applicableDataViewMappings: DataViewMapping[];
+        roleKindByQueryRef: RoleKindByQueryRef;
+        queryProjectionsByRole: QueryProjectionsByRole;
     }
     module DataViewRegression {
         const regressionYQueryName: string;
@@ -2148,138 +2556,6 @@ declare module powerbi.data {
         private allocator;
         constructor(inputRole: string, allocator: IColorAllocator);
         evaluate(evalContext: IEvalContext): any;
-    }
-}
-
-declare module powerbi.data {
-    module DataViewMatrixUtils {
-        const enum DepthFirstTraversalCallbackResult {
-            stop = 0,
-            continueToChildNodes = 1,
-            skipDescendantNodes = 2,
-        }
-        function isLeafNode(node: DataViewMatrixNode): boolean;
-        /**
-         * Invokes the specified callback once per node in the node tree starting from the specified rootNodes in depth-first order.
-         *
-         * If rootNodes is null or undefined or empty, the specified callback will not get invoked.
-         *
-         * The traversalPath parameter in the callback is an ordered set of nodes that form the path from the specified
-         * rootNodes down to the callback node argument itself.  If callback node is one of the specified rootNodes,
-         * then traversalPath will be an array of length 1 containing that very node.
-         *
-         * IMPORTANT: The traversalPath array passed to the callback will be modified after the callback function returns!
-         * If your callback needs to retain a copy of the traversalPath, please clone the array before returning.
-         */
-        function forEachNodeDepthFirst(rootNodes: DataViewMatrixNode | DataViewMatrixNode[], callback: (node: DataViewMatrixNode, traversalPath?: DataViewMatrixNode[]) => DepthFirstTraversalCallbackResult): void;
-        /**
-         * Invokes the specified callback once per leaf node (including root-level leaves and descendent leaves) of the
-         * specified rootNodes, with an optional index parameter in the callback that is the 0-based index of the
-         * particular leaf node in the context of this forEachLeafNode(...) invocation.
-         *
-         * If rootNodes is null or undefined or empty, the specified callback will not get invoked.
-         *
-         * The traversalPath parameter in the callback is an ordered set of nodes that form the path from the specified
-         * rootNodes down to the leafNode argument itself.  If callback leafNode is one of the specified rootNodes,
-         * then traversalPath will be an array of length 1 containing that very node.
-         *
-         * IMPORTANT: The traversalPath array passed to the callback will be modified after the callback function returns!
-         * If your callback needs to retain a copy of the traversalPath, please clone the array before returning.
-         */
-        function forEachLeafNode(rootNodes: DataViewMatrixNode | DataViewMatrixNode[], callback: (leafNode: DataViewMatrixNode, index?: number, traversalPath?: DataViewMatrixNode[]) => void): void;
-        /**
-         * Invokes the specified callback once for each node at the specified targetLevel in the node tree.
-         *
-         * Note: Be aware that in a matrix with multiple column grouping fields and multiple value fields, the DataViewMatrixNode
-         * for the Grand Total column in the column hierarchy can have children nodes where level > (parent.level + 1):
-         *  {
-         *      "level": 0,
-         *      "isSubtotal": true,
-         *      "children": [
-         *          { "level": 2, "isSubtotal": true },
-         *          { "level": 2, "levelSourceIndex": 1, "isSubtotal": true }
-         *      ]
-         *  }
-         */
-        function forEachNodeAtLevel(node: DataViewMatrixNode, targetLevel: number, callback: (node: DataViewMatrixNode) => void): void;
-        /**
-         * Returned an object tree where each node and its children property are inherited from the specified node
-         * hierarchy, from the root down to the nodes at the specified deepestLevelToInherit, inclusively.
-         *
-         * The inherited nodes at level === deepestLevelToInherit will NOT get an inherited version of children array
-         * property, i.e. its children property is the same array object referenced in the input node's object tree.
-         *
-         * @param node The input node with the hierarchy object tree.
-         * @param deepestLevelToInherit The highest level for a node to get inherited. See DataViewMatrixNode.level property.
-         * @param useInheritSingle If true, then a node will get inherited in the returned object tree only if it is
-         * not already an inherited object. Same goes for the node's children property.  This is useful for creating
-         * "visual DataView" objects from "query DataView" objects, as object inheritance is the mechanism for
-         * "visual DataView" to override properties in "query DataView", and that "query DataView" never contains
-         * inherited objects.
-         */
-        function inheritMatrixNodeHierarchy(node: DataViewMatrixNode, deepestLevelToInherit: number, useInheritSingle: boolean): DataViewMatrixNode;
-        /**
-         * Returns true if the specified matrixOrHierarchy contains any composite grouping, i.e. a grouping on multiple columns.
-         * An example of composite grouping is one on [Year, Quarter, Month], where a particular group instance can have
-         * Year === 2016, Quarter === 'Qtr 1', Month === 1.
-         *
-         * Returns false if the specified matrixOrHierarchy does not contain any composite group,
-         * or if matrixOrHierarchy is null or undefined.
-         */
-        function containsCompositeGroup(matrixOrHierarchy: DataViewMatrix | DataViewHierarchy): boolean;
-    }
-}
-
-declare module powerbi.data {
-    module DataViewMetadataColumnUtils {
-        interface MetadataColumnAndProjectionIndex {
-            /**
-            * A metadata column taken from a source collection, e.g. DataViewHierarchyLevel.sources, DataViewMatrix.valueSources...
-            */
-            metadataColumn: DataViewMetadataColumn;
-            /**
-             * The index of this.metadataColumn in its sources collection.
-             *
-             * E.g.1 This can be the value of the property DataViewMatrixGroupValue.levelSourceIndex which is the index of this.metadataColumn in DataViewHierarchyLevel.sources.
-             * E.g.2 This can be the value of the property DataViewMatrixNodeValue.valueSourceIndex which refer to columns in DataViewMatrix.valueSources.
-             */
-            sourceIndex: number;
-            /**
-            * The index of this.metadataColumn in the projection ordering of a given role.
-            * This property is undefined if the column is not projected.
-            */
-            projectionOrderIndex?: number;
-        }
-        /**
-         * Returns true iff the specified metadataColumn is assigned to the specified targetRole.
-         */
-        function isForRole(metadataColumn: DataViewMetadataColumn, targetRole: string): boolean;
-        /**
-         * Returns true iff the specified metadataColumn is assigned to any one of the specified targetRoles.
-         */
-        function isForAnyRole(metadataColumn: DataViewMetadataColumn, targetRoles: string[]): boolean;
-        /**
-         * Left-joins each metadata column of the specified target roles in the specified columnSources
-         * with projection ordering index into a wrapper object.
-         *
-         * If a metadata column is for one of the target roles but its select index is not projected, the projectionOrderIndex property
-         * in that MetadataColumnAndProjectionIndex object will be undefined.
-         *
-         * If a metadata column is for one of the target roles and its select index is projected more than once, that metadata column
-         * will be included in multiple MetadataColumnAndProjectionIndex objects, once per occurrence in projection.
-         *
-         * If the specified projectionOrdering does not contain duplicate values, then the returned objects will be in the same order
-         * as their corresponding metadata column object appears in the specified columnSources.
-         *
-         * Note: In order for this function to reliably calculate the "source index" of a particular column, the
-         * specified columnSources must be a non-filtered array of column sources from the DataView, such as
-         * the DataViewHierarchyLevel.sources and DataViewMatrix.valueSources array properties.
-         *
-         * @param columnSources E.g. DataViewHierarchyLevel.sources, DataViewMatrix.valueSources...
-         * @param projectionOrdering The select indices in projection ordering.  It should be the ordering for the specified target roles.
-         * @param roles The roles for filtering out the irrevalent columns in columnSources.
-         */
-        function leftJoinMetadataColumnsAndProjectionOrder(columnSources: DataViewMetadataColumn[], projectionOrdering: number[], roles: string[]): MetadataColumnAndProjectionIndex[];
     }
 }
 
@@ -2595,7 +2871,7 @@ declare module powerbi.data {
     interface ISQAggregationOperations {
         /** Returns an array of supported aggregates for a given expr and role type. */
         getSupportedAggregates(expr: SQExpr, schema: FederatedConceptualSchema, targetTypes: ValueTypeDescriptor[]): QueryAggregateFunction[];
-        isSupportedAggregate(expr: SQExpr, schema: FederatedConceptualSchema, aggregate: QueryAggregateFunction, targetTypes: ValueTypeDescriptor[]): boolean;
+        isSupportedAggregate(expr: SQExpr, schema: FederatedConceptualSchema, aggregate: QueryAggregateFunction, targetTypes: ValueTypeDescriptor[], forConsumption?: boolean): boolean;
         createExprWithAggregate(expr: SQExpr, schema: FederatedConceptualSchema, aggregateNonNumericFields: boolean, targetTypes: ValueTypeDescriptor[], preferredAggregate?: QueryAggregateFunction): SQExpr;
     }
     function createSQAggregationOperations(datetimeMinMaxSupported: boolean): ISQAggregationOperations;
@@ -2656,6 +2932,7 @@ declare module powerbi.data {
         static isHierarchyLevel(expr: SQExpr): expr is SQHierarchyLevelExpr;
         static isAggregation(expr: SQExpr): expr is SQAggregationExpr;
         static isMeasure(expr: SQExpr): expr is SQMeasureRefExpr;
+        static isPercentile(expr: SQExpr): expr is SQPercentileExpr;
         static isSelectRef(expr: SQExpr): expr is SQSelectRefExpr;
         static isScopedEval(expr: SQExpr): expr is SQScopedEvalExpr;
         static isWithRef(expr: SQExpr): expr is SQWithRefExpr;
@@ -3096,12 +3373,17 @@ declare module powerbi.data {
         });
         keys(): string[];
         source(key: string): SQFromSource;
+        sources(): {
+            [name: string]: SQFromSource;
+        };
         ensureSource(source: SQFromSource, desiredVariableName?: string): QueryFromEnsureEntityResult;
         remove(key: string): void;
         private getSourceKeyFromItems(source);
         private addSource(source, desiredVariableName);
         clone(): SQFrom;
+        equals(comparand: SQFrom): boolean;
     }
+    function equals(left: SQFromSource, right: SQFromSource): boolean;
     function isSQFromEntitySource(source: SQFromSource): source is SQFromEntitySource;
     function isSQFromSubquerySource(source: SQFromSource): source is SQFromSubquerySource;
     interface ISQFromSourceVisitor<T, Targ> {
@@ -3225,7 +3507,7 @@ declare module powerbi.data {
         private getTransforms();
         private setTransforms(transforms);
         rewrite(exprRewriter: ISQExprVisitor<SQExpr>): SemanticQuery;
-        equals(query: SemanticQuery): boolean;
+        static equals(x: SemanticQuery, y: SemanticQuery): boolean;
     }
     /** Represents a semantic filter condition.  Round-trippable with a JSON FilterDefinition.  Instances of this class are immutable. */
     class SemanticFilter implements ISemanticFilter {
@@ -3269,6 +3551,18 @@ declare module powerbi.data {
          */
         function targetsEqual(leftFilter: SQFilter, rightFilter: SQFilter): boolean;
         function contains(filters: SQFilter[], searchTarget: SQFilter): boolean;
+    }
+}
+
+declare module powerbi.data {
+    module SQUtils {
+        function sqSortDefinitionEquals(left: SQSortDefinition, right: SQSortDefinition): boolean;
+        function namedSQExprEquals(left: NamedSQExpr, right: NamedSQExpr): boolean;
+        function sqTransformTableColumnsEquals(left: SQTransformTableColumn, right: SQTransformTableColumn): boolean;
+        function sqTransformTableEquals(left: SQTransformTable, right: SQTransformTable): boolean;
+        function sqTransformInputEquals(left: SQTransformInput, right: SQTransformInput): boolean;
+        function sqTransformOutputEquals(left: SQTransformOutput, right: SQTransformOutput): boolean;
+        function sqTransformEquals(left: SQTransform, right: SQTransform): boolean;
     }
 }
 
@@ -3452,5 +3746,46 @@ declare module powerbi.visuals {
         withMeasure(measureId: string): this;
         createSelectionId(): SelectionId;
         private ensureDataMap();
+    }
+}
+
+declare module powerbi {
+    import DataViewObjectDefinitions = data.DataViewObjectDefinitions;
+    import DisplayNameGetter = data.DisplayNameGetter;
+    /** Defines a list of style presets for a particular IVisual */
+    interface VisualStylePresets {
+        /** Title of PropertyPane section for selecting the style */
+        sectionTitle: DisplayNameGetter;
+        /** Title of PropertyPane slice for selecting the style */
+        sliceTitle: DisplayNameGetter;
+        /** Default style preset name for the Visual. Usually looked up with when searching by name fails.
+         * Must be one of the presets */
+        defaultPresetName: string;
+        /** List of style presets for the IVisual indexed by preset name */
+        presets: _.Dictionary<VisualStylePreset>;
+    }
+    /** Defines some rules to derive IVisual formatting elements from a Report Theme */
+    interface VisualStylePreset {
+        /** Serialized name. Changing it would break saved reports */
+        name: string;
+        /** Display name for the style preset */
+        displayName: DisplayNameGetter;
+        /** Discription text for the style preset, can be used for a tooltip */
+        description?: DisplayNameGetter;
+        /**
+         * Evaluate the style preset against a report theme and produce DataViewObjectDefinitions for affected objects
+         * @param IVisualStyle Report theme
+         */
+        evaluate: (theme: IVisualStyle) => DataViewObjectDefinitions;
+    }
+    module VisualStylePresetHelpers {
+        /**
+         * Get a visual style preset by name.
+         * If stylePresets is undefined, returns undefined
+         * If the name doesn't match one or name is undefined, the default preset should be returned, can be undefined
+         * @param {string} name name of the Style Preset
+         */
+        function getStylePreset(stylePresets: VisualStylePresets, name: string): VisualStylePreset;
+        function getStylePresetsEnum(stylePresets: VisualStylePresets): IEnumType;
     }
 }

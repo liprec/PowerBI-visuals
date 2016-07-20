@@ -43,6 +43,17 @@ module powerbi {
         };
     }
 
+    export module FillDefinitionHelpers {
+        export function createSolidFillDefinition(color: string): FillDefinition {
+            if (color)
+                return { solid: { color: data.SQExprBuilder.text(color) } };
+        }
+
+        export function createSolidFillSQExpr(color: string): SQExpr | StructuralObjectDefinition {
+            return createSolidFillDefinition(color) || data.SQExprBuilder.nullConstant();
+        }
+    }
+
     export module FillSolidColorTypeDescriptor {
         /** Gets a value indicating whether the descriptor is nullable or not. */
         export function nullable(descriptor: FillSolidColorTypeDescriptor): boolean {

@@ -441,6 +441,25 @@ module powerbitests {
             expect(values[0]).toBe("Oct 15");
         });
 
+        it("create scalar time scale with max ticks number", () => {
+
+            var dateTime0 = AxisPropertiesBuilder.dataTime[0].getTime();
+            var dateTime1 = AxisPropertiesBuilder.dataTime[1].getTime();
+
+            var axisProperties = AxisPropertiesBuilder.buildAxisPropertiesTime([
+                dateTime0,
+                dateTime1],
+                /* isScalar */true,
+                /* maxTicks */1);
+
+            var scale = <any>axisProperties.scale;
+            expect(scale).toBeDefined();
+
+            var values = <any>axisProperties.values;
+            expect(values).toBeDefined();
+            expect(values.length).toEqual(1);
+        });
+
         it("create scalar time scale with invalid domains", () => {
             var axisProperties: powerbi.visuals.IAxisProperties[] = [];
 
@@ -654,6 +673,16 @@ module powerbitests {
 
         it("isOrdinal valid for text", () => {
             expect(AxisHelper.isOrdinal(ValueType.fromDescriptor({ text: true }))).toBe(true);
+        });
+
+        it("isOrdinal valid for bar code", () => {
+            let valueType = ValueType.fromDescriptor({ misc: { barcode: true } });
+            expect(AxisHelper.isOrdinal(valueType)).toBe(true);
+        });
+
+        it("isOrdinal valid for postal code", () => {
+            let valueType = ValueType.fromDescriptor({ geography: { postalCode: true } });
+            expect(AxisHelper.isOrdinal(valueType)).toBe(true);
         });
 
         it("isDateTime valid for DateTime", () => {

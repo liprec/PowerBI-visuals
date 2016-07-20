@@ -98,89 +98,143 @@ module powerbitests {
             expect(powerbi.data.DataViewObjectDescriptors.findFormatString(powerbi.visuals.getColumnChartCapabilities().objects)).toEqual(powerbi.visuals.columnChartProps.general.formatString);
         });
 
-        it('CustomizeQuery scalar type, no scalar axis flag', () => {
-            let objects: DataViewObjects = {
-                categoryAxis: {
-                    axisType: null
-                }
-            };
-            let dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.DateTime), objects);
+        describe('CustomizeQuery', () => {
+            const WindowCountWithoutSeries: number = 1000;
+            const WindowCountWithSeries: number = 100;
+            const SeriesTopCount: number = 60;
 
-            ColumnChart.customizeQuery({
-                dataViewMappings: [dataViewMapping]
+            let objects: DataViewObjects;
+            let dataViewMapping: CompiledDataViewMapping;
+
+            beforeEach(() => {
+                objects = {
+                    categoryAxis: {}
+                };
             });
 
-            expect(dataViewMapping.categorical.categories.dataReductionAlgorithm).toEqual({ sample: {} });
-        });
+            describe('with no scalar axis flag', () => {
+                beforeEach(() => {
+                    objects['categoryAxis'] = {
+                        categoryAxis: {
+                            axisType: null
+                        }
+                    };
+                });
 
-        it('CustomizeQuery non-scalar type, scalar axis flag', () => {
-            let objects: DataViewObjects = {
-                categoryAxis: {
-                    axisType: 'Scalar',
-                }
-            };
-            let dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text), objects);
+                describe('with scalar type', () => {
+                    beforeEach(() => {
+                        dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.DateTime), objects);
+                    });
 
-            ColumnChart.customizeQuery({
-                dataViewMappings: [dataViewMapping]
+                    it('with series sets the correct dataReductionAlgorithms', () => {
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ sample: {} });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: {} });
+                    });
+
+                    it('without series sets the correct dataReductionAlgorithms', () => {
+                        removeSeries();
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ sample: {} });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: {} });
+                    });
+                });
+
+                describe('with non-scalar type', () => {
+                    beforeEach(() => {
+                        dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text), objects);
+                    });
+
+                    it('with series sets the correct dataReductionAlgorithms', () => {
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ window: { count: WindowCountWithSeries } });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: { count: SeriesTopCount } });
+                    });
+
+                    it('without series sets the correct dataReductionAlgorithms', () => {
+                        removeSeries();
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ window: { count: WindowCountWithoutSeries } });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: { count: SeriesTopCount } });
+                    });
+                });
             });
 
-            expect(dataViewMapping.categorical.categories.dataReductionAlgorithm).toEqual({ top: {} });
-        });
+            describe('with scalar axis flag', () => {
+                beforeEach(() => {
+                    objects['categoryAxis'] = {
+                        categoryAxis: {
+                            axisType: 'Scalar',
+                        }
+                    };
+                });
 
-        it('CustomizeQuery scalar type, scalar axis flag', () => {
-            let objects: DataViewObjects = {
-                categoryAxis: {
-                    axisType: 'Scalar',
-                }
-            };
-            let dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.DateTime), objects);
+                describe('with scalar type', () => {
+                    beforeEach(() => {
+                        dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.DateTime), objects);
+                    });
 
-            ColumnChart.customizeQuery({
-                dataViewMappings: [dataViewMapping]
+                    it('with series sets the correct dataReductionAlgorithms', () => {
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ sample: {} });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: {} });
+                    });
+
+                    it('without series sets the correct dataReductionAlgorithms', () => {
+                        removeSeries();
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ sample: {} });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: {} });
+                    });
+                });
+
+                describe('with non-scalar type', () => {
+                    beforeEach(() => {
+                        dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text), objects);
+                    });
+
+                    it('with series sets the correct dataReductionAlgorithms', () => {
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ window: { count: WindowCountWithSeries } });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: { count: SeriesTopCount } });
+                    });
+
+                    it('without series sets the correct dataReductionAlgorithms', () => {
+                        removeSeries();
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ window: { count: WindowCountWithoutSeries } });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: { count: SeriesTopCount } });
+                    });
+                });
             });
 
-            expect(dataViewMapping.categorical.categories.dataReductionAlgorithm).toEqual({ sample: {} });
-        });
-
-        it('CustomizeQuery non-scalar type, no scalar axis flag', () => {
-            let objects: DataViewObjects = {
-                categoryAxis: {
-                    axisType: null,
-                }
-            };
-            let dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text), objects);
-
-            ColumnChart.customizeQuery({
-                dataViewMappings: [dataViewMapping]
+            it('sets the correct DataVolume', () => {
+                dataViewMapping = createCompiledDataViewMapping(null);
+                customizeQuery();
+                
+                expect(dataViewMapping.categorical.dataVolume).toEqual(4);
             });
 
-            expect(dataViewMapping.categorical.categories.dataReductionAlgorithm).toEqual({ top: {} });
-        });
+            function customizeQuery(): void {
+                ColumnChart.customizeQuery({
+                    dataViewMappings: [dataViewMapping]
+                });
+            }
 
-        it('CustomizeQuery no category', () => {
-            let objects: DataViewObjects = {
-                categoryAxis: {
-                    axisType: 'Scalar',
-                }
-            };
-            let dataViewMapping = createCompiledDataViewMapping(null, objects);
+            function removeSeries(): CompiledDataViewMapping {
+                let values = <powerbi.data.CompiledDataViewGroupedRoleMapping>dataViewMapping.categorical.values;
+                values.group.by.items = undefined;
+                return dataViewMapping;
+            }
 
-            ColumnChart.customizeQuery({
-                dataViewMappings: [dataViewMapping]
-            });
+            function getCategoriesDataReductionAlgorithm(): powerbi.ReductionAlgorithm {
+                return dataViewMapping.categorical.categories.dataReductionAlgorithm;
+            }
 
-            expect(dataViewMapping.categorical.categories.dataReductionAlgorithm).toEqual({ top: {} });
-        });
-        
-        it('CustomizeQuery DataVolume', () => {
-            let dataViewMapping = createCompiledDataViewMapping(null);
-
-            ColumnChart.customizeQuery({
-                dataViewMappings: [dataViewMapping]
-            });
-
-            expect(dataViewMapping.categorical.dataVolume).toEqual(4);
+            function getValuesDataReductionAlgorithm(): powerbi.ReductionAlgorithm {
+                let values = <powerbi.data.CompiledDataViewGroupedRoleMapping>dataViewMapping.categorical.values;
+                return values.group.dataReductionAlgorithm;
+            }
         });
 
         it('Sortable roles with scalar axis', () => {
@@ -223,7 +277,7 @@ module powerbitests {
                         for: {
                             in: { role: 'Category', items: categoryItems }
                         },
-                        dataReductionAlgorithm: { top: {} }
+                        dataReductionAlgorithm: { window: { count: 100 } }
                     },
                     values: {
                         group: {
@@ -232,7 +286,7 @@ module powerbitests {
                                 { for: { in: { role: 'Y', items: [{ queryName: 'y1', type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Integer) }] } } },
                                 { bind: { to: { role: 'Gradient', items: [{ queryName: 'g1', type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Integer) }] } } },
                             ],
-                            dataReductionAlgorithm: { top: {} }
+                            dataReductionAlgorithm: { top: { count: 60 } }
                         }
                     }
                 }
@@ -1149,9 +1203,9 @@ module powerbitests {
             let legendItems = data.legendData.dataPoints;
             let defaultLabelSettings = powerbi.visuals.dataLabelUtils.getDefaultColumnLabelSettings(false);
 
-            expect(data.series).toEqual(
+            expect(data.series).toEqualDeep(
                 [{
-                    key: 'series0', index: 0, displayName: 'A', identity: SelectionId.createWithIdAndMeasure(seriesIdentities[0], measureColumnDynamic1.queryName), color: legendItems[0].color, labelSettings: data.series[0].labelSettings, data: [
+                    key: 'series0', index: 0, displayName: 'A', identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic1.queryName, seriesIdentities[0]), measureColumnDynamic1.queryName), color: legendItems[0].color, labelSettings: data.series[0].labelSettings, data: [
                         {
                             categoryValue: 2011,
                             value: 100,
@@ -1198,7 +1252,7 @@ module powerbitests {
                         }
                     ]
                 }, {
-                        key: 'series1', index: 1, displayName: 'B', identity: SelectionId.createWithIdAndMeasure(seriesIdentities[1], measureColumnDynamic2.queryName), color: legendItems[1].color, labelSettings: data.series[0].labelSettings, data: [
+                        key: 'series1', index: 1, displayName: 'B', identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic2.queryName, seriesIdentities[1]), measureColumnDynamic2.queryName), color: legendItems[1].color, labelSettings: data.series[0].labelSettings, data: [
                             {
                                 categoryValue: 2011,
                                 value: 62,
@@ -1249,8 +1303,8 @@ module powerbitests {
 
             expect(data.legendData.title).toEqual("sales");
             expect(legendItems).toEqual([
-                { icon: LegendIcon.Box, color: series1Color, label: measureColumnDynamic1.groupName, identity: SelectionId.createWithIdAndMeasure(seriesIdentities[0], measureColumnDynamic1.queryName), selected: false },
-                { icon: LegendIcon.Box, color: series2Color, label: measureColumnDynamic2.groupName, identity: SelectionId.createWithIdAndMeasure(seriesIdentities[1], measureColumnDynamic2.queryName), selected: false }
+                { icon: LegendIcon.Box, color: series1Color, label: measureColumnDynamic1.groupName, identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic1.queryName, seriesIdentities[0]), measureColumnDynamic1.queryName), selected: false },
+                { icon: LegendIcon.Box, color: series2Color, label: measureColumnDynamic2.groupName, identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic2.queryName, seriesIdentities[1]), measureColumnDynamic2.queryName), selected: false }
             ]);
         });
 
@@ -1295,8 +1349,8 @@ module powerbitests {
             let legendItems = data.legendData.dataPoints;
             expect(data.legendData.title).toEqual("sales");
             expect(legendItems).toEqual([
-                { icon: LegendIcon.Box, color: legendItems[0].color, label: '(Blank)', identity: SelectionId.createWithIdAndMeasure(seriesIdentities[0], measureColumnSources[0].queryName), selected: false },
-                { icon: LegendIcon.Box, color: legendItems[1].color, label: 'False', identity: SelectionId.createWithIdAndMeasure(seriesIdentities[1], measureColumnSources[1].queryName), selected: false }
+                { icon: LegendIcon.Box, color: legendItems[0].color, label: '(Blank)', identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic1.queryName, seriesIdentities[0]), measureColumnDynamic1.queryName), selected: false },
+                { icon: LegendIcon.Box, color: legendItems[1].color, label: 'False', identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic2.queryName, seriesIdentities[1]), measureColumnDynamic2.queryName), selected: false }
             ]);
         });
 
@@ -1347,9 +1401,9 @@ module powerbitests {
             let legendItems = data.legendData.dataPoints;
             let defaultLabelSettings = powerbi.visuals.dataLabelUtils.getDefaultColumnLabelSettings(false);
 
-            expect(data.series).toEqual(
+            expect(data.series).toEqualDeep(
                 [{
-                    key: 'series0', index: 0, displayName: 'A', identity: SelectionId.createWithIdAndMeasure(seriesIdentities[0], measureColumnDynamic1.queryName), color: legendItems[0].color, labelSettings: data.series[0].labelSettings, data: [
+                    key: 'series0', index: 0, displayName: 'A', identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic1.queryName, seriesIdentities[0]), measureColumnDynamic1.queryName), color: legendItems[0].color, labelSettings: data.series[0].labelSettings, data: [
                         {
                             categoryValue: 2011,
                             value: 100,
@@ -1396,7 +1450,7 @@ module powerbitests {
                         }
                     ]
                 }, {
-                        key: 'series1', index: 1, displayName: 'B', identity: SelectionId.createWithIdAndMeasure(seriesIdentities[1], measureColumnDynamic2.queryName), color: legendItems[1].color, labelSettings: data.series[1].labelSettings, data: [
+                        key: 'series1', index: 1, displayName: 'B', identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic2.queryName, seriesIdentities[1]), measureColumnDynamic2.queryName), color: legendItems[1].color, labelSettings: data.series[1].labelSettings, data: [
                             {
                                 categoryValue: 2011,
                                 value: 62,
@@ -1447,8 +1501,8 @@ module powerbitests {
 
             expect(data.legendData.title).toEqual("sales");
             expect(legendItems).toEqual([
-                { icon: LegendIcon.Box, color: '#01B8AA', label: measureColumnDynamic1.groupName, identity: SelectionId.createWithIdAndMeasure(seriesIdentities[0], measureColumnDynamic1.queryName), selected: false },
-                { icon: LegendIcon.Box, color: 'red', label: measureColumnDynamic2.groupName, identity: SelectionId.createWithIdAndMeasure(seriesIdentities[1], measureColumnDynamic2.queryName), selected: false }
+                { icon: LegendIcon.Box, color: '#01B8AA', label: measureColumnDynamic1.groupName, identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic1.queryName, seriesIdentities[0]), measureColumnDynamic1.queryName), selected: false },
+                { icon: LegendIcon.Box, color: 'red', label: measureColumnDynamic2.groupName, identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic2.queryName, seriesIdentities[1]), measureColumnDynamic2.queryName), selected: false }
             ]);
         });
 
@@ -1506,7 +1560,7 @@ module powerbitests {
 
             expect(data.series).toEqual(
                 [{
-                    key: 'series0', index: 0, displayName: 'A', identity: SelectionId.createWithIdAndMeasure(seriesIdentities[0], measureColumnDynamic1.queryName), color: legendItems[0].color, labelSettings: data.series[0].labelSettings, data: [
+                    key: 'series0', index: 0, displayName: 'A', identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic1.queryName, seriesIdentities[0]), measureColumnDynamic1.queryName), color: legendItems[0].color, labelSettings: data.series[0].labelSettings, data: [
                         {
                             categoryValue: 2011,
                             value: 100,
@@ -1553,7 +1607,7 @@ module powerbitests {
                         }
                     ]
                 }, {
-                        key: 'series1', index: 1, displayName: 'B', identity: SelectionId.createWithIdAndMeasure(seriesIdentities[1], measureColumnDynamic2.queryName), color: legendItems[1].color, labelSettings: data.series[1].labelSettings, data: [
+                        key: 'series1', index: 1, displayName: 'B', identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic2.queryName, seriesIdentities[1]), measureColumnDynamic2.queryName), color: legendItems[1].color, labelSettings: data.series[1].labelSettings, data: [
                             {
                                 categoryValue: 2011,
                                 value: 62,
@@ -1603,8 +1657,8 @@ module powerbitests {
             );
 
             expect(legendItems).toEqual([
-                { icon: LegendIcon.Box, color: hexDefaultColorRed, label: measureColumnDynamic1.groupName, identity: SelectionId.createWithIdAndMeasure(seriesIdentities[0], measureColumnDynamic1.queryName), selected: false },
-                { icon: LegendIcon.Box, color: hexDefaultColorRed, label: measureColumnDynamic2.groupName, identity: SelectionId.createWithIdAndMeasure(seriesIdentities[1], measureColumnDynamic2.queryName), selected: false }
+                { icon: LegendIcon.Box, color: hexDefaultColorRed, label: measureColumnDynamic1.groupName, identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic1.queryName, seriesIdentities[0]), measureColumnDynamic1.queryName), selected: false },
+                { icon: LegendIcon.Box, color: hexDefaultColorRed, label: measureColumnDynamic2.groupName, identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic2.queryName, seriesIdentities[1]), measureColumnDynamic2.queryName), selected: false }
             ]);
         });
 
@@ -1663,7 +1717,7 @@ module powerbitests {
 
             expect(data.series).toEqual(
                 [{
-                    key: 'series0', index: 0, displayName: 'A', identity: SelectionId.createWithIdAndMeasure(seriesIdentities[0], measureColumnDynamic1.queryName), color: legendItems[0].color, labelSettings: data.series[0].labelSettings, data: [
+                    key: 'series0', index: 0, displayName: 'A', identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic1.queryName, seriesIdentities[0]), measureColumnDynamic1.queryName), color: legendItems[0].color, labelSettings: data.series[0].labelSettings, data: [
                         {
                             categoryValue: 2011,
                             value: 100,
@@ -1710,7 +1764,7 @@ module powerbitests {
                         }
                     ]
                 }, {
-                        key: 'series1', index: 1, displayName: 'B', identity: SelectionId.createWithIdAndMeasure(seriesIdentities[1], measureColumnDynamic2.queryName), color: legendItems[1].color, labelSettings: data.series[1].labelSettings, data: [
+                        key: 'series1', index: 1, displayName: 'B', identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic2.queryName, seriesIdentities[1]), measureColumnDynamic2.queryName), color: legendItems[1].color, labelSettings: data.series[1].labelSettings, data: [
                             {
                                 categoryValue: 2011,
                                 value: 62,
@@ -1760,8 +1814,8 @@ module powerbitests {
             );
 
             expect(legendItems).toEqual([
-                { icon: LegendIcon.Box, color: hexDefaultColorRed, label: measureColumnDynamic1.groupName, identity: SelectionId.createWithIdAndMeasure(seriesIdentities[0], measureColumnDynamic1.queryName), selected: false },
-                { icon: LegendIcon.Box, color: hexGreen, label: measureColumnDynamic2.groupName, identity: SelectionId.createWithIdAndMeasure(seriesIdentities[1], measureColumnDynamic2.queryName), selected: false }
+                { icon: LegendIcon.Box, color: hexDefaultColorRed, label: measureColumnDynamic1.groupName, identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic1.queryName, seriesIdentities[0]), measureColumnDynamic1.queryName), selected: false },
+                { icon: LegendIcon.Box, color: hexGreen, label: measureColumnDynamic2.groupName, identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn(measureColumnDynamic2.queryName, seriesIdentities[1]), measureColumnDynamic2.queryName), selected: false }
             ]);
         });
 
@@ -1830,7 +1884,50 @@ module powerbitests {
 
             // We should not summarize the X-axis values with DisplayUnits per-PowerView behavior, so ensure that we are using the 'Verbose' mode for the formatter.
             spyOn(powerbi.visuals.valueFormatter, 'create').and.callThrough();
-            let data = ColumnChart.converter(dataView, colors, null, null, null, null, null, false);
+            let data = ColumnChart.converter(dataView, colors, /*is100PercentStacked*/null, /*isScalar*/null, /*dataViewMetadata*/null, /*chartType*/null, /*interactivityService*/null, /*tooltipsEnabled*/false);
+            
+            //first tooltip is regular because highlighted value is null
+            expect(data.series[0].data[0].tooltipInfo).toBeUndefined();
+            expect(data.series[0].data[1].tooltipInfo).toBeUndefined();
+
+            //tooltips with highlighted value
+            expect(data.series[0].data[2].tooltipInfo).toBeUndefined();
+            expect(data.series[0].data[3].tooltipInfo).toBeUndefined();
+            
+            //tooltips with highlighted value 0
+            expect(data.series[0].data[4].tooltipInfo).toBeUndefined();
+            expect(data.series[0].data[5].tooltipInfo).toBeUndefined();
+        });
+
+        it('validate tooltip info not being created when tooltips are disabled and tooltipBuckets are enabled', () => {
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity("2011"),
+                mocks.dataViewScopeIdentity("2012"),
+                mocks.dataViewScopeIdentity("2013"),
+            ];
+            let dataView: powerbi.DataView = {
+                metadata: null,
+                categorical: {
+                    categories: [{
+                        source: categoryColumn,
+                        values: [2011, 2012, 2013],
+                        identity: categoryIdentities,
+                    }],
+                    values: DataViewTransform.createValueColumns([{
+                        source: measureColumn,
+                        values: [100, 200, 300],
+                        highlights: [null, 50, 0],
+                    }, {
+                        source: tooltipsWithFormatString,
+                        values: [10, -20, 30],
+                    }])
+                }
+            };
+            let colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
+
+            // We should not summarize the X-axis values with DisplayUnits per-PowerView behavior, so ensure that we are using the 'Verbose' mode for the formatter.
+            spyOn(powerbi.visuals.valueFormatter, 'create').and.callThrough();
+            let data = ColumnChart.converter(dataView, colors, /*is100PercentStacked*/null, /*isScalar*/null, /*dataViewMetadata*/null, /*chartType*/null, /*interactivityService*/null, /*tooltipsEnabled*/false, /*tooltipBucketEnabled*/true);
             
             //first tooltip is regular because highlighted value is null
             expect(data.series[0].data[0].tooltipInfo).toBeUndefined();
@@ -2966,7 +3063,7 @@ module powerbitests {
             expect(legendItems.length).toBe(2);
             expect(data.series).toEqual(
                 [{
-                    key: 'series0', index: 0, displayName: 'a', identity: SelectionId.createWithIdAndMeasure(seriesIdentities[0], 'select2'), color: legendItems[0].color, labelSettings: data.series[0].labelSettings, data: [
+                    key: 'series0', index: 0, displayName: 'a', identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn('select1', seriesIdentities[0]), 'select2'), color: legendItems[0].color, labelSettings: data.series[0].labelSettings, data: [
                         {
                             categoryValue: null,
                             value: 100,
@@ -2991,7 +3088,7 @@ module powerbitests {
                         }
                     ]
                 }, {
-                        key: 'series1', index: 1, displayName: 'b', identity: SelectionId.createWithIdAndMeasure(seriesIdentities[1], 'select2'), color: legendItems[1].color, labelSettings: data.series[1].labelSettings, data: [
+                        key: 'series1', index: 1, displayName: 'b', identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn('select1', seriesIdentities[1]), 'select2'), color: legendItems[1].color, labelSettings: data.series[1].labelSettings, data: [
                             {
                                 categoryValue: null,
                                 value: 200,
@@ -3017,8 +3114,8 @@ module powerbitests {
                         ]
                     }]);
             expect(legendItems).toEqual([
-                { icon: LegendIcon.Box, color: legendItems[0].color, label: 'a', identity: SelectionId.createWithIdAndMeasure(seriesIdentities[0], 'select2'), selected: false },
-                { icon: LegendIcon.Box, color: legendItems[1].color, label: 'b', identity: SelectionId.createWithIdAndMeasure(seriesIdentities[1], 'select2'), selected: false }
+                { icon: LegendIcon.Box, color: legendItems[0].color, label: 'a', identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn('select1', seriesIdentities[0]), 'select2'), selected: false },
+                { icon: LegendIcon.Box, color: legendItems[1].color, label: 'b', identity: SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn('select1', seriesIdentities[1]), 'select2'), selected: false }
             ]);
         });
 
@@ -3070,7 +3167,7 @@ module powerbitests {
             // Should get a result shaped like a diagonal matrix
             let item =
                 [{
-                    key: 'series0', index: 0, displayName: 'a', identity: SelectionId.createWithIdAndMeasure(categoryIdentities[0], 'selectCol2'), color: legendItems[0].color, labelSettings: data.series[0].labelSettings, data: [
+                    key: 'series0', index: 0, displayName: 'a', identity: SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'selectCol2', 'selectCol1'), color: legendItems[0].color, labelSettings: data.series[0].labelSettings, data: [
                         {
                             categoryValue: 'a',
                             value: 100,
@@ -3116,7 +3213,7 @@ module powerbitests {
                         }
                     ]
                 }, {
-                        key: 'series1', index: 1, displayName: 'b', identity: SelectionId.createWithIdAndMeasure(categoryIdentities[1], 'selectCol2'), color: legendItems[1].color, labelSettings: data.series[1].labelSettings, data: [
+                        key: 'series1', index: 1, displayName: 'b', identity: SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'selectCol2', 'selectCol1'), color: legendItems[1].color, labelSettings: data.series[1].labelSettings, data: [
                             {
                                 categoryValue: 'b',
                                 value: 200,
@@ -9503,18 +9600,15 @@ module powerbitests {
             expect(bars[4].style.fillOpacity).toBe(DimmedOpacity);
             expect(hostServices.onSelect).toHaveBeenCalledWith(
                 {
-                    data: [
+                    visualObjects: [
                         {
-                            metadata: 'col2',
-                            data: [identities[0]],
+                            objectName: 'dataPoint',
+                            selectorsByColumn:
+                            {
+                                dataMap: buildSelectorForColumn('col1', identities[0]),
+                                metadata: 'col2',
+                            },
                         }
-                    ],
-                    data2: [
-                        {
-                            dataMap: buildSelectorForColumn('col1', identities[0]),
-                            metadata: 'col2',
-                        }
-
                     ]
                 });
 
@@ -9526,34 +9620,28 @@ module powerbitests {
             expect(bars[4].style.fillOpacity).toBe(DimmedOpacity);
             expect(hostServices.onSelect).toHaveBeenCalledWith(
                 {
-                    data: [
+                    visualObjects: [
                         {
-                            metadata: 'col2',
-                            data: [identities[0]]
+                            objectName: 'dataPoint',
+                            selectorsByColumn:
+                            {
+                                dataMap: buildSelectorForColumn('col1', identities[0]),
+                                metadata: 'col2',
+                            }
                         }
-                    ],
-                    data2: [
-                        {
-                            dataMap: buildSelectorForColumn('col1', identities[0]),
-                            metadata: 'col2',
-                        }
-
                     ]
                 });
             expect(hostServices.onSelect).toHaveBeenCalledWith(
                 {
-                    data: [
+                    visualObjects: [
                         {
-                            metadata: 'col2',
-                            data: [identities[3]]
+                            objectName: 'dataPoint',
+                            selectorsByColumn:
+                            {
+                                dataMap: buildSelectorForColumn('col1', identities[3]),
+                                metadata: 'col2',
+                            }
                         }
-                    ],
-                    data2: [
-                        {
-                            dataMap: buildSelectorForColumn('col1', identities[3]),
-                            metadata: 'col2',
-                        }
-
                     ]
                 });
         });
@@ -9615,18 +9703,15 @@ module powerbitests {
             expect(bars[4].style.fillOpacity).toBe(DimmedOpacity);
             expect(hostServices.onSelect).toHaveBeenCalledWith(
                 {
-                    data: [
+                    visualObjects: [
                         {
-                            metadata: 'col2',
-                            data: [identities[0]]
+                            objectName: 'dataPoint',
+                            selectorsByColumn:
+                            {
+                                dataMap: buildSelectorForColumn('col1', identities[0]),
+                                metadata: 'col2',
+                            }
                         }
-                    ],
-                    data2: [
-                        {
-                            dataMap: buildSelectorForColumn('col1', identities[0]),
-                            metadata: 'col2',
-                        }
-
                     ]
                 });
 
@@ -9638,18 +9723,15 @@ module powerbitests {
             expect(bars[4].style.fillOpacity).toBe(DimmedOpacity);
             expect(hostServices.onSelect).toHaveBeenCalledWith(
                 {
-                    data: [
+                    visualObjects: [
                         {
-                            metadata: 'col2',
-                            data: [identities[3]]
+                            objectName: 'dataPoint',
+                            selectorsByColumn:
+                            {
+                                dataMap: buildSelectorForColumn('col1', identities[3]),
+                                metadata: 'col2',
+                            }
                         }
-                    ],
-                    data2: [
-                        {
-                            dataMap: buildSelectorForColumn('col1', identities[3]),
-                            metadata: 'col2',
-                        }
-
                     ]
                 });
 
@@ -9661,7 +9743,7 @@ module powerbitests {
             expect(bars[4].style.fillOpacity).toBe(DefaultOpacity);
             expect(hostServices.onSelect).toHaveBeenCalledWith(
                 {
-                    data: []
+                    visualObjects: []
                 });
         });
 
@@ -9778,18 +9860,15 @@ module powerbitests {
             expect(bars[4].style.fillOpacity).toBe(DimmedOpacity);
             expect(hostServices.onSelect).toHaveBeenCalledWith(
                 {
-                    data: [
+                    visualObjects: [
                         {
-                            metadata: 'col2',
-                            data: [identities[0]]
+                            objectName: 'dataPoint',
+                            selectorsByColumn:
+                            {
+                                dataMap: buildSelectorForColumn('col1', identities[0]),
+                                metadata: 'col2',
+                            }
                         }
-                    ],
-                    data2: [
-                        {
-                            dataMap: buildSelectorForColumn('col1', identities[0]),
-                            metadata: 'col2',
-                        }
-
                     ]
                 });
 
@@ -9801,34 +9880,28 @@ module powerbitests {
             expect(bars[4].style.fillOpacity).toBe(DimmedOpacity);
             expect(hostServices.onSelect).toHaveBeenCalledWith(
                 {
-                    data: [
+                    visualObjects: [
                         {
-                            metadata: 'col2',
-                            data: [identities[0]]
+                            objectName: 'dataPoint',
+                            selectorsByColumn:
+                            {
+                                dataMap: buildSelectorForColumn('col1', identities[0]),
+                                metadata: 'col2',
+                            }
                         }
-                    ],
-                    data2: [
-                        {
-                            dataMap: buildSelectorForColumn('col1', identities[0]),
-                            metadata: 'col2',
-                        }
-
                     ]
                 });
             expect(hostServices.onSelect).toHaveBeenCalledWith(
                 {
-                    data: [
+                    visualObjects: [
                         {
-                            metadata: 'col2',
-                            data: [identities[3]]
+                            objectName: 'dataPoint',
+                            selectorsByColumn:
+                            {
+                                dataMap: buildSelectorForColumn('col1', identities[3]),
+                                metadata: 'col2',
+                            }
                         }
-                    ],
-                    data2: [
-                        {
-                            dataMap: buildSelectorForColumn('col1', identities[3]),
-                            metadata: 'col2',
-                        }
-
                     ]
                 });
 
@@ -9840,18 +9913,15 @@ module powerbitests {
             expect(bars[4].style.fillOpacity).toBe(DefaultOpacity);
             expect(hostServices.onSelect).toHaveBeenCalledWith(
                 {
-                    data: [
+                    visualObjects: [
                         {
-                            metadata: 'col2',
-                            data: [identities[3]]
+                            objectName: 'dataPoint',
+                            selectorsByColumn:
+                            {
+                                dataMap: buildSelectorForColumn('col1', identities[3]),
+                                metadata: 'col2',
+                            }
                         }
-                    ],
-                    data2: [
-                        {
-                            dataMap: buildSelectorForColumn('col1', identities[3]),
-                            metadata: 'col2',
-                        }
-
                     ]
                 });
 
@@ -9863,34 +9933,28 @@ module powerbitests {
             expect(bars[4].style.fillOpacity).toBe(DimmedOpacity);
             expect(hostServices.onSelect).toHaveBeenCalledWith(
                 {
-                    data: [
+                    visualObjects: [
                         {
-                            metadata: 'col2',
-                            data: [identities[3]]
+                            objectName: 'dataPoint',
+                            selectorsByColumn:
+                            {
+                                dataMap: buildSelectorForColumn('col1', identities[3]),
+                                metadata: 'col2',
+                            }
                         }
-                    ],
-                    data2: [
-                        {
-                            dataMap: buildSelectorForColumn('col1', identities[3]),
-                            metadata: 'col2',
-                        }
-
                     ]
                 });
             expect(hostServices.onSelect).toHaveBeenCalledWith(
                 {
-                    data: [
+                    visualObjects: [
                         {
-                            metadata: 'col2',
-                            data: [identities[1]]
+                            objectName: 'dataPoint',
+                            selectorsByColumn:
+                            {
+                                dataMap: buildSelectorForColumn('col1', identities[1]),
+                                metadata: 'col2',
+                            }
                         }
-                    ],
-                    data2: [
-                        {
-                            dataMap: buildSelectorForColumn('col1', identities[1]),
-                            metadata: 'col2',
-                        }
-
                     ]
                 });
 
@@ -9902,18 +9966,15 @@ module powerbitests {
             expect(bars[4].style.fillOpacity).toBe(DefaultOpacity);
             expect(hostServices.onSelect).toHaveBeenCalledWith(
                 {
-                    data: [
+                    visualObjects: [
                         {
-                            metadata: 'col2',
-                            data: [identities[4]]
+                            objectName: 'dataPoint',
+                            selectorsByColumn:
+                            {
+                                dataMap: buildSelectorForColumn('col1', identities[4]),
+                                metadata: 'col2',
+                            }
                         }
-                    ],
-                    data2: [
-                        {
-                            dataMap: buildSelectorForColumn('col1', identities[4]),
-                            metadata: 'col2',
-                        }
-
                     ]
                 });
         });
@@ -10045,7 +10106,7 @@ module powerbitests {
 
             expect(hostServices.onSelect).toHaveBeenCalledWith(
                 {
-                    data: []
+                    visualObjects: []
                 });
         });
     });

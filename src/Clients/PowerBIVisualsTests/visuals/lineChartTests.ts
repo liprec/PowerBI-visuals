@@ -33,8 +33,10 @@ module powerbitests {
     import CartesianChartType = powerbi.visuals.CartesianChartType;
     import DataViewObjects = powerbi.DataViewObjects;
     import DataViewPivotCategorical = powerbi.data.DataViewPivotCategorical;
+    import ScalarKeys = powerbi.visuals.ScalarKeys;
     import DataViewTransform = powerbi.data.DataViewTransform;
     import LineChart = powerbi.visuals.LineChart;
+    import lineChartProps = powerbi.visuals.lineChartProps;
     import lineStyle = powerbi.visuals.lineStyle;
     import SVGUtil = powerbi.visuals.SVGUtil;
     import SelectionId = powerbi.visuals.SelectionId;
@@ -45,6 +47,7 @@ module powerbitests {
     import PixelConverter = jsCommon.PixelConverter;
     import LabelParentRect = powerbi.LabelParentRect;
     import TrendLineHelper = powerbi.visuals.TrendLineHelper;
+    import buildSelectorForColumn = powerbitests.helpers.buildSelectorForColumn;
 
     let labelColor = powerbi.visuals.dataLabelUtils.defaultLabelColor;
 
@@ -126,73 +129,173 @@ module powerbitests {
             expect(powerbi.data.DataViewObjectDescriptors.findFormatString(powerbi.visuals.lineChartCapabilities.objects)).toEqual(powerbi.visuals.lineChartProps.general.formatString);
         });
 
-        it('CustomizeQuery picks sample based on data type', () => {
-            let objects: DataViewObjects = {
-                categoryAxis: {}
-            };
-            let dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.DateTime), objects);
+        describe('CustomizeQuery', () => {
+            const WindowCountWithoutSeries: number = 1000;
+            const WindowCountWithSeries: number = 100;
+            const SeriesTopCount: number = 60;
 
-            LineChart.customizeQuery({
-                dataViewMappings: [dataViewMapping]
+            let objects: DataViewObjects;
+            let dataViewMapping: CompiledDataViewMapping;
+
+            beforeEach(() => {
+                objects = {
+                    categoryAxis: {}
+                };
             });
 
-            expect(dataViewMapping.categorical.categories.dataReductionAlgorithm).toEqual({ sample: {} });
-        });
+            describe('with no scalar axis flag', () => {
+                beforeEach(() => {
+                    objects['categoryAxis'] = {
+                        categoryAxis: {
+                            axisType: null
+                        }
+                    };
+                });
 
-        it('CustomizeQuery picks top based on data type', () => {
-            let objects: DataViewObjects = {
-                categoryAxis: {}
-            };
-            let dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text), objects);
+                describe('with scalar type', () => {
+                    beforeEach(() => {
+                        dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.DateTime), objects);
+                    });
 
-            LineChart.customizeQuery({
-                dataViewMappings: [dataViewMapping]
+                    it('with series sets the correct dataReductionAlgorithms', () => {
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ sample: {} });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: {} });
+                    });
+
+                    it('without series sets the correct dataReductionAlgorithms', () => {
+                        removeSeries();
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ sample: {} });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: {} });
+                    });
+                });
+
+                describe('with non-scalar type', () => {
+                    beforeEach(() => {
+                        dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text), objects);
+                    });
+
+                    it('with series sets the correct dataReductionAlgorithms', () => {
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ window: { count: WindowCountWithSeries } });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: { count: SeriesTopCount } });
+                    });
+
+                    it('without series sets the correct dataReductionAlgorithms', () => {
+                        removeSeries();
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ window: { count: WindowCountWithoutSeries } });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: { count: SeriesTopCount } });
+                    });
+                });
             });
 
-            expect(dataViewMapping.categorical.categories.dataReductionAlgorithm).toEqual({ top: {} });
-        });
+            describe('with scalar axis flag', () => {
+                beforeEach(() => {
+                    objects['categoryAxis'] = {
+                        categoryAxis: {
+                            axisType: 'Scalar',
+                        }
+                    };
+                });
 
-        it('CustomizeQuery no category', () => {
-            let objects: DataViewObjects = {
-                categoryAxis: {}
-            };
-            let dataViewMapping = createCompiledDataViewMapping(null, objects);
+                describe('with scalar type', () => {
+                    beforeEach(() => {
+                        dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.DateTime), objects);
+                    });
 
-            LineChart.customizeQuery({
-                dataViewMappings: [dataViewMapping]
+                    it('with series sets the correct dataReductionAlgorithms', () => {
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ sample: {} });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: {} });
+                    });
+
+                    it('without series sets the correct dataReductionAlgorithms', () => {
+                        removeSeries();
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ sample: {} });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: {} });
+                    });
+                });
+
+                describe('with non-scalar type', () => {
+                    beforeEach(() => {
+                        dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text), objects);
+                    });
+
+                    it('with series sets the correct dataReductionAlgorithms', () => {
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ window: { count: WindowCountWithSeries } });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: { count: SeriesTopCount } });
+                    });
+
+                    it('without series sets the correct dataReductionAlgorithms', () => {
+                        removeSeries();
+                        customizeQuery();
+                        expect(getCategoriesDataReductionAlgorithm()).toEqual({ window: { count: WindowCountWithoutSeries } });
+                        expect(getValuesDataReductionAlgorithm()).toEqual({ top: { count: SeriesTopCount } });
+                    });
+                });
             });
 
-            expect(dataViewMapping.categorical.categories.dataReductionAlgorithm).toEqual({ top: {} });
-        });
-
-        it('CustomizeQuery explicit scalar axis on non-scalar type', () => {
-            let objects: DataViewObjects = {
-                categoryAxis: {
-                    axisType: 'Scalar'
-                }
-            };
-            let dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text), objects);
-
-            LineChart.customizeQuery({
-                dataViewMappings: [dataViewMapping]
+            it('uses scalar key if axis type is undefined', () => {
+                let scalarKeyUsed = runCustomizeQueryWithForcedScalarKey(undefined);
+                expect(scalarKeyUsed).toBe(true);
             });
 
-            expect(dataViewMapping.categorical.categories.dataReductionAlgorithm).toEqual({ top: {} });
-        });
-
-        it('CustomizeQuery explicit categorical axis on scalar type', () => {
-            let objects: DataViewObjects = {
-                categoryAxis: {
-                    axisType: 'Scalar'
-                }
-            };
-            let dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text), objects);
-
-            LineChart.customizeQuery({
-                dataViewMappings: [dataViewMapping]
+            it('uses scalar key if axis type is scalar', () => {
+                let scalarKeyUsed = runCustomizeQueryWithForcedScalarKey(AxisType.scalar);
+                expect(scalarKeyUsed).toBe(true);
             });
 
-            expect(dataViewMapping.categorical.categories.dataReductionAlgorithm).toEqual({ top: {} });
+            it('does not use scalar key if axis type is categorical', () => {
+                let scalarKeyUsed = runCustomizeQueryWithForcedScalarKey(AxisType.categorical);
+                expect(scalarKeyUsed).toBe(false);
+            });
+
+            // Runs the line chart by forcing the scalar key property to true and returns whether customizeQuery decided to use it
+            function runCustomizeQueryWithForcedScalarKey(axisType: string): boolean {
+                let objects: DataViewObjects = {
+                    categoryAxis: {
+                        axisType: axisType
+                    }
+                };
+
+                let dataViewMapping = createCompiledDataViewMapping(ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.DateTime), objects);
+
+                // Force scalar key support
+                let dataViewCategories = <powerbi.data.CompiledDataViewRoleForMappingWithReduction>dataViewMapping.categorical.categories;
+                let compiledRoleItem = dataViewCategories.for.in.items[0];
+                compiledRoleItem.hasScalarKey = true;
+
+                LineChart.customizeQuery({
+                    dataViewMappings: [dataViewMapping]
+                });
+
+                return compiledRoleItem.scalarKeyMinProperty === powerbi.visuals.lineChartProps.scalarKey.scalarKeyMin;
+            }
+
+            function customizeQuery(): void {
+                LineChart.customizeQuery({
+                    dataViewMappings: [dataViewMapping]
+                });
+            }
+
+            function removeSeries(): CompiledDataViewMapping {
+                let values = <powerbi.data.CompiledDataViewGroupedRoleMapping>dataViewMapping.categorical.values;
+                values.group.by.items = undefined;
+                return dataViewMapping;
+            }
+
+            function getCategoriesDataReductionAlgorithm(): powerbi.ReductionAlgorithm {
+                return dataViewMapping.categorical.categories.dataReductionAlgorithm;
+            }
+
+            function getValuesDataReductionAlgorithm(): powerbi.ReductionAlgorithm {
+                let values = <powerbi.data.CompiledDataViewGroupedRoleMapping>dataViewMapping.categorical.values;
+                return values.group.dataReductionAlgorithm;
+            }
         });
 
         it('Sortable roles with scalar axis', () => {
@@ -235,7 +338,7 @@ module powerbitests {
                         for: {
                             in: { role: 'Category', items: categoryItems }
                         },
-                        dataReductionAlgorithm: { top: {} }
+                        dataReductionAlgorithm: { window: { count: 100 } }
                     },
                     values: {
                         group: {
@@ -243,7 +346,7 @@ module powerbitests {
                             select: [
                                 { for: { in: { role: 'Y', items: [{ queryName: 'y1', type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Integer) }] } } }
                             ],
-                            dataReductionAlgorithm: { top: {} }
+                            dataReductionAlgorithm: { top: { count: 60 } }
                         }
                     }
                 }
@@ -301,6 +404,37 @@ module powerbitests {
             expect(actualData.series[0].data[0].tooltipInfo).toBeUndefined();
         });
 
+        it('validate tooltip info not being created when tooltips are disabled and tooltipBuckets are enabled', () => {
+            let dataView: powerbi.DataView = {
+                metadata: dataViewMetadata,
+                categorical: {
+                    categories: [{
+                        source: dataViewMetadata.columns[0],
+                        values: ['John Domo', 'Delta Force', 'Jean Tablau']
+                    }],
+                    values: DataViewTransform.createValueColumns([
+                        {
+                            source: dataViewMetadata.columns[1],
+                            values: [100, 200, 700],
+                        }, {
+                            source: dataViewMetadata.columns[2],
+                            values: [700, 100, 200],
+                        }, {
+                            source: dataViewMetadata.columns[3],
+                            values: [200, 700, 100],
+                        },
+                        {
+                            source: tooltipColumn,
+                            values: [200, 700, 100],
+                        }]),
+                },
+            };
+
+            let actualData = LineChart.converter(dataView, blankCategoryValue, colors, /*isScalar*/false, /*interactivityService*/undefined, /*shouldCalculateStacked*/undefined, /*isComboChart*/undefined, /*tooltipsEnabled*/false, /*tooltipBucketEnabled*/true);
+            expect(actualData.series[0].data[0].tooltipInfo).toBeUndefined();
+            expect(actualData.series[0].data[0].extraTooltipInfo).toBeUndefined();
+        });
+
         it('Check convert categorical + fill color', () => {
             let seriesColor = '#41BEE0';
             let metadata: powerbi.DataViewMetadata = {
@@ -309,12 +443,23 @@ module powerbitests {
                     powerbi.Prototype.inherit(dataViewMetadata.columns[1], c => c.objects = { dataPoint: { fill: { solid: { color: seriesColor } } } }),
                 ]
             };
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity('John Domo'),
+                mocks.dataViewScopeIdentity('Delta Force'),
+                mocks.dataViewScopeIdentity('Jean Tablau'),
+            ];
+            let specificIds = [
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col2', 'col1'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col2', 'col1'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col2', 'col1'),
+            ];
             let dataView: powerbi.DataView = {
                 metadata: metadata,
                 categorical: {
                     categories: [{
                         source: metadata.columns[0],
                         values: ['John Domo', 'Delta Force', 'Jean Tablau'],
+                        identity: categoryIdentities,
                     }],
                     values: DataViewTransform.createValueColumns([{
                         source: metadata.columns[1],
@@ -328,6 +473,7 @@ module powerbitests {
             let defaultLabelSettings = powerbi.visuals.dataLabelUtils.getDefaultLineChartLabelSettings();
 
             let actualData = LineChart.converter(dataView, blankCategoryValue, colors, false).series;
+
             let expectedData: powerbi.visuals.LineChartSeries[] =
                 [{
                     displayName: dataView.metadata.columns[1].displayName,
@@ -345,8 +491,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col2", value: "100" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[0],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 0 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[0].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -358,8 +505,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col2", value: "200" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[1],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 1 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[1].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -371,8 +519,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col2", value: "700" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[2],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 2 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[2].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -434,6 +583,28 @@ module powerbitests {
                 '#41BEE1',
                 '#41BEE2',
             ];
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity('John Domo'),
+                mocks.dataViewScopeIdentity('Delta Force'),
+                mocks.dataViewScopeIdentity('Jean Tablau'),
+            ];
+            let specificIds = [
+                [
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col2', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col2', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col2', 'col1'),
+                ],
+                [
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col3', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col3', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col3', 'col1'),
+                ],
+                [
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col4', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col4', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col4', 'col1'),
+                ],
+            ];
 
             let metadata: powerbi.DataViewMetadata = {
                 columns: [
@@ -449,6 +620,7 @@ module powerbitests {
                     categories: [{
                         source: metadata.columns[0],
                         values: ['John Domo', 'Delta Force', 'Jean Tablau'],
+                        identity: categoryIdentities,
                     }],
                     values: DataViewTransform.createValueColumns([
                         {
@@ -484,8 +656,9 @@ module powerbitests {
                                 seriesIndex: 0,
                                 tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col2", value: "100" }],
                                 identity: seriesId1,
+                                specificIdentity: specificIds[0][0],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey1, category: 0 }),
+                                key: JSON.stringify({ series: seriesKey1, category: categoryIdentities[0].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -497,8 +670,9 @@ module powerbitests {
                                 seriesIndex: 0,
                                 tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col2", value: "200" }],
                                 identity: seriesId1,
+                                specificIdentity: specificIds[0][1],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey1, category: 1 }),
+                                key: JSON.stringify({ series: seriesKey1, category: categoryIdentities[1].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -510,8 +684,9 @@ module powerbitests {
                                 seriesIndex: 0,
                                 tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col2", value: "700" }],
                                 identity: seriesId1,
+                                specificIdentity: specificIds[0][2],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey1, category: 2 }),
+                                key: JSON.stringify({ series: seriesKey1, category: categoryIdentities[2].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -536,8 +711,9 @@ module powerbitests {
                                 seriesIndex: 1,
                                 tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col3", value: "700" }],
                                 identity: seriesId2,
+                                specificIdentity: specificIds[1][0],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey2, category: 0 }),
+                                key: JSON.stringify({ series: seriesKey2, category: categoryIdentities[0].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -549,8 +725,9 @@ module powerbitests {
                                 seriesIndex: 1,
                                 tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col3", value: "100" }],
                                 identity: seriesId2,
+                                specificIdentity: specificIds[1][1],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey2, category: 1 }),
+                                key: JSON.stringify({ series: seriesKey2, category: categoryIdentities[1].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -562,8 +739,9 @@ module powerbitests {
                                 seriesIndex: 1,
                                 tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col3", value: "200" }],
                                 identity: seriesId2,
+                                specificIdentity: specificIds[1][2],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey2, category: 2 }),
+                                key: JSON.stringify({ series: seriesKey2, category: categoryIdentities[2].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -588,8 +766,9 @@ module powerbitests {
                                 seriesIndex: 2,
                                 tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col4", value: "200" }],
                                 identity: seriesId3,
+                                specificIdentity: specificIds[2][0],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey3, category: 0 }),
+                                key: JSON.stringify({ series: seriesKey3, category: categoryIdentities[0].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -601,8 +780,9 @@ module powerbitests {
                                 seriesIndex: 2,
                                 tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col4", value: "700" }],
                                 identity: seriesId3,
+                                specificIdentity: specificIds[2][1],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey3, category: 1 }),
+                                key: JSON.stringify({ series: seriesKey3, category: categoryIdentities[1].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -614,8 +794,9 @@ module powerbitests {
                                 seriesIndex: 2,
                                 tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col4", value: "100" }],
                                 identity: seriesId3,
+                                specificIdentity: specificIds[2][2],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey3, category: 2 }),
+                                key: JSON.stringify({ series: seriesKey3, category: categoryIdentities[2].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -636,13 +817,36 @@ module powerbitests {
             let seriesKey2 = seriesId2.getKey();
             let seriesId3 = SelectionId.createWithMeasure('col4');
             let seriesKey3 = seriesId3.getKey();
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity('John Domo'),
+                mocks.dataViewScopeIdentity('Delta Force'),
+                mocks.dataViewScopeIdentity('Jean Tablau'),
+            ];
+            let specificIds = [
+                [
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col2', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col2', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col2', 'col1'),
+                ],
+                [
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col3', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col3', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col3', 'col1'),
+                ],
+                [
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col4', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col4', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col4', 'col1'),
+                ],
+            ];
             dataViewMetadata.objects = undefined;
             let dataView: powerbi.DataView = {
                 metadata: dataViewMetadata,
                 categorical: {
                     categories: [{
                         source: dataViewMetadata.columns[0],
-                        values: ['John Domo', 'Delta Force', 'Jean Tablau']
+                        values: ['John Domo', 'Delta Force', 'Jean Tablau'],
+                        identity: categoryIdentities,
                     }],
                     values: DataViewTransform.createValueColumns([
                         {
@@ -683,8 +887,9 @@ module powerbitests {
                                 seriesIndex: 0,
                                 tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col2", value: "100" }],
                                 identity: seriesId1,
+                                specificIdentity: specificIds[0][0],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey1, category: 0 }),
+                                key: JSON.stringify({ series: seriesKey1, category: categoryIdentities[0].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -696,8 +901,9 @@ module powerbitests {
                                 seriesIndex: 0,
                                 tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col2", value: "200" }],
                                 identity: seriesId1,
+                                specificIdentity: specificIds[0][1],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey1, category: 1 }),
+                                key: JSON.stringify({ series: seriesKey1, category: categoryIdentities[1].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -709,8 +915,9 @@ module powerbitests {
                                 seriesIndex: 0,
                                 tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col2", value: "700" }],
                                 identity: seriesId1,
+                                specificIdentity: specificIds[0][2],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey1, category: 2 }),
+                                key: JSON.stringify({ series: seriesKey1, category: categoryIdentities[2].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -735,8 +942,9 @@ module powerbitests {
                                 seriesIndex: 1,
                                 tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col3", value: "700" }],
                                 identity: seriesId2,
+                                specificIdentity: specificIds[1][0],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey2, category: 0 }),
+                                key: JSON.stringify({ series: seriesKey2, category: categoryIdentities[0].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -748,8 +956,9 @@ module powerbitests {
                                 seriesIndex: 1,
                                 tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col3", value: "100" }],
                                 identity: seriesId2,
+                                specificIdentity: specificIds[1][1],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey2, category: 1 }),
+                                key: JSON.stringify({ series: seriesKey2, category: categoryIdentities[1].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -761,8 +970,9 @@ module powerbitests {
                                 seriesIndex: 1,
                                 tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col3", value: "200" }],
                                 identity: seriesId2,
+                                specificIdentity: specificIds[1][2],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey2, category: 2 }),
+                                key: JSON.stringify({ series: seriesKey2, category: categoryIdentities[2].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -787,8 +997,9 @@ module powerbitests {
                                 seriesIndex: 2,
                                 tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col4", value: "200" }],
                                 identity: seriesId3,
+                                specificIdentity: specificIds[2][0],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey3, category: 0 }),
+                                key: JSON.stringify({ series: seriesKey3, category: categoryIdentities[0].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -800,8 +1011,9 @@ module powerbitests {
                                 seriesIndex: 2,
                                 tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col4", value: "700" }],
                                 identity: seriesId3,
+                                specificIdentity: specificIds[2][1],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey3, category: 1 }),
+                                key: JSON.stringify({ series: seriesKey3, category: categoryIdentities[1].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -813,8 +1025,9 @@ module powerbitests {
                                 seriesIndex: 2,
                                 tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col4", value: "100" }],
                                 identity: seriesId3,
+                                specificIdentity: specificIds[2][2],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey3, category: 2 }),
+                                key: JSON.stringify({ series: seriesKey3, category: categoryIdentities[2].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -836,12 +1049,35 @@ module powerbitests {
             let seriesId3 = SelectionId.createWithMeasure('col4');
             let seriesKey3 = seriesId3.getKey();
             dataViewMetadata.objects = undefined;
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity('John Domo'),
+                mocks.dataViewScopeIdentity('Delta Force'),
+                mocks.dataViewScopeIdentity('Jean Tablau'),
+            ];
+            let specificIds = [
+                [
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col2', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col2', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col2', 'col1'),
+                ],
+                [
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col3', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col3', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col3', 'col1'),
+                ],
+                [
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col4', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col4', 'col1'),
+                    SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col4', 'col1'),
+                ],
+            ];
             let dataView: powerbi.DataView = {
                 metadata: dataViewMetadata,
                 categorical: {
                     categories: [{
                         source: dataViewMetadata.columns[0],
-                        values: ['John Domo', 'Delta Force', 'Jean Tablau']
+                        values: ['John Domo', 'Delta Force', 'Jean Tablau'],
+                        identity: categoryIdentities,
                     }],
                     values: DataViewTransform.createValueColumns([
                         {
@@ -886,8 +1122,9 @@ module powerbitests {
                                 seriesIndex: 0,
                                 tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col2", value: "100" }],
                                 identity: seriesId1,
+                                specificIdentity: specificIds[0][0],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey1, category: 0 }),
+                                key: JSON.stringify({ series: seriesKey1, category: categoryIdentities[0].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -900,8 +1137,9 @@ module powerbitests {
                                 seriesIndex: 0,
                                 tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col2", value: "200" }],
                                 identity: seriesId1,
+                                specificIdentity: specificIds[0][1],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey1, category: 1 }),
+                                key: JSON.stringify({ series: seriesKey1, category: categoryIdentities[1].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -914,8 +1152,9 @@ module powerbitests {
                                 seriesIndex: 0,
                                 tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col2", value: "700" }],
                                 identity: seriesId1,
+                                specificIdentity: specificIds[0][2],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey1, category: 2 }),
+                                key: JSON.stringify({ series: seriesKey1, category: categoryIdentities[2].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -941,8 +1180,9 @@ module powerbitests {
                                 seriesIndex: 1,
                                 tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col3", value: "700" }],
                                 identity: seriesId2,
+                                specificIdentity: specificIds[1][0],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey2, category: 0 }),
+                                key: JSON.stringify({ series: seriesKey2, category: categoryIdentities[0].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -955,8 +1195,9 @@ module powerbitests {
                                 seriesIndex: 1,
                                 tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col3", value: "100" }],
                                 identity: seriesId2,
+                                specificIdentity: specificIds[1][1],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey2, category: 1 }),
+                                key: JSON.stringify({ series: seriesKey2, category: categoryIdentities[1].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -969,8 +1210,9 @@ module powerbitests {
                                 seriesIndex: 1,
                                 tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col3", value: "200" }],
                                 identity: seriesId2,
+                                specificIdentity: specificIds[1][2],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey2, category: 2 }),
+                                key: JSON.stringify({ series: seriesKey2, category: categoryIdentities[2].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -996,8 +1238,9 @@ module powerbitests {
                                 seriesIndex: 2,
                                 tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col4", value: "200" }],
                                 identity: seriesId3,
+                                specificIdentity: specificIds[2][0],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey3, category: 0 }),
+                                key: JSON.stringify({ series: seriesKey3, category: categoryIdentities[0].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -1010,8 +1253,9 @@ module powerbitests {
                                 seriesIndex: 2,
                                 tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col4", value: "700" }],
                                 identity: seriesId3,
+                                specificIdentity: specificIds[2][1],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey3, category: 1 }),
+                                key: JSON.stringify({ series: seriesKey3, category: categoryIdentities[1].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -1024,8 +1268,9 @@ module powerbitests {
                                 seriesIndex: 2,
                                 tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col4", value: "100" }],
                                 identity: seriesId3,
+                                specificIdentity: specificIds[2][2],
                                 selected: false,
-                                key: JSON.stringify({ series: seriesKey3, category: 2 }),
+                                key: JSON.stringify({ series: seriesKey3, category: categoryIdentities[2].key }),
                                 labelFill: labelColor,
                                 labelFormatString: undefined,
                                 labelSettings: defaultLabelSettings,
@@ -1087,6 +1332,7 @@ module powerbitests {
                                 seriesIndex: 0,
                                 tooltipInfo: [{ displayName: "col2", value: "100" }],
                                 identity: ids[0],
+                                specificIdentity: ids[0],
                                 selected: false,
                                 key: JSON.stringify({ series: keys[0], category: 0 }),
                                 labelFill: labelColor,
@@ -1113,6 +1359,7 @@ module powerbitests {
                                 seriesIndex: 1,
                                 tooltipInfo: [{ displayName: "col3", value: "200" }],
                                 identity: ids[1],
+                                specificIdentity: ids[1],
                                 selected: false,
                                 key: JSON.stringify({ series: keys[1], category: 0 }),
                                 labelFill: labelColor,
@@ -1135,12 +1382,23 @@ module powerbitests {
         };
 
         it('Check convert date time', () => {
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity('2014/9/25'),
+                mocks.dataViewScopeIdentity('2014/12/12'),
+                mocks.dataViewScopeIdentity('2015/9/25'),
+            ];
+            let specificIds = [
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'PowerBI Customers', 'Date'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'PowerBI Customers', 'Date'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'PowerBI Customers', 'Date'),
+            ];
             let dataView: powerbi.DataView = {
                 metadata: dateTimeColumnsMetadata,
                 categorical: {
                     categories: [{
                         source: dateTimeColumnsMetadata.columns[0],
                         values: [new Date('2014/9/25'), new Date('2014/12/12'), new Date('2015/9/25')],
+                        identity: categoryIdentities,
                     }],
                     values: DataViewTransform.createValueColumns([{
                         source: dateTimeColumnsMetadata.columns[1],
@@ -1171,8 +1429,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "Date", value: "9/25/2014 12:00:00 AM" }, { displayName: "PowerBI Customers", value: "8000" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[0],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 0 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[0].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1184,8 +1443,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "Date", value: "12/12/2014 12:00:00 AM" }, { displayName: "PowerBI Customers", value: "20000" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[1],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 1 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[1].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1197,8 +1457,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "Date", value: "9/25/2015 12:00:00 AM" }, { displayName: "PowerBI Customers", value: "1000000" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[2],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 2 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[2].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1212,12 +1473,25 @@ module powerbitests {
         });
 
         it('Check convert datetime category with null category value', () => {
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity(null),
+                mocks.dataViewScopeIdentity('2014/9/25'),
+                mocks.dataViewScopeIdentity('2014/12/12'),
+                mocks.dataViewScopeIdentity('2015/9/25'),
+            ];
+            let specificIds = [
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'PowerBI Customers', 'Date'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'PowerBI Customers', 'Date'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'PowerBI Customers', 'Date'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[3], 'PowerBI Customers', 'Date'),
+            ];
             let dataView: powerbi.DataView = {
                 metadata: dateTimeColumnsMetadata,
                 categorical: {
                     categories: [{
                         source: dateTimeColumnsMetadata.columns[0],
-                        values: [null, new Date('2014/9/25'), new Date('2014/12/12'), new Date('2015/9/25')]
+                        values: [null, new Date('2014/9/25'), new Date('2014/12/12'), new Date('2015/9/25')],
+                        identity: categoryIdentities,
                     }],
                     values: DataViewTransform.createValueColumns([{
                         source: dateTimeColumnsMetadata.columns[1],
@@ -1248,8 +1522,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "Date", value: "9/25/2014 12:00:00 AM" }, { displayName: "PowerBI Customers", value: "8000" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[1],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 1 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[1].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1261,8 +1536,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "Date", value: "12/12/2014 12:00:00 AM" }, { displayName: "PowerBI Customers", value: "20000" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[2],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 2 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[2].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1274,8 +1550,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "Date", value: "9/25/2015 12:00:00 AM" }, { displayName: "PowerBI Customers", value: "1000000" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[3],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 3 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[3].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1286,6 +1563,127 @@ module powerbitests {
                 }];
 
             expect(actualData).toEqualDeep(expectedData);
+        });
+
+        it('Check convert date time with scalar keys', () => {
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity('2014/9/25'),
+                mocks.dataViewScopeIdentity('2014/12/12'),
+                mocks.dataViewScopeIdentity('2015/9/25'),
+            ];
+            let dataView: powerbi.DataView = {
+                metadata: dateTimeColumnsMetadata,
+                categorical: {
+                    categories: [{
+                        source: dateTimeColumnsMetadata.columns[0],
+                        values: [new Date('2014/9/25'), new Date('2014/12/12'), new Date('2015/9/25')],
+                        identity: categoryIdentities,
+                        objects: []
+                    }],
+                    values: DataViewTransform.createValueColumns([{
+                        source: dateTimeColumnsMetadata.columns[1],
+                        values: [8000, 20000, 1000000],
+                    }])
+                }
+            };
+
+            let scalarKeys: ScalarKeys = {
+                values: [{
+                    min: new Date('2014/7/1')
+                }, {
+                        min: new Date('2014/10/1')
+                    }, {
+                        min: new Date('2015/7/1')
+                    }]
+            };
+
+            InjectScalarKeys(dataView.categorical.categories[0].objects, scalarKeys);
+
+            let selectionId = SelectionId.createWithMeasure('PowerBI Customers');
+            let specificIds = [
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'PowerBI Customers', 'Date'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'PowerBI Customers', 'Date'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'PowerBI Customers', 'Date'),
+            ];
+            let key = selectionId.getKey();
+            let defaultLabelSettings = powerbi.visuals.dataLabelUtils.getDefaultLineChartLabelSettings();
+            let actualData = LineChart.converter(dataView, blankCategoryValue, colors, true /*isScalar*/, null /*interactivity*/, false /*isStacked*/, false /*isComboChart*/, true /* toolTipEnabled*/, false /*tooltipBucketEnabled*/);
+            let seriesColor = colors.getColorByIndex(0).value;
+
+            expect(actualData.isScalar).toBe(true);
+            expect(actualData.scalarMetadata).toBeDefined();
+            expect(actualData.scalarKeyCount).toBe(3);
+            let expectedScalarMetadata: powerbi.DataViewMetadataColumn = {
+                displayName: null,
+                type: {
+                    dateTime: true
+                },
+            };
+            expect(actualData.scalarMetadata).toEqualDeep(expectedScalarMetadata);
+            expect(actualData.scalarKeyCount).toBe(3);
+
+            expect(new Date(actualData.categoryData[0].categoryValue)).toEqual(new Date('2014/7/1'));
+            expect(new Date(actualData.categoryData[1].categoryValue)).toEqual(new Date('2014/10/1'));
+            expect(new Date(actualData.categoryData[2].categoryValue)).toEqual(new Date('2015/7/1'));
+
+            let expectedSeriesData: powerbi.visuals.LineChartSeries[] =
+                [{
+                    displayName: dataView.metadata.columns[1].displayName,
+                    key: key,
+                    lineIndex: 0,
+                    color: seriesColor,
+                    xCol: expectedScalarMetadata,
+                    yCol: dataView.metadata.columns[1],
+                    labelSettings: actualData.series[0].labelSettings,
+                    data: [
+                        {
+                            categoryValue: new Date('2014/7/1').getTime(),
+                            value: 8000,
+                            categoryIndex: 0,
+                            seriesIndex: 0,
+                            tooltipInfo: [{ displayName: "Date", value: "9/25/2014 12:00:00 AM" }, { displayName: "PowerBI Customers", value: "8000" }],
+                            identity: selectionId,
+                            selected: false,
+                            key: JSON.stringify({ series: key, category: categoryIdentities[0].key }),
+                            labelFill: labelColor,
+                            labelFormatString: undefined,
+                            labelSettings: defaultLabelSettings,
+                            specificIdentity: specificIds[0],
+                        },
+                        {
+                            categoryValue: new Date('2014/10/1').getTime(),
+                            value: 20000,
+                            categoryIndex: 1,
+                            seriesIndex: 0,
+                            tooltipInfo: [{ displayName: "Date", value: "12/12/2014 12:00:00 AM" }, { displayName: "PowerBI Customers", value: "20000" }],
+                            identity: selectionId,
+                            selected: false,
+                            key: JSON.stringify({ series: key, category: categoryIdentities[1].key }),
+                            labelFill: labelColor,
+                            labelFormatString: undefined,
+                            labelSettings: defaultLabelSettings,
+                            specificIdentity: specificIds[1],
+                        },
+                        {
+                            categoryValue: new Date('2015/7/1').getTime(),
+                            value: 1000000,
+                            categoryIndex: 2,
+                            seriesIndex: 0,
+                            tooltipInfo: [{ displayName: "Date", value: "9/25/2015 12:00:00 AM" }, { displayName: "PowerBI Customers", value: "1000000" }],
+                            identity: selectionId,
+                            selected: false,
+                            key: JSON.stringify({ series: key, category: categoryIdentities[2].key }),
+                            labelFill: labelColor,
+                            labelFormatString: undefined,
+                            labelSettings: defaultLabelSettings,
+                            specificIdentity: specificIds[2],
+                        },
+                    ],
+                    identity: selectionId,
+                    selected: false
+                }];
+
+            expect(actualData.series).toEqualDeep(expectedSeriesData);
         });
 
         it('variant measure - datetime column with a text category', () => {
@@ -1310,12 +1708,25 @@ module powerbitests {
         });
 
         it('Check convert categorical with null category value', () => {
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity('John Domo'),
+                mocks.dataViewScopeIdentity('null'),
+                mocks.dataViewScopeIdentity('Delta Force'),
+                mocks.dataViewScopeIdentity('Jean Tablau'),
+            ];
+            let specificIds = [
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col2', 'col1'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col2', 'col1'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col2', 'col1'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[3], 'col2', 'col1'),
+            ];
             let dataView: powerbi.DataView = {
                 metadata: dataViewMetadata,
                 categorical: {
                     categories: [{
                         source: dataViewMetadata.columns[0],
-                        values: ['John Domo', null, 'Delta Force', 'Jean Tablau']
+                        values: ['John Domo', null, 'Delta Force', 'Jean Tablau'],
+                        identity: categoryIdentities,
                     }],
                     values: DataViewTransform.createValueColumns([{
                         source: dataViewMetadata.columns[1],
@@ -1347,8 +1758,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col2", value: "100" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[0],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 0 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[0].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1360,8 +1772,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "(Blank)" }, { displayName: "col2", value: "300" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[1],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 1 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[1].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1373,8 +1786,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col2", value: "200" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[2],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 2 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[2].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1386,8 +1800,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col2", value: "700" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[3],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 3 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[3].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1401,12 +1816,23 @@ module powerbitests {
         });
 
         it('Check convert categorical with positive infinity value', () => {
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity('John Domo'),
+                mocks.dataViewScopeIdentity('Delta Force'),
+                mocks.dataViewScopeIdentity('Jean Tablau'),
+            ];
+            let specificIds = [
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col2', 'col1'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col2', 'col1'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col2', 'col1'),
+            ];
             let dataView: powerbi.DataView = {
                 metadata: dataViewMetadata,
                 categorical: {
                     categories: [{
                         source: dataViewMetadata.columns[0],
-                        values: ['John Domo', 'Delta Force', 'Jean Tablau']
+                        values: ['John Domo', 'Delta Force', 'Jean Tablau'],
+                        identity: categoryIdentities,
                     }],
                     values: DataViewTransform.createValueColumns([{
                         source: dataViewMetadata.columns[1],
@@ -1438,8 +1864,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col2", value: "100" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[0],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 0 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[0].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1451,8 +1878,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col2", value: "1.7976931348623157E+308" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[1],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 1 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[1].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1464,8 +1892,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col2", value: "700" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[2],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 2 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[2].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1479,12 +1908,23 @@ module powerbitests {
         });
 
         it('Check convert categorical with negative infinity value', () => {
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity('John Domo'),
+                mocks.dataViewScopeIdentity('Delta Force'),
+                mocks.dataViewScopeIdentity('Jean Tablau'),
+            ];
+            let specificIds = [
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col2', 'col1'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col2', 'col1'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col2', 'col1'),
+            ];
             let dataView: powerbi.DataView = {
                 metadata: dataViewMetadata,
                 categorical: {
                     categories: [{
                         source: dataViewMetadata.columns[0],
-                        values: ['John Domo', 'Delta Force', 'Jean Tablau']
+                        values: ['John Domo', 'Delta Force', 'Jean Tablau'],
+                        identity: categoryIdentities,
                     }],
                     values: DataViewTransform.createValueColumns([{
                         source: dataViewMetadata.columns[1],
@@ -1516,8 +1956,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col2", value: "100" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[0],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 0 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[0].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1529,8 +1970,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col2", value: "-1.7976931348623157E+308" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[1],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 1 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[1].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1542,8 +1984,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col2", value: "700" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[2],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 2 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[2].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1557,12 +2000,23 @@ module powerbitests {
         });
 
         it('Check convert categorical with NaN value', () => {
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity('John Domo'),
+                mocks.dataViewScopeIdentity('Delta Force'),
+                mocks.dataViewScopeIdentity('Jean Tablau'),
+            ];
+            let specificIds = [
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col2', 'col1'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col2', 'col1'),
+                SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col2', 'col1'),
+            ];
             let dataView: powerbi.DataView = {
                 metadata: dataViewMetadata,
                 categorical: {
                     categories: [{
                         source: dataViewMetadata.columns[0],
-                        values: ['John Domo', 'Delta Force', 'Jean Tablau']
+                        values: ['John Domo', 'Delta Force', 'Jean Tablau'],
+                        identity: categoryIdentities,
                     }],
                     values: DataViewTransform.createValueColumns([{
                         source: dataViewMetadata.columns[1],
@@ -1594,8 +2048,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col2", value: "100" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[0],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 0 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[0].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1607,8 +2062,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "Delta Force" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[1],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 1 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[1].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1620,8 +2076,9 @@ module powerbitests {
                             seriesIndex: 0,
                             tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col2", value: "700" }],
                             identity: selectionId,
+                            specificIdentity: specificIds[2],
                             selected: false,
-                            key: JSON.stringify({ series: key, category: 2 }),
+                            key: JSON.stringify({ series: key, category: categoryIdentities[2].key }),
                             labelFill: labelColor,
                             labelFormatString: undefined,
                             labelSettings: defaultLabelSettings,
@@ -1700,6 +2157,199 @@ module powerbitests {
                 let expectedValue = valueColumns[1].values[i] + valueColumns[0].values[i];
                 expect(dataPoint.stackedValue).toEqual(expectedValue);
             }
+        });
+    });
+
+    describe("Converter", () => {
+        describe("Dynamic series and tooltips", () => {
+            let dataView: powerbi.DataView;
+            let metadata: powerbi.DataViewMetadata;
+            let seriesValues = ['A', 'B'];
+            let categoryValues = ['c', 'd', 'e'];
+            let seriesIdentities = [
+                mocks.dataViewScopeIdentity(seriesValues[0]),
+                mocks.dataViewScopeIdentity(seriesValues[1]),
+            ];
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity(categoryValues[0]),
+                mocks.dataViewScopeIdentity(categoryValues[1]),
+                mocks.dataViewScopeIdentity(categoryValues[2]),
+            ];
+            let colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
+            let categorySelectionIds: SelectionId[];
+            let seriesSelectionIds: SelectionId[];
+            let specificSelectionIds: SelectionId[];
+            let viewModel: powerbi.visuals.LineChartData;
+
+            beforeEach(() => {
+                let valueIdentifier = powerbi.data.SQExprBuilder.fieldDef({ schema: 's', entity: 'e', column: 'value' });
+                let tooltipIdentifier = powerbi.data.SQExprBuilder.fieldDef({ schema: 's', entity: 'e', column: 'tooltip' });
+                metadata = {
+                    columns: [
+                        {
+                            displayName: 'category',
+                            queryName: 'category',
+                            type: ValueType.fromDescriptor({ text: true }),
+                            roles: { Category: true }
+                        },
+                        {
+                            displayName: 'series',
+                            queryName: 'series',
+                            type: ValueType.fromDescriptor({ text: true }),
+                            roles: { Series: true }
+                        }, {
+                            displayName: 'value',
+                            queryName: 'value',
+                            isMeasure: true,
+                            type: ValueType.fromDescriptor({ numeric: true }),
+                            roles: { Y: true },
+                            groupName: seriesValues[0],
+                        }, {
+                            displayName: 'tooltip',
+                            queryName: 'tooltip',
+                            isMeasure: true,
+                            type: ValueType.fromDescriptor({ numeric: true }),
+                            roles: { Tooltip: true },
+                            groupName: seriesValues[0],
+                        }, {
+                            displayName: 'value',
+                            queryName: 'value',
+                            isMeasure: true,
+                            type: ValueType.fromDescriptor({ numeric: true }),
+                            roles: { Y: true },
+                            groupName: seriesValues[1],
+                        }, {
+                            displayName: 'tooltip',
+                            queryName: 'tooltip',
+                            isMeasure: true,
+                            type: ValueType.fromDescriptor({ numeric: true }),
+                            roles: { Tooltip: true },
+                            groupName: seriesValues[1],
+                        }]
+                };
+                dataView = {
+                    metadata: metadata,
+                    categorical: {
+                        categories: [{
+                            source: metadata.columns[0],
+                            values: categoryValues,
+                            identity: categoryIdentities,
+                        }],
+                        values: DataViewTransform.createValueColumns([
+                            {
+                                source: metadata.columns[2],
+                                values: [100, 200, 300],
+                                identity: seriesIdentities[0],
+                            }, {
+                                source: metadata.columns[4],
+                                values: [5, 10, 15],
+                                identity: seriesIdentities[0],
+                            }, {
+                                source: metadata.columns[3],
+                                values: [400, 500, 600],
+                                identity: seriesIdentities[1],
+                            }, {
+                                source: metadata.columns[5],
+                                values: [20, 25, 30],
+                                identity: seriesIdentities[1],
+                            }],
+                            [valueIdentifier, tooltipIdentifier],
+                            metadata.columns[1])
+                    }
+                };
+                categorySelectionIds = _.map(categoryIdentities, (value: powerbi.DataViewScopeIdentity) => SelectionId.createWithIdAndMeasureAndCategory(value, 'value', 'category'));
+                seriesSelectionIds = _.map(seriesIdentities, (value: powerbi.DataViewScopeIdentity) => SelectionId.createWithIdAndMeasureAndCategory(value, 'value', 'series'));
+                specificSelectionIds = [];
+                for (let categoryIndex = 0, categoryCount = categoryIdentities.length; categoryIndex < categoryCount; categoryIndex++) {
+                    for (let seriesIndex = 0, seriesCount = seriesIdentities.length; seriesIndex < seriesCount; seriesIndex++) {
+                        specificSelectionIds.push(SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn('series', seriesIdentities[seriesIndex], buildSelectorForColumn('category', categoryIdentities[categoryIndex])), 'value'));
+                    }
+                }
+                viewModel = LineChart.converter(dataView, '(Blank)', colors, false /* isScalar */, null /* interactivityService */, false /* stacked */, false /* isCombo */, true /* tooltipsEnabled */, true /* tooltipBucketEnabled */);
+            });
+
+            it('Category count', () => {
+                expect(viewModel.categories.length).toBe(3);
+            });
+
+            it('Series count', () => {
+                expect(viewModel.series.length).toBe(2);
+            });
+        });
+
+        describe("Combo chart with a value shared with column", () => {
+            let dataView: powerbi.DataView;
+            let metadata: powerbi.DataViewMetadata;
+            let categoryValues = ['c', 'd', 'e'];
+            let categoryIdentities = [
+                mocks.dataViewScopeIdentity(categoryValues[0]),
+                mocks.dataViewScopeIdentity(categoryValues[1]),
+                mocks.dataViewScopeIdentity(categoryValues[2]),
+            ];
+            let colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
+            let categorySelectionIds: SelectionId[];
+            let specificSelectionIds: SelectionId[];
+            let viewModel: powerbi.visuals.LineChartData;
+
+            beforeEach(() => {
+                let valueIdentifier = powerbi.data.SQExprBuilder.fieldDef({ schema: 's', entity: 'e', column: 'value' });
+                metadata = {
+                    columns: [
+                        {
+                            displayName: 'category',
+                            queryName: 'category',
+                            type: ValueType.fromDescriptor({ text: true }),
+                            roles: { Category: true }
+                        }, {
+                            displayName: 'value1',
+                            queryName: 'value1',
+                            isMeasure: true,
+                            type: ValueType.fromDescriptor({ numeric: true }),
+                            roles: { Y: true, Y2: true }, // value 1 exists in column and line, so it has role Y and Y2.
+                        }, {
+                            displayName: 'value2',
+                            queryName: 'value2',
+                            isMeasure: true,
+                            type: ValueType.fromDescriptor({ numeric: true }),
+                            roles: { Y2: true },
+                        }]
+                };
+                dataView = {
+                    metadata: metadata,
+                    categorical: {
+                        categories: [{
+                            source: metadata.columns[0],
+                            values: categoryValues,
+                            identity: categoryIdentities,
+                        }],
+                        values: DataViewTransform.createValueColumns([
+                            {
+                                source: metadata.columns[1],
+                                values: [100, 200, 300],
+                            }, {
+                                source: metadata.columns[2],
+                                values: [400, 500, 600],
+                            }],
+                            [valueIdentifier])
+                    }
+                };
+                categorySelectionIds = _.map(categoryIdentities, (value: powerbi.DataViewScopeIdentity) => SelectionId.createWithIdAndMeasureAndCategory(value, 'value1', 'category'));
+                specificSelectionIds = [];
+                for (let categoryIndex = 0, categoryCount = categoryIdentities.length; categoryIndex < categoryCount; categoryIndex++) {
+                    for (let seriesIndex = 0, seriesCount = 2; seriesIndex < seriesCount; seriesIndex++) {
+                        specificSelectionIds.push(SelectionId.createWithSelectorForColumnAndMeasure(buildSelectorForColumn('category', categoryIdentities[categoryIndex]), 'value' + (seriesIndex + 1).toString()));
+                    }
+                }
+                viewModel = LineChart.converter(dataView, '(Blank)', colors, false /* isScalar */, null /* interactivityService */, false /* stacked */, true /* isCombo */, true /* tooltipsEnabled */, true /* tooltipBucketEnabled */);
+            });
+
+            it('Category count', () => {
+                expect(viewModel.categories.length).toBe(3);
+            });
+
+            it('Series count', () => {
+                expect(viewModel.series.length).toBe(2);
+            });
         });
     });
 
@@ -1912,14 +2562,14 @@ module powerbitests {
                 let logMetadata = _.cloneDeep(dataViewMetadata);
                 logMetadata.objects = {};
                 logMetadata.objects["valueAxis"] = {
-                        show: true,
-                        start: 1,
-                        showAxisTitle: true,
-                        axisStyle: true,
-                        axisScale: AxisScale.log
+                    show: true,
+                    start: 1,
+                    showAxisTitle: true,
+                    axisStyle: true,
+                    axisScale: AxisScale.log
                 };
                 options.dataViews[0].metadata = logMetadata;
-                
+
                 let warningSpy = jasmine.createSpy('warning');
                 hostServices.setWarnings = warningSpy;
                 v.onDataChanged(options);
@@ -2586,6 +3236,28 @@ module powerbitests {
                 let seriesKey2 = seriesId2.getKey();
                 let seriesId3 = SelectionId.createWithMeasure('col4');
                 let seriesKey3 = seriesId3.getKey();
+                let categoryIdentities = [
+                    mocks.dataViewScopeIdentity('John Domo'),
+                    mocks.dataViewScopeIdentity('Delta Force'),
+                    mocks.dataViewScopeIdentity('Jean Tablau'),
+                ];
+                let specificIds = [
+                    [
+                        SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col2', 'col1'),
+                        SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col2', 'col1'),
+                        SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col2', 'col1'),
+                    ],
+                    [
+                        SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col3', 'col1'),
+                        SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col3', 'col1'),
+                        SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col3', 'col1'),
+                    ],
+                    [
+                        SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[0], 'col4', 'col1'),
+                        SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[1], 'col4', 'col1'),
+                        SelectionId.createWithIdAndMeasureAndCategory(categoryIdentities[2], 'col4', 'col1'),
+                    ],
+                ];
 
                 let seriesColor = '#41BEE0';
                 let defaultColor = '#333333';
@@ -2605,6 +3277,7 @@ module powerbitests {
                         categories: [{
                             source: metadata.columns[0],
                             values: ['John Domo', 'Delta Force', 'Jean Tablau'],
+                            identity: categoryIdentities,
                         }],
                         values: DataViewTransform.createValueColumns([
                             {
@@ -2640,8 +3313,9 @@ module powerbitests {
                                     seriesIndex: 0,
                                     tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col2", value: "100" }],
                                     identity: seriesId1,
+                                    specificIdentity: specificIds[0][0],
                                     selected: false,
-                                    key: JSON.stringify({ series: seriesKey1, category: 0 }),
+                                    key: JSON.stringify({ series: seriesKey1, category: categoryIdentities[0].key }),
                                     labelFill: labelColor,
                                     labelFormatString: undefined,
                                     labelSettings: defaultLabelSettings,
@@ -2653,8 +3327,9 @@ module powerbitests {
                                     seriesIndex: 0,
                                     tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col2", value: "200" }],
                                     identity: seriesId1,
+                                    specificIdentity: specificIds[0][1],
                                     selected: false,
-                                    key: JSON.stringify({ series: seriesKey1, category: 1 }),
+                                    key: JSON.stringify({ series: seriesKey1, category: categoryIdentities[1].key }),
                                     labelFill: labelColor,
                                     labelFormatString: undefined,
                                     labelSettings: defaultLabelSettings,
@@ -2666,8 +3341,9 @@ module powerbitests {
                                     seriesIndex: 0,
                                     tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col2", value: "700" }],
                                     identity: seriesId1,
+                                    specificIdentity: specificIds[0][2],
                                     selected: false,
-                                    key: JSON.stringify({ series: seriesKey1, category: 2 }),
+                                    key: JSON.stringify({ series: seriesKey1, category: categoryIdentities[2].key }),
                                     labelFill: labelColor,
                                     labelFormatString: undefined,
                                     labelSettings: defaultLabelSettings,
@@ -2692,8 +3368,9 @@ module powerbitests {
                                     seriesIndex: 1,
                                     tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col3", value: "700" }],
                                     identity: seriesId2,
+                                    specificIdentity: specificIds[1][0],
                                     selected: false,
-                                    key: JSON.stringify({ series: seriesKey2, category: 0 }),
+                                    key: JSON.stringify({ series: seriesKey2, category: categoryIdentities[0].key }),
                                     labelFill: labelColor,
                                     labelFormatString: undefined,
                                     labelSettings: defaultLabelSettings,
@@ -2705,8 +3382,9 @@ module powerbitests {
                                     seriesIndex: 1,
                                     tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col3", value: "100" }],
                                     identity: seriesId2,
+                                    specificIdentity: specificIds[1][1],
                                     selected: false,
-                                    key: JSON.stringify({ series: seriesKey2, category: 1 }),
+                                    key: JSON.stringify({ series: seriesKey2, category: categoryIdentities[1].key }),
                                     labelFill: labelColor,
                                     labelFormatString: undefined,
                                     labelSettings: defaultLabelSettings,
@@ -2718,8 +3396,9 @@ module powerbitests {
                                     seriesIndex: 1,
                                     tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col3", value: "200" }],
                                     identity: seriesId2,
+                                    specificIdentity: specificIds[1][2],
                                     selected: false,
-                                    key: JSON.stringify({ series: seriesKey2, category: 2 }),
+                                    key: JSON.stringify({ series: seriesKey2, category: categoryIdentities[2].key }),
                                     labelFill: labelColor,
                                     labelFormatString: undefined,
                                     labelSettings: defaultLabelSettings,
@@ -2744,8 +3423,9 @@ module powerbitests {
                                     seriesIndex: 2,
                                     tooltipInfo: [{ displayName: "col1", value: "John Domo" }, { displayName: "col4", value: "200" }],
                                     identity: seriesId3,
+                                    specificIdentity: specificIds[2][0],
                                     selected: false,
-                                    key: JSON.stringify({ series: seriesKey3, category: 0 }),
+                                    key: JSON.stringify({ series: seriesKey3, category: categoryIdentities[0].key }),
                                     labelFill: labelColor,
                                     labelFormatString: undefined,
                                     labelSettings: defaultLabelSettings,
@@ -2757,8 +3437,9 @@ module powerbitests {
                                     seriesIndex: 2,
                                     tooltipInfo: [{ displayName: "col1", value: "Delta Force" }, { displayName: "col4", value: "700" }],
                                     identity: seriesId3,
+                                    specificIdentity: specificIds[2][1],
                                     selected: false,
-                                    key: JSON.stringify({ series: seriesKey3, category: 1 }),
+                                    key: JSON.stringify({ series: seriesKey3, category: categoryIdentities[1].key }),
                                     labelFill: labelColor,
                                     labelFormatString: undefined,
                                     labelSettings: defaultLabelSettings,
@@ -2770,8 +3451,9 @@ module powerbitests {
                                     seriesIndex: 2,
                                     tooltipInfo: [{ displayName: "col1", value: "Jean Tablau" }, { displayName: "col4", value: "100" }],
                                     identity: seriesId3,
+                                    specificIdentity: specificIds[2][2],
                                     selected: false,
-                                    key: JSON.stringify({ series: seriesKey3, category: 2 }),
+                                    key: JSON.stringify({ series: seriesKey3, category: categoryIdentities[2].key }),
                                     labelFill: labelColor,
                                     labelFormatString: undefined,
                                     labelSettings: defaultLabelSettings,
@@ -2994,6 +3676,62 @@ module powerbitests {
                 });
                 setTimeout(() => {
                     expect(helpers.getAxisTicks('x').length).toBe(2);
+                    expect(helpers.findElementText(helpers.getAxisTicks('y').find('text').last())).toBe('6');
+                    expect(helpers.findElementTitle(helpers.getAxisTicks('y').find('text').last())).toBe('6');
+                    done();
+                }, DefaultWaitForRender);
+            });
+
+            it('line chart shows less ticks with scalar keys dom validation', (done) => {
+                let dataViewMetadata: powerbi.DataViewMetadata = {
+                    columns: [
+                        {
+                            displayName: 'col1',
+                            queryName: 'col1',
+                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.DateTime),
+                            roles: { Category: true }
+                        },
+                        {
+                            displayName: 'col2',
+                            queryName: 'col2',
+                            isMeasure: true,
+                            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double),
+                            roles: { Y: true }
+                        }],
+                };
+
+                let dataView = {
+                    metadata: dataViewMetadata,
+                    categorical: {
+                        categories: [{
+                            source: dataViewMetadata.columns[0],
+                            values: [new Date(2014, 2, 27), new Date(2015, 6, 5)],
+                            objects: []
+                        }],
+                        values: DataViewTransform.createValueColumns([{
+                            source: dataViewMetadata.columns[1],
+                            values: [5, 5]
+                        }])
+                    }
+                };
+
+                let scalarKeys: ScalarKeys = {
+                    values: [{
+                        min: new Date(2014, 0, 1)
+                            }, {
+                        min: new Date(2015, 0, 1)
+                    }]
+                };
+
+                InjectScalarKeys(dataView.categorical.categories[0].objects, scalarKeys);
+
+                v.onDataChanged({
+                    dataViews: [dataView]
+                });
+
+                // number of ticks on the scalar axis should be no greater than number of scalar keys
+                setTimeout(() => {
+                    expect(helpers.getAxisTicks('x').length).toBeLessThan(scalarKeys.values.length + 1);
                     expect(helpers.findElementText(helpers.getAxisTicks('y').find('text').last())).toBe('6');
                     expect(helpers.findElementTitle(helpers.getAxisTicks('y').find('text').last())).toBe('6');
                     done();
@@ -4706,6 +5444,39 @@ module powerbitests {
                 done();
             }, DefaultWaitForRender);
 
+        });
+
+        it('line chart no category single series legend validation', (done) => {
+            let seriesSourceMain: powerbi.DataViewMetadataColumn = { displayName: 'series', queryName: 'select0', roles: { "Series": true } };
+            let seriesSourceY: powerbi.DataViewMetadataColumn = { displayName: 'value', queryName: 'select1', groupName: 'series0', roles: { "Y": true } };
+
+            let metadata: powerbi.DataViewMetadata = {
+                columns: [
+                    seriesSourceY,
+                ]
+            };
+
+            let colRef = powerbi.data.SQExprBuilder.fieldDef({ schema: 's', entity: 't', column: 'p1' });
+
+            v.onDataChanged({
+                dataViews: [{
+                    metadata: metadata,
+                    categorical: {
+                        values: DataViewTransform.createValueColumns([
+                            {
+                                source: seriesSourceY,
+                                values: [100],
+                                identity: mocks.dataViewScopeIdentity('series'),
+                            }
+                        ], [colRef], seriesSourceMain)
+                    }
+                }]
+            });
+
+            setTimeout(() => {
+                expect($('.legendItem').length).toBe(1);
+                done();
+            }, DefaultWaitForRender);
         });
     });
 
@@ -6909,6 +7680,20 @@ module powerbitests {
      */
     function getComboOrMobileTooltip(lineChart: LineChart, seriesData: any, pointX: number, context?: HTMLElement): powerbi.visuals.TooltipDataItem[] {
         return lineChart.getTooltipInfoForCombo(createTooltipEvent(seriesData, context), pointX);
+    }
+
+    function InjectScalarKeys(objects: DataViewObjects[], scalarKeys: ScalarKeys) {
+        debug.assert(!!objects, "objects must be defined");
+        debug.assert(!!scalarKeys, "scalarKeys must be defined");
+        debug.assert(!_.isEmpty(scalarKeys.values), "scalarKeys must have values");
+
+        for (let i = 0; i < scalarKeys.values.length; i++) {
+            let objectsForScalarKeys: DataViewObjects = {};
+            let scalarKeyObject: powerbi.DataViewObject = {};
+            scalarKeyObject[lineChartProps.scalarKey.scalarKeyMin.propertyName] = scalarKeys.values[i].min;
+            objectsForScalarKeys[lineChartProps.scalarKey.scalarKeyMin.objectName] = scalarKeyObject;
+            objects[i] = objectsForScalarKeys;
+        }
     }
 
     class LineChartVisualBuilder {

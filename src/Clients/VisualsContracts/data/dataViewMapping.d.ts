@@ -185,8 +185,10 @@ declare module powerbi {
     }
 
     /** Defines the acceptable values of a number. */
-    export interface NumberRange extends ValueRange<number> {
-    }
+    export type NumberRange = ValueRange<number>;
+
+    /** Defines the PrimitiveValue range. */
+    export type PrimitiveValueRange = ValueRange<PrimitiveValue>;
 
     export interface DataViewMappingScriptDefinition {
         source: DataViewObjectPropertyIdentifier;

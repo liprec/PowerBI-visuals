@@ -2578,14 +2578,13 @@ module powerbitests {
                 expect(nestedShapes[5].style.fillOpacity).toBe(dimmedOpacity);
                 expect(hostServices.onSelect).toHaveBeenCalledWith(
                     {
-                        data: [
+                        visualObjects: [
                             {
-                                data: [categoryIdentities[0]],
-                            }
-                        ],
-                        data2: [
-                            {
-                                dataMap: { 'select0': categoryIdentities[0] },
+                                objectName: 'dataPoint',
+                                selectorsByColumn:
+                                {
+                                    dataMap: { 'select0': categoryIdentities[0] },
+                                }
                             }
                         ]
                     });
@@ -2604,16 +2603,14 @@ module powerbitests {
                 expect(nestedShapes[5].style.fillOpacity).toBe(dimmedOpacity);
                 expect(hostServices.onSelect).toHaveBeenCalledWith(
                     {
-                        data: [
+                        visualObjects: [
                             {
-                                data: [categoryIdentities[0], seriesIdentities[0]],
-                                metadata: dataViewMetadataCategorySeriesColumns.columns[2].queryName
-                            }
-                        ],
-                        data2: [
-                            {
-                                dataMap: { 'select0': categoryIdentities[0], 'select1': seriesIdentities[0] },
-                                metadata: dataViewMetadataCategorySeriesColumns.columns[2].queryName
+                                objectName: 'dataPoint',
+                                selectorsByColumn:
+                                {
+                                    dataMap: { 'select0': categoryIdentities[0], 'select1': seriesIdentities[0] },
+                                    metadata: dataViewMetadataCategorySeriesColumns.columns[2].queryName
+                                }
                             }
                         ]
                     });
@@ -2631,16 +2628,14 @@ module powerbitests {
                 expect(nestedShapes[5].style.fillOpacity).toBe(defaultOpacity);
                 expect(hostServices.onSelect).toHaveBeenCalledWith(
                     {
-                        data: [
+                        visualObjects: [
                             {
-                                data: [categoryIdentities[1], seriesIdentities[2]],
-                                metadata: dataViewMetadataCategorySeriesColumns.columns[2].queryName
-                            }
-                        ],
-                        data2: [
-                            {
-                                dataMap: { 'select0': categoryIdentities[1], 'select1': seriesIdentities[2] },
-                                metadata: dataViewMetadataCategorySeriesColumns.columns[2].queryName
+                                objectName: 'dataPoint',
+                                selectorsByColumn:
+                                {
+                                    dataMap: { 'select0': categoryIdentities[1], 'select1': seriesIdentities[2] },
+                                    metadata: dataViewMetadataCategorySeriesColumns.columns[2].queryName
+                                }
                             }
                         ]
                     });
@@ -2655,7 +2650,7 @@ module powerbitests {
                 expect(nestedShapes[3].style.fillOpacity).toBe(defaultOpacity);
                 expect(nestedShapes[4].style.fillOpacity).toBe(defaultOpacity);
                 expect(nestedShapes[5].style.fillOpacity).toBe(defaultOpacity);
-                expect(hostServices.onSelect).toHaveBeenCalledWith({ data: [] });
+                expect(hostServices.onSelect).toHaveBeenCalledWith({ visualObjects: [] });
 
                 done();
             }, DefaultWaitForRender);
@@ -2713,14 +2708,13 @@ module powerbitests {
                 expect(nestedShapes[3].style.fillOpacity).toBe(defaultOpacity);
                 expect(hostServices.onSelect).toHaveBeenCalledWith(
                     {
-                        data: [
+                        visualObjects: [
                             {
-                                data: [identities[1]],
-                            }
-                        ],
-                        data2: [
-                            {
-                                dataMap: { 'select0': identities[1] },
+                                objectName: 'dataPoint',
+                                selectorsByColumn:
+                                {
+                                    dataMap: { 'select0': identities[1] },
+                                }
                             }
                         ]
                     });
@@ -2961,14 +2955,13 @@ module powerbitests {
                 expect(nestedShapes[5].style.fillOpacity).toBe(dimmedOpacity);
                 expect(hostServices.onSelect).toHaveBeenCalledWith(
                     {
-                        data: [
+                        visualObjects: [
                             {
-                                data: [categoryIdentities[0]],
-                            }
-                        ],
-                        data2: [
-                            {
-                                dataMap: { 'select0': categoryIdentities[0] },
+                                objectName: 'dataPoint',
+                                selectorsByColumn:
+                                {
+                                    dataMap: { 'select0': categoryIdentities[0] },
+                                }
                             }
                         ]
                     });
@@ -3055,16 +3048,14 @@ module powerbitests {
                 expect(nestedShapes[5].style.fillOpacity).toBe(dimmedOpacity);
                 expect(hostServices.onSelect).toHaveBeenCalledWith(
                     {
-                        data: [
+                        visualObjects: [
                             {
-                                data: [categoryIdentities[0], seriesIdentities[0]],
-                                metadata: dataViewMetadataCategorySeriesColumns.columns[2].queryName
-                            }
-                        ],
-                        data2: [
-                            {
-                                dataMap: { 'select0': categoryIdentities[0], 'select1': seriesIdentities[0] },
-                                metadata: dataViewMetadataCategorySeriesColumns.columns[2].queryName
+                                objectName: 'dataPoint',
+                                selectorsByColumn:
+                                {
+                                    dataMap: { 'select0': categoryIdentities[0], 'select1': seriesIdentities[0] },
+                                    metadata: dataViewMetadataCategorySeriesColumns.columns[2].queryName
+                                }
                             }
                         ]
                     });
@@ -3996,6 +3987,53 @@ module powerbitests {
             let dataLabelSettings = powerbi.visuals.dataLabelUtils.getDefaultLabelSettings();
             let colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
             let rootNode = Treemap.converter(dataView, colors, dataLabelSettings, null, viewport, undefined, false).root;
+
+            let node1: TreemapNode = <TreemapNode>rootNode.children[0];
+            let node2: TreemapNode = <TreemapNode>rootNode.children[1];
+            let node3: TreemapNode = <TreemapNode>rootNode.children[2];
+
+            expect(node1.tooltipInfo).toBeUndefined();
+            expect(node2.tooltipInfo).toBeUndefined();
+            expect(node3.tooltipInfo).toBeUndefined();
+        });
+
+        it('validate tooltip info not being created when tooltips are disabled and tooltipBuckets are enabled', () => {
+            let dataViewMetadata: powerbi.DataViewMetadata = {
+                columns: [
+                    { displayName: 'a', queryName: 'a', isMeasure: true, roles: { 'Values': true } },
+                    { displayName: 'b', queryName: 'b', isMeasure: true, roles: { 'Values': true } },
+                    { displayName: 'c', queryName: 'c', isMeasure: true, roles: { 'Values': true } },
+                    { displayName: 'd', queryName: 'd', isMeasure: true, roles: { 'Tooltips': true } }
+                ]
+            };
+
+            let dataView: powerbi.DataView = {
+                metadata: dataViewMetadata,
+                categorical: {
+                    values: DataViewTransform.createValueColumns([
+                        {
+                            source: dataViewMetadata.columns[0],
+                            values: [1],
+                        },
+                        {
+                            source: dataViewMetadata.columns[1],
+                            values: [2],
+                        },
+                        {
+                            source: dataViewMetadata.columns[2],
+                            values: [3],
+                        },
+                        {
+                            source: dataViewMetadata.columns[3],
+                            values: [4],
+                        }
+                    ])
+                }
+            };
+
+            let dataLabelSettings = powerbi.visuals.dataLabelUtils.getDefaultLabelSettings();
+            let colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
+            let rootNode = Treemap.converter(dataView, colors, dataLabelSettings, /*interactivityService*/null, viewport, /*legendObjectProperties*/undefined, /*tooltipsEnabled*/false, /*tooltipBucketEnabled*/true).root;
 
             let node1: TreemapNode = <TreemapNode>rootNode.children[0];
             let node2: TreemapNode = <TreemapNode>rootNode.children[1];

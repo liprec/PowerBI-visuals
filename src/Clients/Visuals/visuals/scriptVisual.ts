@@ -27,8 +27,6 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
-    import Utility = jsCommon.Utility;
-
     export interface ScriptVisualDataViewObjects extends DataViewObjects {
         script: ScriptObject;
     }
@@ -45,6 +43,7 @@ module powerbi.visuals {
     export class ScriptVisual implements IVisual {
         private element: JQuery;
         private imageBackgroundElement: JQuery;
+        private imageElement: JQuery;
         private hostServices: IVisualHostServices;
         private canRefresh: boolean;
 
@@ -64,50 +63,56 @@ module powerbi.visuals {
         public update(options: VisualUpdateOptions): void {
             debug.assertValue(options, 'options');
 
-            let dataViews = options.dataViews;
+            let dataViews: DataView[] = options.dataViews;
             if (!dataViews || dataViews.length === 0)
                 return;
 
-            let dataView = dataViews[0];
+            let dataView: DataView = dataViews[0];
             if (!dataView || !dataView.metadata)
                 return;
 
-            let imageUrl = this.getImageUrl(dataView);
-            let div = this.ensureHtmlElement();
-
-            if (imageUrl && Utility.isValidImageDataUrl(imageUrl)) {
-                let viewport = options.viewport;
-
-                div.css({ height: viewport.height, width: viewport.width, backgroundImage: 'url(' + imageUrl + ')' });
-            } else {
-                div.css({ backgroundImage: 'none' });
+            let imageUrl: string = null;
+            if (dataView.scriptResult && dataView.scriptResult.imageBase64) {
+                imageUrl = "data:image/png;base64," + dataView.scriptResult.imageBase64;
             }
+
+            this.ensureHtmlElement();
+            let img = this.ensureImageElement();
+
+            if (imageUrl) {
+                img.attr("src", imageUrl);
+            } else {
+                img.removeAttr("src");
+            }
+
+            this.onResizing(options.viewport, options.resizeMode || ResizeMode.Resized);
         }
 
-        public onResizing(finalViewport: IViewport): void {
+        public onResizing(finalViewport: IViewport, resizeMode?: ResizeMode): void {
             let div = this.ensureHtmlElement();
             div.css({ height: finalViewport.height, width: finalViewport.width });
-        }
-
-        private getImageUrl(dataView: DataView): string {
-            debug.assertValue(dataView, 'dataView');
-
-            if (dataView.scriptResult && dataView.scriptResult.imageBase64) {
-                return "data:image/png;base64," + dataView.scriptResult.imageBase64;
-            }
-
-            return null;
         }
 
         private ensureHtmlElement(): JQuery {
             let div: JQuery = this.imageBackgroundElement;
             if (!div) {
-                div = $("<div class='imageBackground' />");
+                div = $("<div class='autoScaleImageContainer'/>");
                 this.imageBackgroundElement = div;
                 this.imageBackgroundElement.appendTo(this.element);
             }
 
             return div;
+        }
+
+        private ensureImageElement(): JQuery {
+            let img: JQuery = this.imageElement;
+            if (!img) {
+                img = $("<img class='autoScaleImage'/>");
+                this.imageElement = img;
+                this.imageElement.appendTo(this.imageBackgroundElement);
+            }
+
+            return img;
         }
     }
 }

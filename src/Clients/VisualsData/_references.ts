@@ -30,6 +30,7 @@
 /// <reference path="./dataView/dataRoleHelper.ts"/>
 /// <reference path="./dataView/dataViewCategoricalReader.ts"/>
 /// <reference path="./dataView/dataViewConcatenateCategoricalColumns.ts"/>
+/// <reference path="./dataView/dataViewMapping.ts"/>
 /// <reference path="./dataView/dataViewMappingVisitor.ts"/>
 /// <reference path="./dataView/dataViewNormalizeValues.ts"/>
 /// <reference path="./dataView/dataViewObject.ts"/>
@@ -44,6 +45,7 @@
 /// <reference path="./dataView/dataViewSelfCrossJoin.ts"/>
 /// <reference path="./dataView/dataViewPivotCategoricalToPrimaryGroups.ts"/>
 /// <reference path="./dataView/dataViewRemoveSelects.ts"/>
+/// <reference path="./dataView/dataViewTransformContext.ts"/>
 /// <reference path="./dataView/dataViewTransform.ts"/>
 /// <reference path="./displayNameGetter.ts"/>
 /// <reference path="./dataReader/dataReader.ts"/>
@@ -78,9 +80,11 @@
 /// <reference path="./semanticQuery/sqFrom.ts"/>
 /// <reference path="./semanticQuery/semanticQuery.ts"/>
 /// <reference path="./semanticQuery/SQFilter.ts"/>
+/// <reference path="./semanticQuery/sqUtils.ts"/>
 /// <reference path="./dataView/dataViewBuilder.ts"/>
 /// <reference path="./dataView/rules/staticEvalContext.ts"/>
 /// <reference path="./dataView/rules/matrixEvalContext.ts"/>
 /// <reference path="./services/formattingService.ts"/>
 /// <reference path="./services/serialization/sqExprShortSerializer.ts"/>
 /// <reference path="./selection/selectionId.ts"/>
+/// <reference path="./stylePresets/visualStylePreset.ts"/>
