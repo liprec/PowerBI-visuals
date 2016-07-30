@@ -205,7 +205,7 @@
         private selectionHandler: ISelectionHandler;
         private settings: HierarchySlicerSettings;
         private levels: number;
-        private initFilter: boolean = false;
+        private initFilter: boolean = true;
 
         public HierarchySlicerWebBehavior() {
             this.initFilter = true;
@@ -233,10 +233,10 @@
                 this.applyFilter();
             }
 
-            expanders.on("click", (d: HierarchySlicerDataPoint, i:number) => {
+            expanders.on("click", (d: HierarchySlicerDataPoint, i: number) => {
                 d.isExpand = !d.isExpand;
                 var currentExpander = expanders.filter((e, l) => i === l);
-                currentExpander[0][0].firstChild.remove(); // remove expand/collapse icon
+                $(currentExpander[0][0].firstChild).remove(); // remove expand/collapse icon
                 var spinner = currentExpander
                     .append("div")
                     .classed("xsmall", true)
@@ -248,8 +248,8 @@
                     })
                     .attr("ng-if", "viewModel.showProgressBar")
                     .attr("delay", "500")
-                        .append("div")
-                        .classed("spinner", true);
+                    .append("div")
+                    .classed("spinner", true);
 
                 for (var i = 0; i < 5; i++) {
                     spinner.append("div")
@@ -315,7 +315,7 @@
                     if (d.isLeaf) {
                         if (this.dataPoints.filter((d) => d.selected && d.isLeaf).length === 0) { // Last leaf disabled
                             this.dataPoints.map((d) => d.selected = false); // Clear selection
-                        } 
+                        }
                     }
                 }
                 else { // single select value
@@ -576,6 +576,9 @@
         filterPropertyIdentifier: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'filter' },
         filterValuePropertyIdentifier: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'filterValues' },
         defaultValue: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'defaultValue' },
+        selfFilterEnabled: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'selfFilterEnabled' },
+        // store version
+        version: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'version' },
     };
 
     export interface HierarchySlicerSettings {
@@ -585,6 +588,8 @@
             showDisabled: string;
             outlineColor: string;
             outlineWeight: number;
+            selfFilterEnabled: boolean;
+            version: number;
         };
         margin: IMargin;
         header: {
@@ -639,6 +644,7 @@
         isHidden: boolean;
         ownId: string;
         parentId: string;
+        order: number;
     }
 
     export interface HierarchySlicerData {
@@ -667,10 +673,10 @@
     export class HierarchySlicer implements IVisual {
         public static capabilities: VisualCapabilities = {
             dataRoles: [{
-                    name: 'Fields',
-                    kind: powerbi.VisualDataRoleKind.Grouping,
-                    displayName: 'Fields'
-                },
+                name: 'Fields',
+                kind: powerbi.VisualDataRoleKind.Grouping,
+                displayName: 'Fields'
+            },
                 {
                     name: 'Values',
                     kind: VisualDataRoleKind.Measure,
@@ -684,7 +690,7 @@
                     rows: {
                         for: { in: 'Fields' },
                         dataReductionAlgorithm: { bottom: { count: 4000 } }
-                    }, 
+                    },
                 }
             }],
             objects: {
@@ -710,6 +716,15 @@
                             type: {
                                 formatting: { formatString: true }
                             },
+                        },
+                        selfFilter: {
+                            type: { filter: { selfFilter: true } },
+                        },
+                        selfFilterEnabled: {
+                            type: { operations: { searchEnabled: true } }
+                        },
+                        version: {
+                            type: { numeric: true }
                         },
                     },
                 },
@@ -761,16 +776,6 @@
                             type: { formatting: { fontSize: true } }
                         },
                     },
-                },
-                privacy: {
-                    displayName: "Privacy",
-                    properties: {
-                        version: {
-                            displayName: "Version",
-                            type: { text: true },
-                            placeHolderText: "Placeholder",
-                        },
-                    },
                 }
             },
             supportsHighlight: true,
@@ -781,7 +786,7 @@
             sorting: {
                 default: {},
             },
-                    
+
         };
 
         public static formatStringProp: DataViewObjectPropertyIdentifier = {
@@ -790,6 +795,8 @@
         };
 
         private element: JQuery;
+        private searchHeader: JQuery;
+        private searchInput: JQuery;
         private behavior: HierarchySlicerWebBehavior;
         private selectionManager: SelectionManager;
         private viewport: IViewport;
@@ -832,6 +839,8 @@
                     showDisabled: "",
                     outlineColor: '#808080',
                     outlineWeight: 1,
+                    selfFilterEnabled: false,
+                    version: 801, // 0.08.01
                 },
                 margin: {
                     top: 50,
@@ -879,10 +888,10 @@
             };
         }
 
-        public converter(dataView: DataView): HierarchySlicerData {
+        public converter(dataView: DataView, searchText: string): HierarchySlicerData {
             if (!dataView ||
                 !dataView.table ||
-                !dataView.table.rows||
+                !dataView.table.rows ||
                 !(dataView.table.rows.length > 0) ||
                 !dataView.table.columns ||
                 !(dataView.table.columns.length > 0)) {
@@ -902,24 +911,27 @@
             var selectedIds = [];
             var expandedIds = [];
             var selectionFilter;
-            
+            var order: number = 0;
+
             var objects = dataView.metadata.objects;
-            
+
             defaultSettings.general.singleselect = DataViewObjects.getValue<boolean>(objects, hierarchySlicerProperties.selection.singleselect, defaultSettings.general.singleselect);
             defaultSettings.header.title = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.header.title, dataView.metadata.columns[0].displayName);
             selectedIds = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.filterValuePropertyIdentifier, "").split(',');
             expandedIds = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.expandedValuePropertyIdentifier, "").split(',');
-            
+
+            defaultSettings.general.selfFilterEnabled = DataViewObjects.getValue<boolean>(objects, hierarchySlicerProperties.selfFilterEnabled, defaultSettings.general.selfFilterEnabled);
+
             for (var r = 0; r < rows.length; r++) {
                 var parentExpr = null;
                 var parentId: string = '';
-                
+
                 for (var c = 0; c < rows[r].length; c++) {
                     var format = dataView.table.columns[c].format;
                     var dataType: ValueTypeDescriptor = dataView.table.columns[c].type
                     var labelValue: string = valueFormatter.format(rows[r][c], format);
-                    labelValue = labelValue === null ? "(blank)" : labelValue; 
-                    
+                    labelValue = labelValue === null ? "(blank)" : labelValue;
+
                     var value: data.SQConstantExpr;
                     if (rows[r][c] === null) {
                         value = powerbi.data.SQExprBuilder.nullConstant();
@@ -968,7 +980,8 @@
                         isHidden: c === 0 ? false : true, // Default true. Real status based on the expanded properties of parent(s)
                         id: filterExpr,
                         ownId: ownId,
-                        parentId: parentId
+                        parentId: parentId,
+                        order: order++,
                     };
 
                     parentId = ownId;
@@ -980,12 +993,24 @@
                 }
             }
 
+            if (defaultSettings.general.selfFilterEnabled && searchText && searchText.length > 2) { // Threasholt value toevoegen
+                searchText = searchText.toLowerCase();
+                var filteredDataPoints = dataPoints.filter((d) => d.value.toLowerCase().indexOf(searchText) >= 0);
+                for (var l = 1; l <= levels; l++) {
+                    var levelDataPoints = filteredDataPoints.filter((d) => d.level === l);
+                    levelDataPoints.filter((d) => filteredDataPoints.indexOf(d.parentId) < 0) // Missing Parents
+                        .forEach((d) => filteredDataPoints.push(dataPoints.filter((dp) => dp.ownId === d.parentId && dp.level === l - 1)[0]));
+                }
+                dataPoints = filteredDataPoints.filter((value, index, self) => self.indexOf(value) === index)
+                    .sort((d1, d2) => d1.order - d2.order); // set new dataPoints based on the searchText
+            }
+
             // Set isHidden property
             var parentRootNodes = [];
             var parentRootNodesTemp = [];
             var parentRootNodesTotal = [];
             for (var l = 0; l < levels; l++) {
-                var expandedRootNodes = dataPoints.filter((d) => d.isExpand && d.level === l); 
+                var expandedRootNodes = dataPoints.filter((d) => d.isExpand && d.level === l);
                 if (expandedRootNodes.length > 0) {
                     for (var n = 0; n < expandedRootNodes.length; n++) {
                         parentRootNodesTemp = parentRootNodes.filter((p) => expandedRootNodes[n].parentId === p.ownId); //Is parent expanded?                        
@@ -996,7 +1021,7 @@
                     }
                 }
                 parentRootNodes = parentRootNodesTotal;
-            }                
+            }
 
             return {
                 dataPoints: dataPoints,
@@ -1028,10 +1053,10 @@
             this.hostServices = options.host;
             this.hostServices.canSelect = () => true;
             this.settings = HierarchySlicer.DefaultSlicerSettings();
-            
+
             this.selectionManager = new SelectionManager({ hostServices: options.host });
             this.selectionManager.clear();
-                        
+
             if (this.behavior)
                 this.interactivityService = createInteractivityService(hostServices);
 
@@ -1063,6 +1088,8 @@
             this.slicerHeader
                 .append('div')
                 .classed(HierarchySlicer.HeaderText.class, true);
+
+            this.createSearchHeader($(this.slicerHeader.node()));
 
             this.slicerBody = this.slicerContainer
                 .append('div')
@@ -1111,11 +1138,13 @@
             }
 
             this.updateInternal(false);
+
+            this.checkUpdate();
         }
 
         public onDataChanged(options: VisualDataChangedOptions): void {
             var dataViews = options.dataViews;
-            
+
             if (_.isEmpty(dataViews)) {
                 return;
             }
@@ -1138,10 +1167,10 @@
             this.updateSlicerBodyDimensions();
 
             var dataView = this.dataView,
-                data = this.data = this.converter(dataView)
+                data = this.data = this.converter(dataView, this.searchInput.val())
 
             this.maxLevels = this.data.levels + 1;
-            
+
             if (data.dataPoints.length === 0) {
                 this.treeView.empty();
                 return;
@@ -1149,22 +1178,64 @@
 
             this.settings = this.data.settings;
             this.updateSettings();
-            
+
             this.treeView
                 .viewport(this.getBodyViewport(this.viewport))
                 .rowHeight(this.settings.slicerText.height)
                 .data(
-                    data.dataPoints.filter((d) => !d.isHidden), // Expand/Collapse
-                    (d: HierarchySlicerDataPoint) => $.inArray(d, data.dataPoints),
-                    resetScrollbar
+                data.dataPoints.filter((d) => !d.isHidden), // Expand/Collapse
+                (d: HierarchySlicerDataPoint) => $.inArray(d, data.dataPoints),
+                resetScrollbar
                 )
                 .render();
+
+            this.updateSearchHeader();
         }
 
         private updateSettings(): void {
             this.updateSelectionStyle();
             this.updateFontStyle();
             this.updateHeaderStyle();
+        }
+
+        private checkUpdate() {
+            if (!this.dataView ||
+                !this.dataView.metadata ||
+                !this.dataView.metadata.objects) {
+                return
+            }
+            var objects = this.dataView.metadata.objects;
+            var defaultSettings = HierarchySlicer.DefaultSlicerSettings();
+
+            var codeVersion = defaultSettings.general.version;
+            var currentVersion = DataViewObjects.getValue(objects, hierarchySlicerProperties.version, defaultSettings.general.version);
+
+            if (codeVersion > currentVersion) {
+                var obj: VisualObjectInstancesToPersist = {
+                    merge: [
+                        <VisualObjectInstance>{
+                            objectName: "general",
+                            selector: undefined,
+                            properties: {
+                                version: codeVersion,
+                            },
+                        }]
+                };
+                this.hostServices.persistProperties(obj);
+
+                var warnings: IVisualWarning[] = [];
+                warnings.push({
+                    code: 'NewVersion',
+                    getMessages: () => {
+                        var visualMessage: IVisualErrorMessage = {
+                            message: "Find out what's new at: http://bit.ly/1Uzpp1E",
+                            title: '',
+                            detail: '',
+                        };
+                        return visualMessage;
+                    }
+                });
+            }
         }
 
         private updateSelectionStyle(): void {
@@ -1260,16 +1331,15 @@
                     this.slicerHeader.style('display', 'none');
                 }
                 this.slicerHeader.select(HierarchySlicer.HeaderText.selector)
-                    .text(settings.header.title.trim());
-
-                this.slicerHeader.style({
-                    'color': settings.header.fontColor,
-                    'background-color': settings.header.background,
-                    'border-style': 'solid',
-                    'border-color': settings.general.outlineColor,
-                    'border-width': this.getBorderWidth(settings.header.outline, settings.header.outlineWeight),
-                    'font-size': PixelConverter.fromPoint(settings.header.textSize),
-                });
+                    .text(settings.header.title.trim()) //this.slicerHeader
+                    .style({
+                        'color': settings.header.fontColor,
+                        'background-color': settings.header.background,
+                        'border-style': 'solid',
+                        'border-color': settings.general.outlineColor,
+                        'border-width': this.getBorderWidth(settings.header.outline, settings.header.outlineWeight),
+                        'font-size': PixelConverter.fromPoint(settings.header.textSize),
+                    });
 
                 this.slicerBody
                     .classed('slicerBody', true);
@@ -1391,6 +1461,37 @@
             }
         }
 
+        private createSearchHeader(container: JQuery): void {
+            this.searchHeader = $("<div>")
+                .appendTo(container)
+                .addClass("searchHeader")
+                .addClass("collapsed");
+
+            $("<div>").appendTo(this.searchHeader)
+                .attr("title", "Search")
+                .addClass("powervisuals-glyph")
+                .addClass("search");
+
+            var counter = 0;
+            this.searchInput = $("<input>").appendTo(this.searchHeader)
+                .attr("type", "text")
+                .attr("drag-resize-disabled", "true")
+                .addClass("searchInput")
+                .on("input", () => this.hostServices.persistProperties(<VisualObjectInstancesToPersist>{
+                    merge: [{
+                        objectName: "general",
+                        selector: null,
+                        properties: {
+                            counter: counter++
+                        }
+                    }]
+                }));
+        }
+
+        private updateSearchHeader(): void {
+            this.searchHeader.toggleClass("show", this.settings.general.selfFilterEnabled);
+            this.searchHeader.toggleClass("collapsed", !this.settings.general.selfFilterEnabled);
+        }
         public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] {
             var instances: VisualObjectInstance[] = [];
             var objects = this.dataView.metadata.objects;
@@ -1434,18 +1535,6 @@
                     }
                     instances.push(items);
                     break;
-                //case "privacy":
-                //    var privacy: VisualObjectInstance = {
-                //        objectName: "privacy",
-                //        displayName: "Privacy",
-                //        selector: null,
-                //        properties: {
-                //            updates: false,
-                //            version: "0.7.4",
-                //        }
-                //    };
-                //    instances.push(privacy);
-                //    break;
             }
 
             return instances;
