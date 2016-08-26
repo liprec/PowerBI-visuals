@@ -144,21 +144,4 @@ module powerbi.visuals.plugins {
         capabilities: samples.LineDotChart.capabilities,
         create: () => new samples.LineDotChart()
     };
-    export var boxWhiskerChart: IVisualPlugin = {
-        name: 'boxWhiskerChart',
-        capabilities: samples.BoxWhiskerChart.capabilities,
-        create: () => new samples.BoxWhiskerChart()
-    };
-
-    export var forecastChart: IVisualPlugin = {
-        name: 'forecastChart',
-        capabilities: samples.ForecastChart.capabilities,
-        create: () => new samples.ForecastChart()
-    };
-
-    export var hierarchySlicer: IVisualPlugin = {
-        name: 'hierarchySlicer',
-        capabilities: samples.HierarchySlicer.capabilities,
-        create: () => new samples.HierarchySlicer()
-    };
 }

@@ -1,4 +1,6 @@
-﻿module powerbi.visuals.samples {
+﻿///<reference path="../../../_references.ts"/>
+
+module powerbi.visuals.samples {
     import SelectionManager = utility.SelectionManager;
     import ClassAndSelector = jsCommon.CssConstants.ClassAndSelector;
     import createClassAndSelector = jsCommon.CssConstants.createClassAndSelector;
@@ -207,10 +209,6 @@
         private levels: number;
         private initFilter: boolean = true;
 
-        public HierarchySlicerWebBehavior() {
-            this.initFilter = true;
-        }
-
         public bindEvents(options: HierarchySlicerBehaviorOptions, selectionHandler: ISelectionHandler): void {
             var expanders = this.expanders = options.expanders;
             var slicers = this.slicers = options.slicerItemContainers;
@@ -349,12 +347,32 @@
                         return this.settings.slicerText.hoverColor;
                     else if (d.mouseOut) {
                         if (d.selected)
-                            return this.settings.slicerText.fontColor;
+                            return this.settings.slicerText.selectedColor;
                         else
                             return this.settings.slicerText.fontColor;
                     }
                     else
-                        return this.settings.slicerText.fontColor; //fallback
+                        if (d.selected) //fallback
+                            return this.settings.slicerText.selectedColor;
+                        else
+                            return this.settings.slicerText.fontColor;
+                }
+            });
+            this.slicerItemInputs.select('span').style({
+                'background-color': (d: HierarchySlicerDataPoint) => {
+                    if (d.mouseOver)
+                        return null;
+                    else if (d.mouseOut) {
+                        if (d.selected)
+                            return this.settings.slicerText.selectedColor;
+                        else
+                            return null;
+                    }
+                    else
+                        if (d.selected) //fallback
+                            return this.settings.slicerText.selectedColor;
+                        else
+                            return null;
                 }
             });
         }
@@ -568,6 +586,7 @@
         },
         items: {
             fontColor: <DataViewObjectPropertyIdentifier>{ objectName: 'items', propertyName: 'fontColor' },
+            selectedColor: <DataViewObjectPropertyIdentifier>{ objectName: 'items', propertyName: 'selectedColor' },
             background: <DataViewObjectPropertyIdentifier>{ objectName: 'items', propertyName: 'background' },
             textSize: <DataViewObjectPropertyIdentifier>{ objectName: 'items', propertyName: 'textSize' },
         },
@@ -767,6 +786,11 @@
                             description: 'Font color of the cells',
                             type: { fill: { solid: { color: true } } }
                         },
+                        selectedColor: {
+                            displayName: 'Select color',
+                            description: 'Font color of the selected cells',
+                            type: { fill: { solid: { color: true } } }
+                        },
                         background: {
                             displayName: 'Background',
                             type: { fill: { solid: { color: true } } }
@@ -869,7 +893,7 @@
                     width: 0,
                     fontColor: '#666666',
                     hoverColor: '#212121',
-                    selectedColor: '#BDD7EE',
+                    selectedColor: '#333333',
                     unselectedColor: '#ffffff',
                     disabledColor: 'grey',
                     marginLeft: 8,
@@ -921,7 +945,7 @@
             expandedIds = DataViewObjects.getValue<string>(objects, hierarchySlicerProperties.expandedValuePropertyIdentifier, "").split(',');
 
             defaultSettings.general.selfFilterEnabled = DataViewObjects.getValue<boolean>(objects, hierarchySlicerProperties.selfFilterEnabled, defaultSettings.general.selfFilterEnabled);
-
+            
             for (var r = 0; r < rows.length; r++) {
                 var parentExpr = null;
                 var parentId: string = '';
@@ -993,16 +1017,43 @@
                 }
             }
 
-            if (defaultSettings.general.selfFilterEnabled && searchText && searchText.length > 2) { // Threasholt value toevoegen
+            if (defaultSettings.general.selfFilterEnabled && searchText) { // Threasholt value toevoegen
                 searchText = searchText.toLowerCase();
                 var filteredDataPoints = dataPoints.filter((d) => d.value.toLowerCase().indexOf(searchText) >= 0);
-                for (var l = 1; l <= levels; l++) {
-                    var levelDataPoints = filteredDataPoints.filter((d) => d.level === l);
-                    levelDataPoints.filter((d) => filteredDataPoints.indexOf(d.parentId) < 0) // Missing Parents
-                        .forEach((d) => filteredDataPoints.push(dataPoints.filter((dp) => dp.ownId === d.parentId && dp.level === l - 1)[0]));
+                var unique = {};
+
+                for (var i in filteredDataPoints) {
+                    unique[filteredDataPoints[i].ownId] = 0;
                 }
+
+                for (var l = levels; l >= 1; l--) {
+                    var levelDataPoints = filteredDataPoints.filter((d) => d.level === l);
+                    var missingParents = {};
+
+                    for (var i in levelDataPoints) {
+                        if (typeof (unique[levelDataPoints[i].parentId]) == "undefined") {
+                            missingParents[levelDataPoints[i].parentId] = 0;
+                        }
+                        unique[levelDataPoints[i].parentId] = 0;
+                    }
+
+                    for (var mp in missingParents) {
+                        filteredDataPoints.push(dataPoints.filter(d => d.ownId === mp)[0]);
+                    }
+                }
+
                 dataPoints = filteredDataPoints.filter((value, index, self) => self.indexOf(value) === index)
                     .sort((d1, d2) => d1.order - d2.order); // set new dataPoints based on the searchText
+
+                var parent = {};
+                for (var dp in dataPoints) {
+                    if (typeof (parent[dataPoints[dp].parentId]) == "undefined") {
+                        parent[dataPoints[dp].parentId] = 0;
+                    }
+                }
+                dataPoints.map(d => d.isLeaf = parent[d.ownId] !== 0)
+            } else {
+                dataPoints = dataPoints.sort((d1, d2) => d1.order - d2.order); // set new dataPoints based on the searchText
             }
 
             // Set isHidden property
@@ -1249,6 +1300,7 @@
             var objects = this.dataView && this.dataView.metadata && this.dataView.metadata.objects;
             if (objects) {
                 this.settings.slicerText.fontColor = DataViewObjects.getFillColor(objects, hierarchySlicerProperties.items.fontColor, this.settings.slicerText.fontColor);
+                this.settings.slicerText.selectedColor = DataViewObjects.getFillColor(objects, hierarchySlicerProperties.items.selectedColor, this.settings.slicerText.selectedColor);
                 this.settings.slicerText.background = DataViewObjects.getFillColor(objects, hierarchySlicerProperties.items.background, this.settings.slicerText.background);
                 this.settings.slicerText.textSize = DataViewObjects.getValue<number>(objects, hierarchySlicerProperties.items.textSize, this.settings.slicerText.textSize);
             }
@@ -1467,12 +1519,21 @@
                 .addClass("searchHeader")
                 .addClass("collapsed");
 
+            var counter = 0;
             $("<div>").appendTo(this.searchHeader)
                 .attr("title", "Search")
                 .addClass("powervisuals-glyph")
-                .addClass("search");
+                .addClass("search")
+                .on("click", () => this.hostServices.persistProperties(<VisualObjectInstancesToPersist>{
+                    merge: [{
+                        objectName: "general",
+                        selector: null,
+                        properties: {
+                            counter: counter++
+                        }
+                    }]
+                }));
 
-            var counter = 0;
             this.searchInput = $("<input>").appendTo(this.searchHeader)
                 .attr("type", "text")
                 .attr("drag-resize-disabled", "true")
@@ -1486,6 +1547,23 @@
                         }
                     }]
                 }));
+
+            $("<div>").appendTo(this.searchHeader)
+                .attr("title", "Delete")
+                .addClass("delete glyphicon pbi-glyph-close glyph-micro")
+                .addClass("delete")
+                .on("click", () => {
+                    this.searchInput[0].value = "";
+                    this.hostServices.persistProperties(<VisualObjectInstancesToPersist>{
+                        merge: [{
+                            objectName: "general",
+                            selector: null,
+                            properties: {
+                                counter: counter++
+                            }
+                        }]
+                    })
+                });
         }
 
         private updateSearchHeader(): void {
@@ -1529,6 +1607,7 @@
                         selector: null,
                         properties: {
                             fontColor: DataViewObjects.getFillColor(objects, hierarchySlicerProperties.items.fontColor, this.settings.slicerText.fontColor),
+                            selectedColor: DataViewObjects.getFillColor(objects, hierarchySlicerProperties.items.selectedColor, this.settings.slicerText.selectedColor),
                             background: DataViewObjects.getFillColor(objects, hierarchySlicerProperties.items.background, this.settings.slicerText.background),
                             textSize: DataViewObjects.getValue<number>(objects, hierarchySlicerProperties.items.textSize, this.settings.slicerText.textSize),
                         }
